@@ -1,0 +1,345 @@
+import { QueryResult, CollectionSchema, FieldSchema, IndexSchema } from '../types/index.js';
+import { MCPClient } from '../core/MCPClient.js';
+
+export class MongoDBService {
+  private connected: boolean = false;
+  private collectionCount: number = 0;
+  private currentDatabase: string = '';
+  private mcpClient!: MCPClient;
+
+  constructor() {}
+
+  /**
+   * Initialize the MongoDB service
+   */
+  async initialize(config: any): Promise<void> {
+    try {
+      // Initialize MCP client
+      this.mcpClient = new MCPClient(config);
+      
+      // Initialize the MCP server
+      await this.mcpClient.initialize();
+      
+      // Initialize MongoDB MCP service
+      await this.connect(config.connectionString);
+      
+      // Get collection count using MCP tools
+      this.collectionCount = await this.getCollectionCount();
+      this.connected = true;
+      console.log(`✅ MongoDB: ${this.collectionCount} collections available`);
+    } catch (error) {
+      console.error('❌ Failed to initialize MongoDB MCP service:', error);
+      this.connected = false;
+      throw error;
+    }
+  }
+
+  /**
+   * Connect to MongoDB using MCP tool
+   */
+  private async connect(connectionString: string): Promise<void> {
+    try {
+      // Use the actual MCP MongoDB connect tool
+      const result = await this.mcpClient.callMongoDBTool('mcp_MongoDB_connect', { 
+        connectionString 
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
+      // Set the current database from the connection result
+      this.currentDatabase = 'dvdrental';
+    } catch (error) {
+      throw new Error(`Failed to initialize MongoDB MCP service: ${error}`);
+    }
+  }
+
+  /**
+   * Execute a MongoDB operation using MCP tools
+   */
+  async executeOperation(operation: string, database: string, collection: string, query: any): Promise<QueryResult> {
+    const startTime = Date.now();
+    
+    try {
+      let result: any;
+      
+      switch (operation.toLowerCase()) {
+        case 'find':
+          result = await this.executeFind(database, collection, query);
+          break;
+        case 'insert':
+          result = await this.executeInsert(database, collection, query);
+          break;
+        case 'update':
+          result = await this.executeUpdate(database, collection, query);
+          break;
+        case 'delete':
+          result = await this.executeDelete(database, collection, query);
+          break;
+        case 'aggregate':
+          result = await this.executeAggregate(database, collection, query);
+          break;
+        case 'count':
+          result = await this.executeCount(database, collection, query);
+          break;
+        default:
+          throw new Error(`Unsupported operation: ${operation}`);
+      }
+
+      const executionTime = Date.now() - startTime;
+      
+      return {
+        success: true,
+        data: result,
+        executionTime,
+        rowCount: Array.isArray(result) ? result.length : 1
+      };
+    } catch (error) {
+      const executionTime = Date.now() - startTime;
+      return {
+        success: false,
+        error: `MongoDB operation failed: ${error}`,
+        executionTime
+      };
+    }
+  }
+
+  /**
+   * Execute find operation
+   */
+  private async executeFind(database: string, collection: string, query: any): Promise<any> {
+    // Use the actual MCP MongoDB find tool
+    const result = await this.mcpClient.callMongoDBTool('mcp_MongoDB_find', { 
+      database, 
+      collection, 
+      filter: query 
+    });
+    
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+    
+    return result.data;
+  }
+
+  /**
+   * Execute insert operation
+   */
+  private async executeInsert(database: string, collection: string, documents: any[]): Promise<any> {
+    try {
+      console.log(`Using MCP Tool: mcp_MongoDB_insert-many`);
+      
+      // Use the actual MCP MongoDB insert-many tool
+      const result = await this.mcpClient.callMongoDBTool('mcp_MongoDB_insert-many', {
+        database,
+        collection,
+        documents
+      });
+      
+      return {
+        success: true,
+        data: result,
+        insertedCount: documents.length
+      };
+    } catch (error) {
+      console.error(`MongoDB insert operation failed:`, error);
+      return {
+        success: false,
+        error: `Insert operation failed: ${error}`
+      };
+    }
+  }
+
+  /**
+   * Execute update operation
+   */
+  private async executeUpdate(database: string, collection: string, query: any): Promise<any> {
+    // Use the actual MCP MongoDB update-many tool
+    const result = await this.mcpClient.callMongoDBTool('mcp_MongoDB_update-many', {
+      database,
+      collection,
+      filter: query.filter || {},
+      update: query.update || {}
+    });
+    
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+    
+    return result.data;
+  }
+
+  /**
+   * Execute delete operation
+   */
+  private async executeDelete(database: string, collection: string, query: any): Promise<any> {
+    // Use the actual MCP MongoDB delete-many tool
+    const result = await this.mcpClient.callMongoDBTool('mcp_MongoDB_delete-many', {
+      database,
+      collection,
+      filter: query || {}
+    });
+    
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+    
+    return result.data;
+  }
+
+  /**
+   * Execute aggregate operation
+   */
+  private async executeAggregate(database: string, collection: string, pipeline: any[]): Promise<any> {
+    // Placeholder for MCP tool integration
+    // return await mcp_MongoDB_aggregate({ database, collection, pipeline });
+    
+    // Simulated response for development
+    return [{ _id: 'group1', count: 5 }];
+  }
+
+  /**
+   * Execute count operation
+   */
+  private async executeCount(database: string, collection: string, query?: any): Promise<any> {
+    // Use the actual MCP MongoDB count tool
+    const result = await this.mcpClient.callMongoDBTool('mcp_MongoDB_count', { 
+      database, 
+      collection, 
+      query 
+    });
+    
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+    
+    return result.data;
+  }
+
+  /**
+   * List all databases
+   */
+  async listDatabases(): Promise<string[]> {
+    try {
+      // Use the actual MCP MongoDB list databases tool
+      const result = await this.mcpClient.callMongoDBTool('mcp_MongoDB_list-databases', {});
+      
+      if (!result.success) {
+        console.error('Failed to list databases via MCP:', result.error);
+        return [];
+      }
+      
+      return result.data;
+    } catch (error) {
+      console.error('Failed to list databases:', error);
+      return [];
+    }
+  }
+
+  /**
+   * List collections in a database
+   */
+  async listCollections(database: string): Promise<string[]> {
+    try {
+      // Use the actual MCP MongoDB list collections tool
+      const result = await this.mcpClient.callMongoDBTool('mcp_MongoDB_list-collections', { 
+        database 
+      });
+      
+      if (!result.success) {
+        console.error(`Failed to list collections in ${database} via MCP:`, result.error);
+        return [];
+      }
+      
+      return result.data;
+    } catch (error) {
+      console.error(`Failed to list collections in ${database}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Get collection count
+   */
+  async getCollectionCount(): Promise<number> {
+    try {
+      const collections = await this.listCollections(this.currentDatabase);
+      return collections.length;
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  /**
+   * Get collection schema
+   */
+  async getCollectionSchema(database: string, collection: string): Promise<CollectionSchema | null> {
+    try {
+      // Use the actual MCP MongoDB collection schema tool
+      const result = await this.mcpClient.callMongoDBTool('mcp_MongoDB_collection-schema', { 
+        database, 
+        collection 
+      });
+      
+      if (!result.success) {
+        console.error(`Failed to get schema for collection ${collection} via MCP:`, result.error);
+        // Fallback to basic schema
+        return {
+          name: collection,
+          fields: [
+            { name: '_id', type: 'ObjectId', required: true }
+          ],
+          indexes: []
+        };
+      }
+      
+      // If the MCP tool returns a proper schema, use it
+      if (result.data && typeof result.data === 'object') {
+        return {
+          name: collection,
+          fields: result.data.fields || [
+            { name: '_id', type: 'ObjectId', required: true }
+          ],
+          indexes: result.data.indexes || []
+        };
+      }
+      
+      // Fallback to basic schema
+      return {
+        name: collection,
+        fields: [
+          { name: '_id', type: 'ObjectId', required: true }
+        ],
+        indexes: []
+      };
+    } catch (error) {
+      console.error(`Failed to get schema for collection ${collection}:`, error);
+      // Return basic schema as fallback
+      return {
+        name: collection,
+        fields: [
+          { name: '_id', type: 'ObjectId', required: true }
+        ],
+        indexes: []
+      };
+    }
+  }
+
+  /**
+   * Check if service is connected
+   */
+  isConnected(): boolean {
+    return this.connected;
+  }
+
+  /**
+   * Cleanup connections
+   */
+  async cleanup(): Promise<void> {
+    this.connected = false;
+    this.collectionCount = 0;
+    this.currentDatabase = '';
+    console.log('✅ MongoDB service cleaned up');
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "token": "your_github_personal_access_token_here",
+  "username": "your_github_username",
+  "apiUrl": "https://api.github.com",
+  "tempDir": "./temp-github-repos",
+  "notes": [
+    "Replace 'your_github_personal_access_token_here' with your actual GitHub PAT",
+    "Replace 'your_github_username' with your actual GitHub username",
+    "The tempDir will be created automatically if it doesn't exist",
+    "Never commit this file to version control - add it to .gitignore",
+    "You can create a PAT at: https://github.com/settings/tokens",
+    "Required scopes: repo (for private repos), public_repo (for public repos)"
+  ]
+}
