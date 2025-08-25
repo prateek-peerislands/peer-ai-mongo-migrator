@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PostgreSQL Schema ER Diagram - Interactive Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.10.1/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        .nav-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e1e5e9;
+            overflow-x: auto;
+        }
+        .nav-tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            border-bottom: 3px solid transparent;
+            font-size: 1em;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        .nav-tab:hover {
+            background: #e9ecef;
+            color: #333;
+        }
+        .nav-tab.active {
+            border-bottom-color: #4a90e2;
+            color: #4a90e2;
+            background: white;
+        }
+        .tab-content {
+            display: none;
+            padding: 30px;
+            min-height: 500px;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .diagram-container {
+            background: #fafbfc;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: center;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .mermaid {
+            display: inline-block;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .info-box h3 {
+            margin: 0 0 15px 0;
+            color: #1976d2;
+        }
+        .download-section {
+            text-align: center;
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .download-btn {
+            display: inline-block;
+            background: #4a90e2;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 0 10px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .download-btn:hover {
+            background: #357abd;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e1e5e9;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4a90e2;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗺️ PostgreSQL Schema ER Diagram</h1>
+            <p>Interactive Entity-Relationship Diagrams for Database Schema Analysis</p>
+        </div>
+
+        <div class="info-box">
+            <h3>💡 Interactive Features</h3>
+            <p>This viewer provides fully interactive ER diagrams. You can zoom, pan, and explore the relationships between tables.</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">22</div>
+                <div class="stat-label">Tables</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">18</div>
+                <div class="stat-label">Relationships</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">7</div>
+                <div class="stat-label">Views</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">10</div>
+                <div class="stat-label">Functions</div>
+            </div>
+        </div>
+
+        <div class="nav-tabs">
+
+            <button class="nav-tab active" onclick="showTab(0)">
+                🏗️ Main ER Diagram
+            </button>
+
+            <button class="nav-tab " onclick="showTab(1)">
+                📊 Diagram 2
+            </button>
+
+        </div>
+
+
+        <div class="tab-content active" id="tab-0">
+            <div class="diagram-container">
+                <div class="mermaid">
+erDiagram
+    actor {
+        int actor_id
+        string first_name
+        string last_name
+    }
+    actor_info {
+        int actor_id
+        string first_name
+        string last_name
+    }
+    address {
+        int address_id
+        string address
+        string address2
+    }
+    category {
+        int category_id
+        string name
+        date last_update
+    }
+    city {
+        int city_id
+        string city
+        int country_id
+    }
+    country {
+        int country_id
+        string country
+        date last_update
+    }
+    customer {
+        int customer_id
+        int store_id
+        string first_name
+    }
+    customer_list {
+        int id
+        string name
+        string address
+    }
+    film {
+        int film_id
+        string title
+        string description
+    }
+    film_actor {
+        int actor_id
+        int film_id
+        date last_update
+    }
+    film_category {
+        int film_id
+        int category_id
+        date last_update
+    }
+    film_list {
+        int fid
+        string title
+        string description
+    }
+    inventory {
+        int inventory_id
+        int film_id
+        int store_id
+    }
+    language {
+        int language_id
+        string name
+        date last_update
+    }
+    nicer_but_slower_film_list {
+        int fid
+        string title
+        string description
+    }
+    payment {
+        int payment_id
+        int customer_id
+        int staff_id
+    }
+    rental {
+        int rental_id
+        date rental_date
+        int inventory_id
+    }
+    sales_by_film_category {
+        string category
+        decimal total_sales
+    }
+    sales_by_store {
+        string store
+        string manager
+        decimal total_sales
+    }
+    staff {
+        int staff_id
+        string first_name
+        string last_name
+    }
+    staff_list {
+        int id
+        string name
+        string address
+    }
+    store {
+        int store_id
+        int manager_staff_id
+        int address_id
+    }
+    address ||--o{ city : "city_id -> city_id"
+    city ||--o{ country : "country_id -> country_id"
+    customer ||--o{ address : "address_id -> address_id"
+    film ||--o{ language : "language_id -> language_id"
+    film_actor ||--o{ actor : "actor_id -> actor_id"
+    film_actor ||--o{ film : "film_id -> film_id"
+    film_category ||--o{ category : "category_id -> category_id"
+    film_category ||--o{ film : "film_id -> film_id"
+    inventory ||--o{ film : "film_id -> film_id"
+    payment ||--o{ customer : "customer_id -> customer_id"
+    payment ||--o{ rental : "rental_id -> rental_id"
+    payment ||--o{ staff : "staff_id -> staff_id"
+    rental ||--o{ customer : "customer_id -> customer_id"
+    rental ||--o{ inventory : "inventory_id -> inventory_id"
+    rental ||--o{ staff : "staff_id -> staff_id"
+    staff ||--o{ address : "address_id -> address_id"
+    store ||--o{ address : "address_id -> address_id"
+    store ||--o{ staff : "manager_staff_id -> staff_id"
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content " id="tab-1">
+            <div class="diagram-container">
+                <div class="mermaid">
+graph TD
+    actor[actor]
+    actor_info[actor_info]
+    address[address]
+    category[category]
+    city[city]
+    country[country]
+    customer[customer]
+    customer_list[customer_list]
+    film[film]
+    film_actor[film_actor]
+    film_category[film_category]
+    film_list[film_list]
+    inventory[inventory]
+    language[language]
+    nicer_but_slower_film_list[nicer_but_slower_film_list]
+    payment[payment]
+    rental[rental]
+    sales_by_film_category[sales_by_film_category]
+    sales_by_store[sales_by_store]
+    staff[staff]
+    staff_list[staff_list]
+    store[store]
+    address -->|FK| city
+    city -->|FK| country
+    customer -->|FK| address
+    film -->|FK| language
+    film_actor -->|FK| actor
+    film_actor -->|FK| film
+    film_category -->|FK| category
+    film_category -->|FK| film
+    inventory -->|FK| film
+    payment -->|FK| customer
+    payment -->|FK| rental
+    payment -->|FK| staff
+    rental -->|FK| customer
+    rental -->|FK| inventory
+    rental -->|FK| staff
+    staff -->|FK| address
+    store -->|FK| address
+    store -->|FK| staff
+                </div>
+            </div>
+        </div>
+
+
+        <div class="download-section">
+            <h3>📥 Download Options</h3>
+            <p>Save your diagrams in different formats for presentations or documentation</p>
+            <a href="#" onclick="downloadSVG()" class="download-btn">📥 Download SVG</a>
+            <a href="#" onclick="downloadPNG()" class="download-btn">📥 Download PNG</a>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            fontFamily: 'Arial, sans-serif',
+            fontSize: 14,
+            themeVariables: {
+                primaryColor: '#4a90e2',
+                primaryTextColor: '#333',
+                primaryBorderColor: '#4a90e2',
+                lineColor: '#333',
+                secondaryColor: '#f0f0f0',
+                tertiaryColor: '#e1f5fe'
+            },
+            logLevel: 1,
+            errorHandler: function(error) {
+                console.error('Mermaid error:', error);
+                // Show error message in the diagram container
+                const activeTab = document.querySelector('.tab-content.active');
+                if (activeTab) {
+                    const container = activeTab.querySelector('.diagram-container');
+                    if (container) {
+                        container.innerHTML = '<div style="color: red; padding: 20px; text-align: center;"><h3>⚠️ Diagram Rendering Error</h3><p>There was an issue rendering this diagram. Please check the console for details.</p></div>';
+                    }
+                }
+            }
+        });
+
+        function showTab(index) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById('tab-' + index).classList.add('active');
+            document.querySelectorAll('.nav-tab')[index].classList.add('active');
+        }
+
+        // Download functions
+        function downloadSVG() {
+            const activeTab = document.querySelector('.tab-content.active');
+            const svg = activeTab.querySelector('svg');
+            if (svg) {
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const blob = new Blob([svgData], {type: 'image/svg+xml'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'postgresql_schema_er_diagram.svg';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        function downloadPNG() {
+            const activeTab = document.querySelector('.tab-content.active');
+            const svg = activeTab.querySelector('svg');
+            if (svg) {
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                
+                img.onload = function() {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const pngUrl = canvas.toDataURL('image/png');
+                    const a = document.createElement('a');
+                    a.href = pngUrl;
+                    a.download = 'postgresql_schema_er_diagram.png';
+                    a.click();
+                };
+                
+                img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+            }
+        }
+    </script>
+</body>
+</html>

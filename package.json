@@ -1,7 +1,7 @@
 {
   "name": "peer-ai-mongo-migrator",
   "version": "2.0.0",
-  "description": "Enhanced TypeScript-based PeerAI agent for MongoDB migration operations, schema management, real-time monitoring, and advanced database orchestration",
+  "description": "Enhanced TypeScript-based PeerAI agent for MongoDB migration operations, schema management, real-time monitoring, advanced database orchestration, and comprehensive ER diagram generation",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -14,6 +14,10 @@
     "test:cross-db": "jest --testNamePattern='CrossDatabase'",
     "test:schema": "jest --testNamePattern='Schema'",
     "test:migration": "jest --testNamePattern='Migration'",
+    "test:er-diagram": "node test-er-diagram.js",
+    "debug": "node debug-connection.js",
+    "test:mongodb": "node test-mongodb-mcp.js",
+    "test:html-viewer": "npx tsx test-html-viewer.js",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist",
     "setup": "./scripts/setup-env.sh",
@@ -34,6 +38,7 @@
   "author": "PeerAI",
   "license": "MIT",
   "dependencies": {
+    "@mermaid-js/mermaid-cli": "^11.9.0",
     "@modelcontextprotocol/sdk": "^0.4.0",
     "@octokit/rest": "^20.0.1",
     "chalk": "^5.3.0",
@@ -41,6 +46,7 @@
     "dotenv": "^16.3.1",
     "fs-extra": "^11.1.1",
     "inquirer": "^9.2.12",
+    "mermaid": "^11.10.1",
     "mongodb": "^6.3.0",
     "ora": "^7.0.1",
     "pg": "^8.11.3",

@@ -98,7 +98,7 @@ export class InteractiveCredentials {
         type: 'input',
         name: 'pgDatabase',
         message: 'PostgreSQL Database:',
-        default: 'dvdrental',
+        default: 'default',
         validate: (input: string) => input.trim() ? true : 'Database name is required'
       },
       {
@@ -134,7 +134,7 @@ export class InteractiveCredentials {
         type: 'input',
         name: 'mongoDatabase',
         message: 'MongoDB Database:',
-        default: 'dvdrental',
+        default: 'default',
         validate: (input: string) => input.trim() ? true : 'Database name is required'
       }
     ]);
@@ -161,6 +161,12 @@ export class InteractiveCredentials {
    * Build complete configuration object
    */
   private buildConfig(credentials: CredentialPrompt): DatabaseConfig {
+    // Build MongoDB connection string with database name
+    const mongoConnectionString = this.buildMongoDBConnectionString(
+      credentials.mongodb.connectionString,
+      credentials.mongodb.database
+    );
+    
     return {
       postgresql: {
         host: credentials.postgresql.host,
@@ -170,10 +176,41 @@ export class InteractiveCredentials {
         password: credentials.postgresql.password
       },
       mongodb: {
-        connectionString: credentials.mongodb.connectionString,
+        connectionString: mongoConnectionString,
         database: credentials.mongodb.database
       }
     };
+  }
+
+  /**
+   * Build MongoDB connection string with database name
+   */
+  private buildMongoDBConnectionString(baseConnectionString: string, databaseName: string): string {
+    // If the connection string already contains a database name, return as is
+    if (baseConnectionString.includes('/' + databaseName) || baseConnectionString.endsWith('/' + databaseName)) {
+      return baseConnectionString;
+    }
+    
+    // For cluster connections, add database name after the host
+    if (baseConnectionString.includes('mongodb+srv://')) {
+      // mongodb+srv://username:password@cluster.mongodb.net/database
+      if (baseConnectionString.endsWith('/')) {
+        return baseConnectionString + databaseName;
+      } else if (baseConnectionString.includes('?')) {
+        // Has query parameters, insert database before ?
+        const parts = baseConnectionString.split('?');
+        return parts[0] + '/' + databaseName + '?' + parts[1];
+      } else {
+        return baseConnectionString + '/' + databaseName;
+      }
+    } else {
+      // Standard MongoDB connection string
+      if (baseConnectionString.endsWith('/')) {
+        return baseConnectionString + databaseName;
+      } else {
+        return baseConnectionString + '/' + databaseName;
+      }
+    }
   }
 
   /**

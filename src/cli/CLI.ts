@@ -59,8 +59,24 @@ export class CLI {
       .option('-v, --validate', 'Validate PostgreSQL schema')
       .option('-c, --compare', 'Compare schemas between databases')
       .option('-a, --analyze', 'Analyze PostgreSQL schema comprehensively and generate markdown documentation')
+      .option('--business-context', 'Include enhanced business relationship analysis beyond DDL')
       .option('-d, --database <db>', 'MongoDB database for comparison')
       .action(this.handleSchema.bind(this));
+
+    // ER Diagram operations
+    this.program
+      .command('er-diagram')
+      .description('Generate Entity-Relationship diagrams')
+      .option('-f, --format <format>', 'Diagram format: mermaid, plantuml, dbml, json', 'mermaid')
+      .option('-o, --output <path>', 'Output directory for generated files')
+      .option('--include-indexes', 'Include index information in diagrams', true)
+      .option('--include-constraints', 'Include constraint information in diagrams', true)
+      .option('--include-data-types', 'Include data type information in diagrams', true)
+      .option('--include-cardinality', 'Include relationship cardinality in diagrams', true)
+      .option('--style <style>', 'Diagram style: detailed, simplified, minimal', 'detailed')
+      .option('--documentation', 'Generate comprehensive ER diagram documentation')
+      .option('--html', 'Generate HTML viewer for immediate viewing (Mermaid only)')
+      .action(this.handleERDiagram.bind(this));
 
     // Migration operations
     this.program
@@ -192,7 +208,7 @@ export class CLI {
         const filter = options.filter ? JSON.parse(options.filter) : {};
         result = await this.agent.executeMongoDBOperation(
           options.mongo,
-          options.database || 'dvdrental',
+          options.database || 'default',
           options.collection || 'test',
           filter
         );
@@ -295,6 +311,171 @@ export class CLI {
   }
 
   /**
+   * Handle ER diagram operations
+   */
+  private async handleERDiagram(options: any): Promise<void> {
+    try {
+      console.log(chalk.blue('🗺️ Generating Entity-Relationship Diagram...'));
+      
+      if (options.documentation) {
+        // Generate comprehensive ER diagram documentation
+        const result = await this.agent.generateERDocumentation();
+        if (result.success) {
+          console.log(chalk.green(`✅ ER diagram documentation generated: ${result.filepath}`));
+        } else {
+          console.error(chalk.red(`❌ Failed to generate ER diagram documentation: ${result.error}`));
+        }
+        return;
+      }
+
+      // Generate ER diagram in specified format
+      const format = options.format as 'mermaid' | 'plantuml' | 'dbml' | 'json';
+      const diagramOptions = {
+        includeIndexes: options.includeIndexes,
+        includeConstraints: options.includeConstraints,
+        includeDataTypes: options.includeDataTypes,
+        includeCardinality: options.includeCardinality,
+        outputPath: options.output,
+        diagramStyle: options.style as 'detailed' | 'simplified' | 'minimal'
+      };
+
+      const result = await this.agent.generateERDiagram(format, diagramOptions);
+      
+      if (result.success) {
+        console.log(chalk.green(`✅ ER diagram generated successfully in ${format.toUpperCase()} format`));
+        console.log(chalk.cyan(`   File: ${result.filepath}`));
+        if (result.metadata) {
+          console.log(chalk.cyan(`   Tables: ${result.metadata.tables}, Relationships: ${result.metadata.relationships}, Indexes: ${result.metadata.indexes}`));
+        }
+        
+        if (format === 'mermaid') {
+          console.log(chalk.yellow('\n💡 Tip: Copy the Mermaid code to https://mermaid.live/ for interactive viewing'));
+          
+          // Also generate an HTML viewer for immediate viewing
+          try {
+            const { MermaidRenderer } = await import('../utils/MermaidRenderer.js');
+            const renderer = new MermaidRenderer();
+            
+            // Read the generated file content to create HTML viewer
+            const fs = await import('fs');
+            const fileContent = fs.readFileSync(result.filepath!, 'utf8');
+            
+            const htmlPath = await renderer.saveHTMLDiagram(
+              fileContent,
+              'PostgreSQL Schema ER Diagram'
+            );
+            
+            console.log(chalk.green(`🌐 HTML Viewer generated: ${htmlPath}`));
+            console.log(chalk.cyan('💡 Open this HTML file in your browser to see the rendered diagram!'));
+          } catch (renderError) {
+            console.warn(chalk.yellow('⚠️ Could not generate HTML viewer:'), (renderError as Error).message);
+          }
+        } else if (format === 'plantuml') {
+          console.log(chalk.yellow('\n💡 Tip: Use http://www.plantuml.com/plantuml/uml/ for online viewing'));
+        } else if (format === 'dbml') {
+          console.log(chalk.yellow('\n💡 Tip: Use https://dbdiagram.io/ for interactive DBML diagrams'));
+        }
+      } else {
+        console.error(chalk.red(`❌ Failed to generate ER diagram: ${result.error}`));
+      }
+      
+    } catch (error) {
+      console.error(chalk.red('❌ ER diagram generation failed:'), error);
+    }
+  }
+
+  /**
+   * Handle ER diagram requests in natural language
+   */
+  private async handleERDiagramNaturalLanguage(input: string, rl: readline.Interface): Promise<void> {
+    try {
+      console.log(chalk.blue('🗺️ Understanding your ER diagram request...'));
+      
+      const lowerInput = input.toLowerCase();
+      
+      // Determine what the user wants
+      let wantsDocumentation = false;
+      let format: 'mermaid' | 'plantuml' | 'dbml' | 'json' = 'mermaid';
+      let style: 'detailed' | 'simplified' | 'minimal' = 'detailed';
+      
+      // Check for format preferences
+      if (lowerInput.includes('plantuml') || lowerInput.includes('plant uml')) {
+        format = 'plantuml';
+      } else if (lowerInput.includes('dbml') || lowerInput.includes('database markup')) {
+        format = 'dbml';
+      } else if (lowerInput.includes('json')) {
+        format = 'json';
+      }
+      
+      // Check for style preferences
+      if (lowerInput.includes('simple') || lowerInput.includes('basic')) {
+        style = 'simplified';
+      } else if (lowerInput.includes('minimal') || lowerInput.includes('minimal')) {
+        style = 'minimal';
+      }
+      
+      // Check if they want comprehensive documentation
+      if (lowerInput.includes('documentation') || lowerInput.includes('comprehensive') || 
+          lowerInput.includes('detailed') || lowerInput.includes('full')) {
+        wantsDocumentation = true;
+      }
+      
+      if (wantsDocumentation) {
+        console.log(chalk.cyan('📚 Generating comprehensive ER diagram documentation...'));
+        const result = await this.agent.generateERDocumentation();
+        
+        if (result.success) {
+          console.log(chalk.green(`✅ Comprehensive ER diagram documentation generated successfully!`));
+          console.log(chalk.cyan(`📁 File: ${result.filepath}`));
+          console.log(chalk.yellow('\n💡 This documentation includes:'));
+          console.log(chalk.yellow('   • Multiple diagram formats (Mermaid, PlantUML, DBML)'));
+          console.log(chalk.yellow('   • Detailed table information and relationships'));
+          console.log(chalk.yellow('   • Index and constraint details'));
+          console.log(chalk.yellow('   • Usage instructions for each format'));
+        } else {
+          console.error(chalk.red(`❌ Failed to generate ER diagram documentation: ${result.error}`));
+        }
+      } else {
+        console.log(chalk.cyan(`🗺️ Generating ER diagram in ${format.toUpperCase()} format...`));
+        
+        const result = await this.agent.generateERDiagram(format, {
+          includeIndexes: true,
+          includeConstraints: true,
+          includeDataTypes: true,
+          includeCardinality: true,
+          includeDescriptions: false,
+          diagramStyle: style
+        });
+        
+        if (result.success) {
+          console.log(chalk.green(`✅ ER diagram generated successfully!`));
+          console.log(chalk.cyan(`📁 File: ${result.filepath}`));
+          console.log(chalk.cyan(`🎨 Format: ${format.toUpperCase()}`));
+          console.log(chalk.cyan(`📊 Style: ${style}`));
+          
+          if (result.metadata) {
+            console.log(chalk.cyan(`📋 Summary: ${result.metadata.tables} tables, ${result.metadata.relationships} relationships, ${result.metadata.indexes} indexes`));
+          }
+          
+          // Provide format-specific tips
+          if (format === 'mermaid') {
+            console.log(chalk.yellow('\n💡 Tip: Copy the Mermaid code to https://mermaid.live/ for interactive viewing'));
+          } else if (format === 'plantuml') {
+            console.log(chalk.yellow('\n💡 Tip: Use http://www.plantuml.com/plantuml/uml/ for online viewing'));
+          } else if (format === 'dbml') {
+            console.log(chalk.yellow('\n💡 Tip: Use https://dbdiagram.io/ for interactive DBML diagrams'));
+          }
+        } else {
+          console.error(chalk.red(`❌ Failed to generate ER diagram: ${result.error}`));
+        }
+      }
+      
+    } catch (error) {
+      console.error(chalk.red('❌ ER diagram generation failed:'), error);
+    }
+  }
+
+  /**
    * Show PostgreSQL schema
    */
   private async showPostgreSQLSchema(): Promise<void> {
@@ -337,7 +518,7 @@ export class CLI {
     const spinner = ora('Fetching MongoDB schema...').start();
     
     try {
-      const database = this.agent.getStatus().mongodb.connected ? 'dvdrental' : 'test';
+      const database = this.agent.getStatus().mongodb.connected ? 'default' : 'test';
       const schema = await this.agent.getMongoDBSchema(database);
       spinner.succeed('MongoDB schema retrieved');
       
@@ -371,7 +552,7 @@ export class CLI {
     
     try {
       const postgresSchema = await this.agent.getPostgreSQLSchema();
-      const mongoSchema = await this.agent.getMongoDBSchema('dvdrental');
+      const mongoSchema = await this.agent.getMongoDBSchema('default');
       
       spinner.succeed('Schema generation completed');
       
@@ -777,6 +958,10 @@ export class CLI {
   private async handleNaturalLanguageInput(input: string, rl: readline.Interface): Promise<void> {
     const lowerInput = input.toLowerCase();
     
+    // Debug: Show what input is being processed
+    console.log(chalk.gray(`🔍 Processing input: "${input}"`));
+    console.log(chalk.gray(`🔍 Lowercase: "${lowerInput}"`));
+    
     try {
       // Database status and health queries
       if (this.matchesPattern(lowerInput, ['status', 'health', 'how are you', 'are you working'])) {
@@ -798,6 +983,78 @@ export class CLI {
       if (lowerInput.includes('analyze') && lowerInput.includes('postgres') && lowerInput.includes('schema')) {
         await this.handleSchemaAnalysisNaturalLanguage(input, rl);
         return;
+      }
+      
+      // NEW: Handle enhanced business context analysis requests FIRST (before general schema analysis)
+      // Check for business context specific requests
+      if (this.matchesPattern(lowerInput, ['business context', 'business relationships', 'data flow patterns', 'business processes', 'business rules', 'impact matrix'])) {
+        console.log(chalk.blue('🔍 Business context pattern matched!'));
+        await this.handleEnhancedBusinessAnalysisNaturalLanguage(input, rl);
+        return;
+      }
+      
+      // Check for business context action words
+      if (this.matchesPattern(lowerInput, ['show me', 'what are', 'map the', 'extract', 'generate'])) {
+        if (this.matchesPattern(lowerInput, ['business', 'semantic', 'workflow', 'process', 'rules', 'data flow', 'impact'])) {
+          console.log(chalk.blue('🔍 Business context action pattern matched!'));
+          await this.handleEnhancedBusinessAnalysisNaturalLanguage(input, rl);
+          return;
+        }
+      }
+      
+      // Check for general business context words
+      if (this.matchesPattern(lowerInput, ['business', 'context', 'semantic', 'workflow', 'process', 'rules', 'relationship beyond'])) {
+        if (this.matchesPattern(lowerInput, ['analyze', 'analysis', 'schema', 'postgres', 'postgresql'])) {
+          console.log(chalk.blue('🔍 Business context general pattern matched!'));
+          await this.handleEnhancedBusinessAnalysisNaturalLanguage(input, rl);
+          return;
+        }
+      }
+      
+      // Handle specific business context phrases for exact matching
+      if (lowerInput.includes('business context') || 
+          lowerInput.includes('business relationships') ||
+          lowerInput.includes('data flow patterns') ||
+          lowerInput.includes('business processes') ||
+          lowerInput.includes('business rules') ||
+          lowerInput.includes('impact matrix')) {
+        console.log(chalk.blue('🔍 Business context exact phrase matched!'));
+        await this.handleEnhancedBusinessAnalysisNaturalLanguage(input, rl);
+        return;
+      }
+      
+      // Fallback: Catch any remaining business-related requests
+      if (lowerInput.includes('business') || 
+          lowerInput.includes('semantic') ||
+          lowerInput.includes('workflow') ||
+          lowerInput.includes('process') ||
+          lowerInput.includes('rules') ||
+          lowerInput.includes('data flow') ||
+          lowerInput.includes('impact')) {
+        if (lowerInput.includes('analyze') || lowerInput.includes('show') || lowerInput.includes('what') || lowerInput.includes('map') || lowerInput.includes('extract') || lowerInput.includes('generate')) {
+          console.log(chalk.blue('🔍 Business context fallback pattern matched!'));
+          await this.handleEnhancedBusinessAnalysisNaturalLanguage(input, rl);
+          return;
+        }
+      }
+      
+      // NEW: Handle ER diagram requests
+      if (this.matchesPattern(lowerInput, ['er diagram', 'entity relationship', 'entity-relationship', 'relationship diagram', 'database diagram', 'schema diagram'])) {
+        if (this.matchesPattern(lowerInput, ['postgres', 'postgresql', 'sql', 'current', 'my', 'generate', 'create', 'show'])) {
+          await this.handleERDiagramNaturalLanguage(input, rl);
+          return;
+        }
+      }
+      
+      // Special case for ER diagram requests - exact phrase matching
+      if (lowerInput.includes('er diagram') || 
+          lowerInput.includes('entity relationship diagram') ||
+          lowerInput.includes('database diagram') ||
+          lowerInput.includes('schema diagram')) {
+        if (lowerInput.includes('postgres') || lowerInput.includes('current') || lowerInput.includes('my')) {
+          await this.handleERDiagramNaturalLanguage(input, rl);
+          return;
+        }
       }
       
       // NEW: Handle MongoDB schema generation requests
@@ -1012,7 +1269,7 @@ export class CLI {
     
     if (this.matchesPattern(lowerInput, ['compare', 'difference', 'same', 'different'])) {
       console.log(chalk.blue('🔍 Comparing schemas between databases...'));
-      await this.compareSchemas('dvdrental');
+      await this.compareSchemas('default');
       return;
     }
     
@@ -1056,7 +1313,7 @@ export class CLI {
     if (this.matchesPattern(lowerInput, ['join', 'combine', 'together', 'both'])) {
       console.log(chalk.blue('🔗 Processing cross-database join request...'));
       console.log(chalk.yellow('💡 For cross-database operations, use the CLI command:'));
-      console.log(chalk.cyan('  peer-ai-mongo-migrator cross-query --postgres "SELECT * FROM actor" --mongo "{}" --database dvdrental --collection actor --join-strategy inner --join-key actor_id'));
+              console.log(chalk.cyan('  peer-ai-mongo-migrator cross-query --postgres "SELECT * FROM actor" --mongo "{}" --database default --collection actor --join-strategy inner --join-key actor_id'));
       console.log(chalk.gray('  Or ask: "Join actor data from both databases using actor_id"'));
       return;
     }
@@ -1064,7 +1321,7 @@ export class CLI {
     if (this.matchesPattern(lowerInput, ['actor', 'customer', 'film'])) {
       console.log(chalk.blue('🔗 Setting up cross-database query for common tables...'));
       console.log(chalk.yellow('💡 Example cross-database query:'));
-      console.log(chalk.cyan('  peer-ai-mongo-migrator cross-query --postgres "SELECT actor_id, first_name FROM actor LIMIT 5" --mongo "{}" --database dvdrental --collection actor --join-strategy inner --join-key actor_id'));
+              console.log(chalk.cyan('  peer-ai-mongo-migrator cross-query --postgres "SELECT actor_id, first_name FROM actor LIMIT 5" --mongo "{}" --database default --collection actor --join-strategy inner --join-key actor_id'));
       return;
     }
     
@@ -1244,6 +1501,54 @@ export class CLI {
       }
     } catch (error) {
       console.error(chalk.red('\n❌ MongoDB schema generation failed:'), error);
+      console.log(chalk.yellow('💡 Please check your PostgreSQL connection and try again.'));
+    }
+  }
+
+  /**
+   * NEW: Handle enhanced business context analysis natural language requests
+   */
+  private async handleEnhancedBusinessAnalysisNaturalLanguage(input: string, rl: readline.Interface): Promise<void> {
+    const lowerInput = input.toLowerCase();
+    
+    console.log(chalk.blue('🧠 Processing enhanced business context analysis request...'));
+    console.log(chalk.yellow('💡 This will analyze your PostgreSQL schema with business relationships, data flow patterns, and business processes.'));
+    console.log(chalk.gray('⏳ Please wait, this may take a few moments...'));
+    
+    try {
+      const result = await this.agent.analyzePostgreSQLSchema();
+      if (result.success) {
+        console.log(chalk.green('\n🎉 Enhanced Business Context Analysis Completed Successfully!'));
+        console.log(chalk.cyan(`📁 Documentation file: ${result.filepath}`));
+        console.log(chalk.green('✨ A comprehensive analysis with business context has been generated!'));
+        
+        if (result.summary) {
+          console.log(chalk.blue('\n📊 Analysis Summary:'));
+          console.log(chalk.gray(`  • Tables: ${result.summary.totalTables}`));
+          console.log(chalk.gray(`  • Views: ${result.summary.totalViews}`));
+          console.log(chalk.gray(`  • Functions: ${result.summary.totalFunctions}`));
+          console.log(chalk.gray(`  • Triggers: ${result.summary.totalTriggers}`));
+          console.log(chalk.gray(`  • Indexes: ${result.summary.totalIndexes}`));
+          console.log(chalk.gray(`  • Relationships: ${result.summary.totalRelationships}`));
+          console.log(chalk.gray(`  • Last Analyzed: ${result.summary.lastAnalyzed.toLocaleString()}`));
+        }
+        
+        console.log(chalk.green('\n🧠 Enhanced Business Context Analysis Includes:'));
+        console.log(chalk.yellow('📖 The enhanced document contains:'));
+        console.log(chalk.gray('  • All standard schema analysis (tables, views, functions, etc.)'));
+        console.log(chalk.gray('  • 🧠 Semantic Relationships: Business purpose and context'));
+        console.log(chalk.gray('  • 🌊 Data Flow Patterns: Workflow and data movement'));
+        console.log(chalk.gray('  • 🏢 Business Processes: Operational process mapping'));
+        console.log(chalk.gray('  • 📋 Business Rules: Governance and constraints'));
+        console.log(chalk.gray('  • 📊 Impact Matrix: Risk assessment and criticality'));
+        console.log(chalk.blue('\n📝 Note: Each analysis creates a new timestamped file to preserve historical versions'));
+        console.log(chalk.cyan('\n🔍 You can also use: "peer-ai-mongo-migrator schema --analyze --business-context" for the same functionality'));
+      } else {
+        console.log(chalk.red('\n❌ Enhanced business context analysis failed:'), result.error);
+        console.log(chalk.yellow('💡 Please check your PostgreSQL connection and try again.'));
+      }
+    } catch (error) {
+      console.error(chalk.red('\n❌ Enhanced business context analysis failed:'), error);
       console.log(chalk.yellow('💡 Please check your PostgreSQL connection and try again.'));
     }
   }
@@ -1681,7 +1986,7 @@ export class CLI {
       
       try {
         console.log(chalk.gray(`Using MCP Tool: mcp_MongoDB_update-many`));
-        const result = await this.agent.executeMongoDBOperation('update', 'dvdrental', collectionName, {
+        const result = await this.agent.executeMongoDBOperation('update', 'default', collectionName, {
           filter: { [whereField]: this.parseValue(whereValue) },
           update: { $set: { [fieldName]: this.parseValue(newValue) } }
         });
@@ -1716,7 +2021,7 @@ export class CLI {
       
       try {
         console.log(chalk.gray(`Using MCP Tool: mcp_MongoDB_delete-many`));
-        const result = await this.agent.executeMongoDBOperation('delete', 'dvdrental', collectionName, {
+        const result = await this.agent.executeMongoDBOperation('delete', 'default', collectionName, {
           [whereField]: this.parseValue(whereValue)
         });
         if (result.success) {
@@ -1750,7 +2055,7 @@ export class CLI {
       // Ask user for limit to avoid overwhelming output
       console.log(chalk.yellow('💡 Fetching first 10 documents (use "LIMIT X" in your request for more)'));
       console.log(chalk.gray(`Using MCP Tool: mcp_MongoDB_find`));
-      const result = await this.agent.executeMongoDBOperation('find', 'dvdrental', collectionName, {});
+              const result = await this.agent.executeMongoDBOperation('find', 'default', collectionName, {});
       
       if (result.success && result.data && result.data.length > 0) {
         console.log(chalk.green(`✅ Found ${result.data.length} documents from ${collectionName} collection:`));
@@ -1774,7 +2079,7 @@ export class CLI {
       const collectionName = collectionMatch[1];
       console.log(chalk.blue(`🔢 Counting documents in ${collectionName} collection...`));
       console.log(chalk.gray(`Using MCP Tool: mcp_MongoDB_count`));
-      const result = await this.agent.executeMongoDBOperation('count', 'dvdrental', collectionName, {});
+              const result = await this.agent.executeMongoDBOperation('count', 'default', collectionName, {});
       console.log(chalk.green(`✅ ${collectionName} collection has ${result.data} documents`));
     } else {
       console.log(chalk.yellow('💡 Try: "How many documents are in the actor collection?"'));
@@ -2496,7 +2801,7 @@ export class CLI {
     
     try {
       // Use the agent's public method to list MongoDB collections
-      const collections = await this.agent.listMongoDBCollections('dvdrental');
+      const collections = await this.agent.listMongoDBCollections('default');
       
       if (collections && collections.length >= 0) {
         console.log(chalk.green(`\n📊 MongoDB Collections:`));

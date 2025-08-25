@@ -31,13 +31,16 @@ export class ConfigLoader {
       postgresql: {
         host: process.env.POSTGRES_HOST || 'localhost',
         port: parseInt(process.env.POSTGRES_PORT || '5432'),
-        database: process.env.POSTGRES_DB || 'dvdrental',
+        database: process.env.POSTGRES_DB || 'default',
         username: process.env.POSTGRES_USER || 'postgres',
         password: this.getRequiredEnvVar('POSTGRES_PASSWORD', 'PostgreSQL password')
       },
       mongodb: {
-        connectionString: this.getRequiredEnvVar('MONGO_CONNECTION_STRING', 'MongoDB connection string'),
-        database: process.env.MONGO_DB || 'dvdrental'
+        connectionString: this.buildMongoDBConnectionString(
+          this.getRequiredEnvVar('MONGO_CONNECTION_STRING', 'MongoDB connection string'),
+          process.env.MONGO_DB || 'default'
+        ),
+        database: process.env.MONGO_DB || 'default'
       }
     };
 
@@ -79,6 +82,37 @@ export class ConfigLoader {
     } catch (error) {
       console.log('📁 Config file not found, falling back to environment variables');
       return this.loadFromEnvironment();
+    }
+  }
+
+  /**
+   * Build MongoDB connection string with database name
+   */
+  private buildMongoDBConnectionString(baseConnectionString: string, databaseName: string): string {
+    // If the connection string already contains a database name, return as is
+    if (baseConnectionString.includes('/' + databaseName) || baseConnectionString.endsWith('/' + databaseName)) {
+      return baseConnectionString;
+    }
+    
+    // For cluster connections, add database name after the host
+    if (baseConnectionString.includes('mongodb+srv://')) {
+      // mongodb+srv://username:password@cluster.mongodb.net/database
+      if (baseConnectionString.endsWith('/')) {
+        return baseConnectionString + databaseName;
+      } else if (baseConnectionString.includes('?')) {
+        // Has query parameters, insert database before ?
+        const parts = baseConnectionString.split('?');
+        return parts[0] + '/' + databaseName + '?' + parts[1];
+      } else {
+        return baseConnectionString + '/' + databaseName;
+      }
+    } else {
+      // Standard MongoDB connection string
+      if (baseConnectionString.endsWith('/')) {
+        return baseConnectionString + databaseName;
+      } else {
+        return baseConnectionString + '/' + databaseName;
+      }
     }
   }
 
@@ -131,13 +165,13 @@ export class ConfigLoader {
       postgresql: {
         host: "localhost",
         port: 5432,
-        database: "dvdrental",
+        database: "your_postgresql_database_name",
         username: "postgres",
         password: "your_password_here"
       },
       mongodb: {
-        connectionString: "mongodb://localhost:27017",
-        database: "dvdrental"
+        connectionString: "mongodb://localhost:27017/your_mongodb_database_name",
+        database: "your_mongodb_database_name"
       },
       mcp: {
         enabled: true,

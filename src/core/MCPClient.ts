@@ -55,7 +55,11 @@ export class MCPClient {
       await this.mcpServer.initialize();
       
       // Perform initial health check silently
-      await this.performHealthCheck();
+      try {
+        await this.performHealthCheck();
+      } catch (healthError) {
+        // Silent health check failure
+      }
       
     } catch (error) {
       console.error('❌ Failed to initialize MCP client:', error);
@@ -123,20 +127,36 @@ export class MCPClient {
    * Call a PostgreSQL MCP tool with retry logic
    */
   async callPostgreSQLTool(toolName: string, parameters: any): Promise<MCPToolResult> {
-    return await this.callToolWithRetry(
-      () => this.callPostgreSQLToolInternal(toolName, parameters),
-      `PostgreSQL MCP tool: ${toolName}`
-    );
+    try {
+      return await this.callToolWithRetry(
+        () => this.callPostgreSQLToolInternal(toolName, parameters),
+        `PostgreSQL MCP tool: ${toolName}`
+      );
+    } catch (error) {
+      return {
+        success: false,
+        error: `PostgreSQL service unavailable: ${error}`,
+        executionTime: 0
+      };
+    }
   }
 
   /**
    * Call a MongoDB MCP tool with retry logic
    */
   async callMongoDBTool(toolName: string, parameters: any): Promise<MCPToolResult> {
-    return await this.callToolWithRetry(
-      () => this.callMongoDBToolInternal(toolName, parameters),
-      `MongoDB MCP tool: ${toolName}`
-    );
+    try {
+      return await this.callToolWithRetry(
+        () => this.callMongoDBToolInternal(toolName, parameters),
+        `MongoDB MCP tool: ${toolName}`
+      );
+    } catch (error) {
+      return {
+        success: false,
+        error: `MongoDB service unavailable: ${error}`,
+        executionTime: 0
+      };
+    }
   }
 
   /**
@@ -173,6 +193,15 @@ export class MCPClient {
    */
   private async callPostgreSQLToolInternal(toolName: string, parameters: any): Promise<MCPToolResult> {
     try {
+      // Check if MCP server is available
+      if (!this.mcpServer || !this.mcpServer.isInitialized()) {
+        return {
+          success: false,
+          error: 'PostgreSQL MCP server not available',
+          mcpTool: toolName
+        };
+      }
+      
       // Map to the actual MCP tools available in this chat
       switch (toolName) {
         case 'mcp_postgresql_read_query':
@@ -208,6 +237,15 @@ export class MCPClient {
    */
   private async callMongoDBToolInternal(toolName: string, parameters: any): Promise<MCPToolResult> {
     try {
+      // Check if MCP server is available
+      if (!this.mcpServer || !this.mcpServer.isInitialized()) {
+        return {
+          success: false,
+          error: 'MongoDB MCP server not available',
+          mcpTool: toolName
+        };
+      }
+      
       // Map to the actual MCP tools available in this chat
       switch (toolName) {
         case 'mcp_MongoDB_connect':

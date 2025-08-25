@@ -2,12 +2,16 @@ import fs from 'fs';
 import path from 'path';
 import { ComprehensivePostgreSQLSchema, ViewSchema, FunctionSchema, TriggerSchema, RelationshipSchema } from './SchemaService.js';
 import { TableSchema, IndexSchema, ColumnSchema, ForeignKeySchema } from '../types/index.js';
+import { SemanticRelationship, DataFlowPattern, BusinessProcess, BusinessRule, ImpactMatrix } from '../types/index.js';
+import { ERDiagramGenerator } from './ERDiagramGenerator.js';
 
 export class MarkdownGenerator {
   private projectRoot: string;
+  private erDiagramGenerator: ERDiagramGenerator;
 
   constructor() {
     this.projectRoot = process.cwd();
+    this.erDiagramGenerator = new ERDiagramGenerator();
   }
 
   /**
@@ -67,11 +71,18 @@ export class MarkdownGenerator {
     // Relationships Section
     content += this.generateRelationshipsSection(schema.relationships);
     
+    // NEW: Enhanced relationship sections for "Relationship beyond DDL"
+    content += this.generateSemanticRelationshipsSection(schema.semanticRelationships);
+    content += this.generateDataFlowSection(schema.dataFlowPatterns);
+    content += this.generateBusinessProcessSection(schema.businessProcesses);
+    content += this.generateBusinessRulesSection(schema.businessRules);
+    content += this.generateImpactMatrixSection(schema.impactMatrix);
+    
     // DDL Section
     content += this.generateDDLSection(schema);
     
-    // Mermaid Diagrams
-    content += this.generateMermaidDiagrams(schema);
+    // Enhanced ER Diagrams
+    content += this.generateEnhancedERDiagrams(schema);
     
     // Footer
     content += this.generateFooter();
@@ -136,6 +147,27 @@ export class MarkdownGenerator {
       toc += '- [Relationships](#relationships)\n';
     }
 
+    // NEW: Enhanced relationship sections
+    if (schema.semanticRelationships && schema.semanticRelationships.length > 0) {
+      toc += '- [Semantic Relationships](#semantic-relationships)\n';
+    }
+
+    if (schema.dataFlowPatterns && schema.dataFlowPatterns.length > 0) {
+      toc += '- [Data Flow Patterns](#data-flow-patterns)\n';
+    }
+
+    if (schema.businessProcesses && schema.businessProcesses.length > 0) {
+      toc += '- [Business Processes](#business-processes)\n';
+    }
+
+    if (schema.businessRules && schema.businessRules.length > 0) {
+      toc += '- [Business Rules](#business-rules)\n';
+    }
+
+    if (schema.impactMatrix && schema.impactMatrix.length > 0) {
+      toc += '- [Impact Matrix](#impact-matrix)\n';
+    }
+
     toc += '- [DDL Statements](#ddl-statements)\n';
     toc += '- [Database Diagrams](#database-diagrams)\n\n---\n\n';
 
@@ -161,6 +193,15 @@ This database contains a comprehensive set of database objects designed for effi
 
 ### 🎯 Purpose
 This database appears to be designed for ${this.inferDatabasePurpose(schema)}. The schema demonstrates ${this.analyzeSchemaCharacteristics(schema)}.
+
+### 🧠 Enhanced Relationship Analysis
+This comprehensive analysis goes beyond traditional DDL relationships to provide business context and insights:
+
+${schema.semanticRelationships && schema.semanticRelationships.length > 0 ? `- **Semantic Relationships:** ${schema.semanticRelationships.length} business relationships discovered` : ''}
+${schema.dataFlowPatterns && schema.dataFlowPatterns.length > 0 ? `- **Data Flow Patterns:** ${schema.dataFlowPatterns.length} workflow patterns identified` : ''}
+${schema.businessProcesses && schema.businessProcesses.length > 0 ? `- **Business Processes:** ${schema.businessProcesses.length} operational processes mapped` : ''}
+${schema.businessRules && schema.businessRules.length > 0 ? `- **Business Rules:** ${schema.businessRules.length} governance rules extracted` : ''}
+${schema.impactMatrix && schema.impactMatrix.length > 0 ? `- **Impact Matrix:** Risk assessment for all ${schema.impactMatrix.length} tables` : ''}
 
 ---
 
@@ -424,6 +465,255 @@ This database appears to be designed for ${this.inferDatabasePurpose(schema)}. T
   }
 
   /**
+   * NEW: Generate semantic relationships section
+   */
+  private generateSemanticRelationshipsSection(semanticRelationships: SemanticRelationship[]): string {
+    if (!semanticRelationships || semanticRelationships.length === 0) return '';
+
+    let content = '## 🧠 Semantic Relationships\n\n';
+    content += 'Beyond the structural foreign key constraints, these tables have the following business relationships:\n\n';
+
+    semanticRelationships.forEach(rel => {
+      content += `### ${rel.sourceTable} → ${rel.targetTable}\n\n`;
+      content += `**Business Purpose:** ${rel.businessPurpose}\n\n`;
+      content += `**Relationship Type:** ${rel.relationshipType}\n`;
+      content += `**Data Flow Direction:** ${rel.dataFlowDirection}\n`;
+      content += `**Confidence Level:** ${Math.round(rel.confidence * 100)}%\n\n`;
+
+      if (rel.businessRules.length > 0) {
+        content += '**Business Rules:**\n';
+        rel.businessRules.forEach(rule => {
+          content += `- ${rule}\n`;
+        });
+        content += '\n';
+      }
+
+      if (rel.usagePatterns.length > 0) {
+        content += '**Usage Patterns:**\n';
+        rel.usagePatterns.forEach(pattern => {
+          content += `- ${pattern}\n`;
+        });
+        content += '\n';
+      }
+
+      content += '**Impact Analysis:**\n';
+      content += `- **Criticality:** ${rel.impactAnalysis.criticality}\n`;
+      content += `- **Business Impact:** ${rel.impactAnalysis.businessImpact}\n`;
+      content += `- **Data Integrity Risk:** ${rel.impactAnalysis.dataIntegrityRisk}\n\n`;
+
+      content += '---\n\n';
+    });
+
+    return content;
+  }
+
+  /**
+   * NEW: Generate data flow patterns section
+   */
+  private generateDataFlowSection(dataFlowPatterns: DataFlowPattern[]): string {
+    if (!dataFlowPatterns || dataFlowPatterns.length === 0) return '';
+
+    let content = '## 🌊 Data Flow Patterns\n\n';
+    content += 'The following patterns show how data flows through the system in business processes:\n\n';
+
+    dataFlowPatterns.forEach(pattern => {
+      content += `### ${pattern.name}\n\n`;
+      content += `**Description:** ${pattern.description}\n\n`;
+      content += `**Business Process:** ${pattern.businessProcess}\n`;
+      content += `**Frequency:** ${pattern.frequency}\n`;
+      content += `**Data Volume:** ${pattern.dataVolume}\n`;
+      content += `**Performance Impact:** ${pattern.performanceImpact}\n\n`;
+
+      content += '**Tables Involved:**\n';
+      pattern.tables.forEach(table => {
+        content += `- \`${table}\`\n`;
+      });
+      content += '\n';
+
+      content += '**Flow Sequence:**\n';
+      pattern.flowSequence.forEach(step => {
+        content += `${step.step}. **${step.action}** on \`${step.table}\`\n`;
+        content += `   - ${step.description}\n`;
+        if (step.dependencies.length > 0) {
+          content += `   - Dependencies: ${step.dependencies.join(', ')}\n`;
+        }
+        content += '\n';
+      });
+
+      content += '---\n\n';
+    });
+
+    return content;
+  }
+
+  /**
+   * NEW: Generate business processes section
+   */
+  private generateBusinessProcessSection(businessProcesses: BusinessProcess[]): string {
+    if (!businessProcesses || businessProcesses.length === 0) return '';
+
+    let content = '## 🏢 Business Processes\n\n';
+    content += 'The following business processes are supported by this database:\n\n';
+
+    businessProcesses.forEach(process => {
+      content += `### ${process.name}\n\n`;
+      content += `**Description:** ${process.description}\n\n`;
+      content += `**Owner:** ${process.owner}\n`;
+      content += `**Trigger:** ${process.trigger}\n`;
+      content += `**Criticality:** ${process.criticality}\n`;
+      content += `**Estimated Duration:** ${process.estimatedDuration}\n\n`;
+
+      content += '**Stakeholders:**\n';
+      process.stakeholders.forEach(stakeholder => {
+        content += `- ${stakeholder}\n`;
+      });
+      content += '\n';
+
+      content += '**Tables Involved:**\n';
+      process.tables.forEach(table => {
+        content += `- \`${table}\`\n`;
+      });
+      content += '\n';
+
+      content += '**Process Steps:**\n';
+      process.steps.forEach(step => {
+        content += `${step.stepNumber}. **${step.action}** on \`${step.table}\`\n`;
+        content += `   - ${step.description}\n`;
+        if (step.businessRules.length > 0) {
+          content += `   - Business Rules: ${step.businessRules.join(', ')}\n`;
+        }
+        if (step.dependencies.length > 0) {
+          content += `   - Dependencies: ${step.dependencies.join(', ')}\n`;
+        }
+        content += '\n';
+      });
+
+      if (process.businessRules.length > 0) {
+        content += '**Business Rules:**\n';
+        process.businessRules.forEach(rule => {
+          content += `- ${rule}\n`;
+        });
+        content += '\n';
+      }
+
+      content += '---\n\n';
+    });
+
+    return content;
+  }
+
+  /**
+   * NEW: Generate business rules section
+   */
+  private generateBusinessRulesSection(businessRules: BusinessRule[]): string {
+    if (!businessRules || businessRules.length === 0) return '';
+
+    let content = '## 📋 Business Rules\n\n';
+    content += 'The following business rules govern data integrity and business logic:\n\n';
+
+    // Group rules by category
+    const rulesByCategory = new Map<string, BusinessRule[]>();
+    businessRules.forEach(rule => {
+      if (!rulesByCategory.has(rule.category)) {
+        rulesByCategory.set(rule.category, []);
+      }
+      rulesByCategory.get(rule.category)!.push(rule);
+    });
+
+    for (const [category, rules] of rulesByCategory) {
+      const categoryName = category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      content += `### ${categoryName}\n\n`;
+
+      rules.forEach(rule => {
+        content += `#### ${rule.name}\n\n`;
+        content += `**Description:** ${rule.description}\n\n`;
+        content += `**Rule Type:** ${rule.ruleType}\n`;
+        content += `**Enforcement:** ${rule.enforcement}\n`;
+        content += `**Impact:** ${rule.impact}\n\n`;
+
+        if (rule.tables.length > 0) {
+          content += '**Tables:**\n';
+          rule.tables.forEach(table => {
+            content += `- \`${table}\`\n`;
+          });
+          content += '\n';
+        }
+
+        if (rule.columns.length > 0) {
+          content += '**Columns:**\n';
+          rule.columns.forEach(column => {
+            content += `- \`${column}\`\n`;
+          });
+          content += '\n';
+        }
+
+        content += '**Rule Definition:**\n';
+        content += `${rule.ruleDefinition}\n\n`;
+
+        if (rule.dependencies.length > 0) {
+          content += '**Dependencies:**\n';
+          rule.dependencies.forEach(dep => {
+            content += `- ${dep}\n`;
+          });
+          content += '\n';
+        }
+
+        content += '---\n\n';
+      });
+    }
+
+    return content;
+  }
+
+  /**
+   * NEW: Generate impact matrix section
+   */
+  private generateImpactMatrixSection(impactMatrix: ImpactMatrix[]): string {
+    if (!impactMatrix || impactMatrix.length === 0) return '';
+
+    let content = '## 📊 Impact Matrix\n\n';
+    content += 'The following matrix shows the business impact and risk assessment for each table:\n\n';
+
+    content += '| Table | Business Criticality | Data Quality Impact | Business Process Impact | Compliance Impact |\n';
+    content += '|-------|---------------------|---------------------|------------------------|-------------------|\n';
+
+    impactMatrix.forEach(impact => {
+      content += `| \`${impact.tableName}\` | ${impact.businessCriticality} | ${impact.dataQualityImpact.substring(0, 50)}... | ${impact.businessProcessImpact.substring(0, 50)}... | ${impact.complianceImpact.substring(0, 50)}... |\n`;
+    });
+
+    content += '\n';
+
+    // Detailed impact analysis for each table
+    impactMatrix.forEach(impact => {
+      content += `### Table: \`${impact.tableName}\`\n\n`;
+      content += `**Business Criticality:** ${impact.businessCriticality}\n\n`;
+      content += `**Data Quality Impact:** ${impact.dataQualityImpact}\n`;
+      content += `**Business Process Impact:** ${impact.businessProcessImpact}\n`;
+      content += `**Compliance Impact:** ${impact.complianceImpact}\n\n`;
+
+      if (impact.riskFactors.length > 0) {
+        content += '**Risk Factors:**\n';
+        impact.riskFactors.forEach(risk => {
+          content += `- ${risk}\n`;
+        });
+        content += '\n';
+      }
+
+      if (impact.mitigationStrategies.length > 0) {
+        content += '**Mitigation Strategies:**\n';
+        impact.mitigationStrategies.forEach(strategy => {
+          content += `- ${strategy}\n`;
+        });
+        content += '\n';
+      }
+
+      content += '---\n\n';
+    });
+
+    return content;
+  }
+
+  /**
    * Generate DDL section
    */
   private generateDDLSection(schema: ComprehensivePostgreSQLSchema): string {
@@ -478,45 +768,571 @@ This database appears to be designed for ${this.inferDatabasePurpose(schema)}. T
   }
 
   /**
-   * Generate Mermaid diagrams
+   * Generate enhanced ER diagrams with multiple formats
    */
-  private generateMermaidDiagrams(schema: ComprehensivePostgreSQLSchema): string {
-    let content = '## 🗺️ Database Diagrams\n\n';
+  private generateEnhancedERDiagrams(schema: ComprehensivePostgreSQLSchema): string {
+    let content = '## 🗺️ Enhanced Entity-Relationship Diagrams\n\n';
+    content += '> **💡 Interactive Viewing:** Click the buttons below to view rendered diagrams in your browser!\n\n';
 
-    // ER Diagram
-    content += '### Entity-Relationship Diagram\n\n';
+    // Generate comprehensive ER diagram using our new service
+    try {
+      // For now, use the basic diagrams since the enhanced generator is async
+      // TODO: Make this method async to properly handle the enhanced generator
+      const basicDiagrams = this.generateBasicMermaidDiagrams(schema);
+      
+      // Add embedded HTML viewer for the main ER diagram
+      content += this.generateEmbeddedHTMLViewer(schema, basicDiagrams);
+      
+
+      
+    } catch (error) {
+      console.warn('⚠️ ER diagram generation failed:', error);
+      content += '> **⚠️ Diagram generation failed** - Please use the `er-diagram` command for interactive diagram generation.\n\n';
+    }
+
+
+
+    // Add helpful viewing instructions
+    content += '### 📖 How to View the ER Diagram\n\n';
+    content += '**🌐 Interactive HTML Viewer (Recommended):**\n';
+    content += '- **Click the button above** to open the interactive ER diagram in your browser\n';
+    content += '- **Fully interactive** - zoom, pan, and explore relationships\n';
+    content += '- **Download options** - save as SVG or PNG\n\n';
+    content += '**📱 Alternative Viewing Methods:**\n';
+    content += '- **VS Code:** Install "Mermaid Preview" extension\n';
+    content += '- **Online:** Use [Mermaid Live Editor](https://mermaid.live/)\n';
+    content += '- **Note:** The diagram is only available in the HTML viewer for the best interactive experience\n\n';
+
+    return content;
+  }
+
+  /**
+   * Generate basic Mermaid diagrams as fallback
+   */
+  private generateBasicMermaidDiagrams(schema: ComprehensivePostgreSQLSchema): string {
+    let content = '### Basic Entity-Relationship Diagram\n\n';
+    
+    // First try a simple ER diagram that should work in GitHub
     content += '```mermaid\nerDiagram\n';
     
-    // Add tables as entities
+    // Add tables as entities with proper Mermaid syntax
     schema.tables.forEach(table => {
-      content += `    ${table.name} {\n`;
-      table.columns.forEach(col => {
-        const primary = col.isPrimary ? ' 🔑' : '';
-        const foreign = col.isForeign ? ' 🔗' : '';
-        content += `        ${col.type} ${col.name}${primary}${foreign}\n`;
+      // Clean table name and ensure it's valid for Mermaid
+      const cleanTableName = table.name.replace(/[^a-zA-Z0-9_]/g, '_');
+      content += `    ${cleanTableName} {\n`;
+      
+      // Only add a few key columns to keep it simple
+      const keyColumns = table.columns.slice(0, 3); // Limit to 3 columns
+      keyColumns.forEach(col => {
+        // Use simple, clean data types for Mermaid
+        let cleanType = 'string';
+        if (col.type.includes('int') || col.type.includes('integer')) cleanType = 'int';
+        else if (col.type.includes('decimal') || col.type.includes('numeric')) cleanType = 'decimal';
+        else if (col.type.includes('boolean')) cleanType = 'boolean';
+        else if (col.type.includes('date') || col.type.includes('timestamp')) cleanType = 'date';
+        
+        // Clean column name to avoid Mermaid syntax issues
+        const cleanColName = col.name.replace(/[^a-zA-Z0-9_]/g, '_');
+        content += `        ${cleanType} ${cleanColName}\n`;
       });
       content += '    }\n';
     });
 
-    // Add relationships
+    // Add relationships with proper Mermaid syntax
     schema.relationships.forEach(rel => {
-      content += `    ${rel.sourceTable} ||--o{ ${rel.targetTable} : "${rel.sourceColumn} -> ${rel.targetColumn}"\n`;
+      const sourceTable = rel.sourceTable.replace(/[^a-zA-Z0-9_]/g, '_');
+      const targetTable = rel.targetTable.replace(/[^a-zA-Z0-9_]/g, '_');
+      const sourceColumn = rel.sourceColumn.replace(/[^a-zA-Z0-9_]/g, '_');
+      const targetColumn = rel.targetColumn.replace(/[^a-zA-Z0-9_]/g, '_');
+      content += `    ${sourceTable} ||--o{ ${targetTable} : "${sourceColumn} -> ${targetColumn}"\n`;
     });
 
     content += '```\n\n';
 
-    // Table Relationship Diagram
-    content += '### Table Relationship Overview\n\n';
-    content += '```mermaid\ngraph TD\n';
+
+
+    return content;
+  }
+
+  /**
+   * Generate embedded HTML viewer for ER diagrams
+   */
+  private generateEmbeddedHTMLViewer(schema: ComprehensivePostgreSQLSchema, mermaidCode: string): string {
+    let content = '### 🌐 Interactive Diagram Viewer\n\n';
+    content += '> **🎯 Click the button below to open the interactive ER diagram in your browser**\n\n';
     
-    // Create nodes for tables
+    // Create a simple HTML viewer that can be embedded
+    console.log('🔍 Debug: Mermaid code being passed to HTML viewer:', mermaidCode.substring(0, 200) + '...');
+    const htmlContent = this.createEmbeddedHTMLViewer(mermaidCode, schema);
+    
+    // Save the HTML file and provide a link
+    try {
+      const fileName = `er_diagram_${Date.now()}.html`;
+      const filePath = path.join(this.projectRoot, 'diagrams', fileName);
+      
+      // Ensure diagrams directory exists
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      fs.writeFileSync(filePath, htmlContent, 'utf8');
+      
+      content += `**📱 [🖱️ Click to View Interactive ER Diagram](file://${filePath})**\n\n`;
+      content += `**💻 Or run this command to open directly:** \`open ${filePath}\`\n\n`;
+
+      
+    } catch (error) {
+      console.error('❌ Failed to generate HTML viewer:', error);
+      content += '> **⚠️ Could not generate HTML viewer** - Please use the `er-diagram` command instead.\n\n';
+    }
+    
+    return content;
+  }
+
+  /**
+   * Create embedded HTML viewer content
+   */
+  private createEmbeddedHTMLViewer(mermaidCode: string, schema: ComprehensivePostgreSQLSchema): string {
+    // Extract Mermaid code from markdown blocks
+    const mermaidBlockRegex = /```mermaid\s*([\s\S]*?)```/g;
+    const mermaidBlocks: string[] = [];
+    let match;
+    
+    while ((match = mermaidBlockRegex.exec(mermaidCode)) !== null) {
+      mermaidBlocks.push(match[1].trim());
+    }
+    
+    if (mermaidBlocks.length === 0) {
+      return '<p>No Mermaid diagrams found</p>';
+    }
+    
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PostgreSQL Schema ER Diagram - Interactive Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.10.1/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        .nav-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e1e5e9;
+            overflow-x: auto;
+        }
+        .nav-tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            border-bottom: 3px solid transparent;
+            font-size: 1em;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        .nav-tab:hover {
+            background: #e9ecef;
+            color: #333;
+        }
+        .nav-tab.active {
+            border-bottom-color: #4a90e2;
+            color: #4a90e2;
+            background: white;
+        }
+        .tab-content {
+            display: none;
+            padding: 30px;
+            min-height: 500px;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .diagram-container {
+            background: #fafbfc;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: center;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+            min-height: 700px;
+            overflow: auto;
+            position: relative;
+        }
+        .zoom-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px;
+        }
+        .zoom-btn {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            margin: 0 2px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .zoom-btn:hover {
+            background: #357abd;
+        }
+        .mermaid {
+            display: block;
+            width: 100%;
+            height: auto;
+            min-height: 600px;
+            text-align: center;
+        }
+        .mermaid svg {
+            width: 100% !important;
+            height: auto !important;
+            max-width: none !important;
+            min-width: 800px !important;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .info-box h3 {
+            margin: 0 0 15px 0;
+            color: #1976d2;
+        }
+        .download-section {
+            text-align: center;
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .download-btn {
+            display: inline-block;
+            background: #4a90e2;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 0 10px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .download-btn:hover {
+            background: #357abd;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e1e5e9;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4a90e2;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗺️ PostgreSQL Schema ER Diagram</h1>
+            <p>Interactive Entity-Relationship Diagrams for Database Schema Analysis</p>
+        </div>
+
+        <div class="info-box">
+            <h3>💡 Interactive Features</h3>
+            <p>This viewer provides fully interactive ER diagrams. You can zoom, pan, and explore the relationships between tables.</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">${schema.tables.length}</div>
+                <div class="stat-label">Tables</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">${schema.relationships.length}</div>
+                <div class="stat-label">Relationships</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">${schema.views.length}</div>
+                <div class="stat-label">Views</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">${schema.functions.length}</div>
+                <div class="stat-label">Functions</div>
+            </div>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab(0)">
+                🏗️ ER Diagram
+            </button>
+        </div>
+
+        <div class="tab-content active" id="tab-0">
+            <div class="diagram-container">
+                <div class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomIn(0)">🔍+</button>
+                    <button class="zoom-btn" onclick="zoomOut(0)">🔍-</button>
+                    <button class="zoom-btn" onclick="resetZoom(0)">🔄</button>
+                </div>
+                <div class="mermaid" id="mermaid-0">
+${mermaidBlocks[0] || 'No diagram available'}
+                </div>
+            </div>
+        </div>
+
+        <div class="download-section">
+            <h3>📥 Download Options</h3>
+            <p>Save your diagrams in different formats for presentations or documentation</p>
+            <a href="#" onclick="downloadSVG()" class="download-btn">📥 Download SVG</a>
+            <a href="#" onclick="downloadPNG()" class="download-btn">📥 Download PNG</a>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            fontFamily: 'Arial, sans-serif',
+            fontSize: 18,
+            themeVariables: {
+                primaryColor: '#4a90e2',
+                primaryTextColor: '#333',
+                primaryBorderColor: '#4a90e2',
+                lineColor: '#333',
+                secondaryColor: '#f0f0f0',
+                tertiaryColor: '#e1f5fe'
+            },
+            er: {
+                diagramPadding: 20,
+                layoutDirection: 'TB',
+                minEntityWidth: 200,
+                minEntityHeight: 100,
+                entityPadding: 15,
+                stroke: '#333',
+                fill: '#f9f9f9',
+                fontSize: 16
+            },
+            flowchart: {
+                diagramPadding: 20,
+                nodeSpacing: 50,
+                rankSpacing: 50,
+                curve: 'basis'
+            },
+            logLevel: 1,
+            errorHandler: function(error) {
+                console.error('Mermaid error:', error);
+                // Show error message in the diagram container
+                const activeTab = document.querySelector('.tab-content.active');
+                if (activeTab) {
+                    const container = activeTab.querySelector('.diagram-container');
+                    if (container) {
+                        container.innerHTML = '<div style="color: red; padding: 20px; text-align: center;"><h3>⚠️ Diagram Rendering Error</h3><p>There was an issue rendering this diagram. Please check the console for details.</p></div>';
+                    }
+                }
+            }
+        });
+
+        function showTab(index) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById('tab-' + index).classList.add('active');
+            document.querySelectorAll('.nav-tab')[index].classList.add('active');
+        }
+
+        // Download functions
+        function downloadSVG() {
+            const activeTab = document.querySelector('.tab-content.active');
+            const svg = activeTab.querySelector('svg');
+            if (svg) {
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const blob = new Blob([svgData], {type: 'image/svg+xml'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'postgresql_schema_er_diagram.svg';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        function downloadPNG() {
+            const activeTab = document.querySelector('.tab-content.active');
+            const svg = activeTab.querySelector('svg');
+            if (svg) {
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                
+                img.onload = function() {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const pngUrl = canvas.toDataURL('image/png');
+                    const a = document.createElement('a');
+                    a.href = pngUrl;
+                    a.download = 'postgresql_schema_er_diagram.png';
+                    a.click();
+                };
+                
+                img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+            }
+        }
+
+        // Zoom functions
+        let zoomLevels = {};
+        
+        function zoomIn(tabIndex) {
+            if (!zoomLevels[tabIndex]) zoomLevels[tabIndex] = 1;
+            zoomLevels[tabIndex] = Math.min(zoomLevels[tabIndex] * 1.2, 3);
+            applyZoom(tabIndex);
+        }
+        
+        function zoomOut(tabIndex) {
+            if (!zoomLevels[tabIndex]) zoomLevels[tabIndex] = 1;
+            zoomLevels[tabIndex] = Math.max(zoomLevels[tabIndex] / 1.2, 0.5);
+            applyZoom(tabIndex);
+        }
+        
+        function resetZoom(tabIndex) {
+            zoomLevels[tabIndex] = 1;
+            applyZoom(tabIndex);
+        }
+        
+        function applyZoom(tabIndex) {
+            const mermaidDiv = document.getElementById('mermaid-' + tabIndex);
+            if (mermaidDiv) {
+                const svg = mermaidDiv.querySelector('svg');
+                if (svg) {
+                    svg.style.transform = 'scale(' + zoomLevels[tabIndex] + ')';
+                    svg.style.transformOrigin = 'center center';
+                }
+            }
+        }
+    </script>
+</body>
+</html>`;
+
+    return html;
+  }
+
+  /**
+   * Generate additional diagram formats
+   */
+  private generateAdditionalDiagramFormats(schema: ComprehensivePostgreSQLSchema): string {
+    let content = '### Additional Diagram Formats\n\n';
+    content += '> **📊 Multiple Formats Available:** The following diagrams are provided in different formats for various tools and viewers.\n\n';
+
+    // PlantUML
+    content += '#### PlantUML ER Diagram\n\n';
+    content += '```plantuml\n';
+    content += '@startuml\n';
+    content += '!theme plain\n';
+    content += 'skinparam linetype ortho\n\n';
+    
     schema.tables.forEach(table => {
-      content += `    ${table.name}[${table.name}]\n`;
+      content += `entity "${table.name}" {\n`;
+      table.columns.forEach(col => {
+        let columnLine = `  * ${col.name} : ${col.type}`;
+        if (col.isPrimary) columnLine += ' <<PK>>';
+        if (col.isForeign) columnLine += ' <<FK>>';
+        content += columnLine + '\n';
+      });
+      content += '}\n\n';
     });
 
-    // Create edges for relationships
     schema.relationships.forEach(rel => {
-      content += `    ${rel.sourceTable} -->|FK| ${rel.targetTable}\n`;
+      content += `"${rel.sourceTable}" ||--o{ "${rel.targetTable}" : ${rel.sourceColumn} -> ${rel.targetColumn}\n`;
+    });
+
+    content += '@enduml\n```\n\n';
+
+    // DBML
+    content += '#### DBML Schema Definition\n\n';
+    content += '```dbml\n';
+    content += '// Database Schema Definition\n';
+    content += `// Tables: ${schema.tables.length}, Relationships: ${schema.relationships.length}\n\n`;
+    
+    schema.tables.forEach(table => {
+      content += `Table ${table.name} {\n`;
+      table.columns.forEach(col => {
+        let columnLine = `  ${col.name} ${col.type}`;
+        if (col.isPrimary) columnLine += ' [pk]';
+        if (col.isForeign) columnLine += ' [ref]';
+        if (!col.nullable) columnLine += ' [not null]';
+        content += columnLine + '\n';
+      });
+      content += '}\n\n';
     });
 
     content += '```\n\n';

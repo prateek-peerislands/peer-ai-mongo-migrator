@@ -157,7 +157,7 @@ export class MigrationService {
       let totalInserted = 0;
       
       for (const batch of batches) {
-        const result = await mongoService.executeOperation('insert', 'dvdrental', collectionName, batch);
+        const result = await mongoService.executeOperation('insert', mongoService.getCurrentDatabase(), collectionName, batch);
         if (result.success) {
           totalInserted += batch.length;
           console.log(`   Inserted batch: ${batch.length} records (Total: ${totalInserted})`);
@@ -217,7 +217,7 @@ export class MigrationService {
       const postgresCount = postgresCountResult.data[0]?.count || 0;
       
       // Get MongoDB record count
-      const mongoCountResult = await mongoService.executeOperation('count', 'dvdrental', targetCollection, {});
+      const mongoCountResult = await mongoService.executeOperation('count', mongoService.getCurrentDatabase(), targetCollection, {});
       
       if (!mongoCountResult.success) {
         issues.push(`Failed to get MongoDB count: ${mongoCountResult.error}`);

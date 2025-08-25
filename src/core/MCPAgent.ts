@@ -104,30 +104,47 @@ export class MCPAgent {
       await this.mcpClient.initialize();
       
       if (this.config.postgresql) {
-        await this.postgresqlService.initialize(this.config);
-        this.status.postgresql.connected = true;
-        
-        // Set PostgreSQL service reference in SchemaService
-        this.schemaService.setPostgreSQLService(this.postgresqlService);
-        
-        // Get table count
-        const tables = await this.postgresqlService.listTables();
-        this.status.postgresql.tableCount = tables.length;
+        try {
+          await this.postgresqlService.initialize(this.config.postgresql);
+          this.status.postgresql.connected = true;
+          
+          // Set PostgreSQL service reference in SchemaService
+          this.schemaService.setPostgreSQLService(this.postgresqlService);
+          
+          // Get table count
+          const tables = await this.postgresqlService.listTables();
+          this.status.postgresql.tableCount = tables.length;
+        } catch (error) {
+          console.warn('⚠️ PostgreSQL service initialization failed, continuing without PostgreSQL');
+          this.status.postgresql.connected = false;
+          this.status.postgresql.tableCount = 0;
+        }
       }
       
       if (this.config.mongodb) {
-        await this.mongodbService.initialize(this.config);
-        this.status.mongodb.connected = true;
-        
-        // Get collection count
-        const collections = await this.mongodbService.listCollections(this.config.mongodb.database || 'dvdrental');
-        this.status.mongodb.collectionCount = collections.length;
+        try {
+          await this.mongodbService.initialize(this.config.mongodb);
+          this.status.mongodb.connected = true;
+          
+          // Get collection count
+          const collections = await this.mongodbService.listCollections(this.config.mongodb.database || 'default');
+          this.status.mongodb.collectionCount = collections.length;
+        } catch (error) {
+          console.warn('⚠️ MongoDB service initialization failed, continuing without MongoDB');
+          this.status.mongodb.connected = false;
+          this.status.mongodb.collectionCount = 0;
+        }
       }
       
       // Start health monitoring
       this.startHealthChecks();
       
-      console.log('✅ MCP Agent ready');
+      // Check if at least one service is connected
+      if (this.status.postgresql.connected || this.status.mongodb.connected) {
+        console.log('✅ MCP Agent ready (some services may be unavailable)');
+      } else {
+        console.warn('⚠️ MCP Agent initialized but no database services are connected');
+      }
     } catch (error) {
       console.error('❌ Failed to initialize MCP Agent:', error);
       throw error;
@@ -419,6 +436,13 @@ export class MCPAgent {
   }
 
   /**
+   * Get MongoDB service instance
+   */
+  getMongoDBService(): MongoDBService {
+    return this.mongodbService;
+  }
+
+  /**
    * Compare schemas between PostgreSQL and MongoDB
    */
   async compareSchemas(database: string): Promise<SchemaComparisonResult> {
@@ -669,7 +693,7 @@ export class MCPAgent {
       const postgresTables = await this.postgresqlService.listTables();
       
       // Get MongoDB collections
-      const mongoCollections = await this.mongodbService.listCollections('dvdrental');
+      const mongoCollections = await this.mongodbService.listCollections('default');
       
       // Find common names (case-insensitive)
       const common: string[] = [];
@@ -776,12 +800,12 @@ ${mongodbOnly.length > 0 ? `  • ${mongodbOnly.length} MongoDB collections coul
       }
       
       // Get MongoDB collections with document counts
-      const mongoCollections = await this.mongodbService.listCollections('dvdrental');
+      const mongoCollections = await this.mongodbService.listCollections('default');
       const mongodbCollections: Array<{ name: string; documentCount: number }> = [];
       
       for (const collection of mongoCollections) {
         try {
-          const countResult = await this.mongodbService.executeOperation('count', 'dvdrental', collection, {});
+          const countResult = await this.mongodbService.executeOperation('count', 'default', collection, {});
           if (countResult.success) {
             mongodbCollections.push({
               name: collection as string,
@@ -991,10 +1015,11 @@ ${mongodbOnly.length > 0 ? `  • ${mongodbOnly.length} MongoDB collections coul
       // Extract comprehensive schema
       const schema = await this.schemaService.getComprehensivePostgreSQLSchema();
       
-      // Generate markdown documentation
+      // Generate markdown documentation (which now includes enhanced ER diagrams)
       const filepath = await this.markdownGenerator.generatePostgreSQLSchemaMarkdown(schema);
       
       console.log('✅ PostgreSQL schema analysis completed successfully');
+      console.log('🗺️ Enhanced ER diagrams are included in the documentation');
       
       return {
         success: true,
@@ -1006,6 +1031,96 @@ ${mongodbOnly.length > 0 ? `  • ${mongodbOnly.length} MongoDB collections coul
       return {
         success: false,
         error: `Schema analysis failed: ${error}`
+      };
+    }
+  }
+
+  /**
+   * Generate ER diagram separately (for direct ER diagram requests)
+   */
+  async generateERDiagram(
+    format: 'mermaid' | 'plantuml' | 'dbml' | 'json' = 'mermaid',
+    options?: {
+      includeIndexes?: boolean;
+      includeConstraints?: boolean;
+      includeDataTypes?: boolean;
+      includeCardinality?: boolean;
+      includeDescriptions?: boolean;
+      outputPath?: string;
+      diagramStyle?: 'detailed' | 'simplified' | 'minimal';
+    }
+  ): Promise<{
+    success: boolean;
+    filepath?: string;
+    error?: string;
+    metadata?: any;
+  }> {
+    try {
+      console.log(`🗺️ Generating ER diagram in ${format.toUpperCase()} format...`);
+      
+      // Check if PostgreSQL is connected
+      if (!this.status.postgresql.connected) {
+        throw new Error('PostgreSQL is not connected. Please check your connection settings.');
+      }
+
+      // Generate ER diagram using the schema service
+      const result = await this.schemaService.generateERDiagram(format, options);
+      
+      if (result.success) {
+        console.log(`✅ ER diagram generated successfully in ${format.toUpperCase()} format`);
+        return {
+          success: true,
+          filepath: result.filePath,
+          metadata: result.metadata
+        };
+      } else {
+        throw new Error(result.error || 'Failed to generate ER diagram');
+      }
+      
+    } catch (error) {
+      console.error('❌ ER diagram generation failed:', error);
+      return {
+        success: false,
+        error: `ER diagram generation failed: ${error}`
+      };
+    }
+  }
+
+  /**
+   * Generate comprehensive ER diagram documentation
+   */
+  async generateERDocumentation(): Promise<{
+    success: boolean;
+    filepath?: string;
+    error?: string;
+    metadata?: any;
+  }> {
+    try {
+      console.log('📚 Generating comprehensive ER diagram documentation...');
+      
+      // Check if PostgreSQL is connected
+      if (!this.status.postgresql.connected) {
+        throw new Error('PostgreSQL is not connected. Please check your connection settings.');
+      }
+
+      // Generate ER documentation using the schema service
+      const filepath = await this.schemaService.generateERDocumentation();
+      
+      console.log('✅ ER diagram documentation generated successfully');
+      return {
+        success: true,
+        filepath,
+        metadata: {
+          generatedAt: new Date(),
+          type: 'ER Documentation'
+        }
+      };
+      
+    } catch (error) {
+      console.error('❌ ER diagram documentation generation failed:', error);
+      return {
+        success: false,
+        error: `ER diagram documentation generation failed: ${error}`
       };
     }
   }
@@ -1650,14 +1765,14 @@ ${mongodbOnly.length > 0 ? `  • ${mongodbOnly.length} MongoDB collections coul
       
       // Create collection first if it doesn't exist
       try {
-        await this.mongodbService.executeOperation('create-collection', 'dvdrental', collectionName, {});
+        await this.mongodbService.executeOperation('create-collection', 'default', collectionName, {});
       } catch (error) {
         // Collection might already exist, continue
         console.log(`Collection ${collectionName} might already exist, continuing...`);
       }
       
       // Insert into MongoDB using MCP tools
-      const mongoResult = await this.mongodbService.executeOperation('insert', 'dvdrental', collectionName, transformedData);
+      const mongoResult = await this.mongodbService.executeOperation('insert', 'default', collectionName, transformedData);
       if (!mongoResult.success) {
         throw new Error(`Failed to insert into MongoDB: ${mongoResult.error}`);
       }

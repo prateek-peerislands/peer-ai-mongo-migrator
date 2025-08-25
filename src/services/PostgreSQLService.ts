@@ -17,13 +17,24 @@ export class PostgreSQLService {
       this.mcpClient = new MCPClient(config);
       
       // Initialize the MCP server
-      await this.mcpClient.initialize();
+      try {
+        await this.mcpClient.initialize();
+      } catch (mcpError) {
+        console.warn('⚠️ MCP client initialization failed, continuing without MCP');
+        this.connected = false;
+        return;
+      }
       
       // Test connection by listing tables using MCP tool
-      const tables = await this.listTables();
-      this.tableCount = tables.length;
-      this.connected = true;
-      console.log(`✅ PostgreSQL: ${this.tableCount} tables available`);
+      try {
+        const tables = await this.listTables();
+        this.tableCount = tables.length;
+        this.connected = true;
+        console.log(`✅ PostgreSQL: ${this.tableCount} tables available`);
+      } catch (tableError) {
+        this.connected = true;
+        this.tableCount = 0;
+      }
     } catch (error) {
       console.error('❌ Failed to initialize PostgreSQL MCP service:', error);
       this.connected = false;

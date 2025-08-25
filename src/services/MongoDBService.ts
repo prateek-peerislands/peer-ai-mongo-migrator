@@ -18,15 +18,43 @@ export class MongoDBService {
       this.mcpClient = new MCPClient(config);
       
       // Initialize the MCP server
-      await this.mcpClient.initialize();
+      try {
+        await this.mcpClient.initialize();
+      } catch (mcpError) {
+        console.warn('⚠️ MCP client initialization failed, continuing without MCP');
+        this.connected = false;
+        return;
+      }
       
       // Initialize MongoDB MCP service
-      await this.connect(config.connectionString);
+      if (config && config.connectionString) {
+        try {
+          await this.connect(config.connectionString);
+          
+          // Use the database name from config if available, otherwise use parsed one
+          if (config.database && config.database !== 'default') {
+            this.currentDatabase = config.database;
+          }
+          
+        } catch (connectError) {
+          console.warn('⚠️ MongoDB connection failed, continuing without MongoDB');
+          this.connected = false;
+          return;
+        }
+      } else {
+        console.warn('⚠️ No MongoDB connection string provided, using default database');
+        this.currentDatabase = 'default';
+      }
       
       // Get collection count using MCP tools
-      this.collectionCount = await this.getCollectionCount();
-      this.connected = true;
-      console.log(`✅ MongoDB: ${this.collectionCount} collections available`);
+      try {
+        this.collectionCount = await this.getCollectionCount();
+        this.connected = true;
+        console.log(`✅ MongoDB: ${this.collectionCount} collections available`);
+      } catch (countError) {
+        this.connected = true;
+        this.collectionCount = 0;
+      }
     } catch (error) {
       console.error('❌ Failed to initialize MongoDB MCP service:', error);
       this.connected = false;
@@ -39,6 +67,11 @@ export class MongoDBService {
    */
   private async connect(connectionString: string): Promise<void> {
     try {
+      // Validate connection string
+      if (!connectionString || typeof connectionString !== 'string') {
+        throw new Error('Invalid connection string provided');
+      }
+      
       // Use the actual MCP MongoDB connect tool
       const result = await this.mcpClient.callMongoDBTool('mcp_MongoDB_connect', { 
         connectionString 
@@ -48,8 +81,37 @@ export class MongoDBService {
         throw new Error(result.error);
       }
       
-      // Set the current database from the connection result
-      this.currentDatabase = 'dvdrental';
+      // Set the current database from the connection string or use default
+      // Extract database name from connection string if available
+      let dbMatch = null;
+      let database = 'default';
+      
+      try {
+        // Try to extract database name from connection string
+        // Handle both cluster and standard MongoDB URLs
+        if (connectionString.includes('mongodb+srv://')) {
+          // Cluster connection string
+          const urlParts = connectionString.split('/');
+          if (urlParts.length > 3) {
+            // mongodb+srv://username:password@cluster.mongodb.net/database?options
+            const lastPart = urlParts[urlParts.length - 1];
+            const dbPart = lastPart.split('?')[0]; // Remove query parameters
+            if (dbPart && dbPart !== 'net') {
+              database = dbPart;
+            }
+          }
+        } else {
+          // Standard MongoDB connection string
+          dbMatch = connectionString.match(/\/([^/?]+)(\?|$)/);
+          if (dbMatch) {
+            database = dbMatch[1];
+          }
+        }
+      } catch (parseError) {
+        // Silent parsing error
+      }
+      
+      this.currentDatabase = database;
     } catch (error) {
       throw new Error(`Failed to initialize MongoDB MCP service: ${error}`);
     }
@@ -331,6 +393,13 @@ export class MongoDBService {
    */
   isConnected(): boolean {
     return this.connected;
+  }
+
+  /**
+   * Get current database name
+   */
+  getCurrentDatabase(): string {
+    return this.currentDatabase;
   }
 
   /**

@@ -40,8 +40,8 @@ export const defaultMCPServerConfig: MCPServerConfig = {
 export const defaultConfig = {
   mcpServers: defaultMCPServerConfig,
   cli: {
-      prompt: 'peer-ai-mongo-migrator> ',
-  historyFile: '.peer-ai-mongo-migrator-history',
+    prompt: 'peer-ai-mongo-migrator> ',
+    historyFile: '.peer-ai-mongo-migrator-history',
     maxHistorySize: 1000
   },
   mcp: {
@@ -50,5 +50,13 @@ export const defaultConfig = {
     enableLogging: true,
     retryAttempts: 3,
     connectionPoolSize: 5
+  },
+  databases: {
+    postgresql: {
+      defaultDatabase: 'default'
+    },
+    mongodb: {
+      defaultDatabase: 'default'
+    }
   }
 };

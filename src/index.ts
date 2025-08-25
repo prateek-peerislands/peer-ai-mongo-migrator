@@ -64,22 +64,30 @@ EXAMPLES:
   peer-ai-mongo-migrator query --postgres "SELECT * FROM actor LIMIT 5"
 
   # Execute MongoDB operation
-  peer-ai-mongo-migrator query --mongo find --database dvdrental --collection actor
+  peer-ai-mongo-migrator query --mongo find --database default --collection actor
 
   # Cross-database query with INNER JOIN
-  peer-ai-mongo-migrator cross-query --postgres "SELECT * FROM actor LIMIT 5" --mongo '{}' --database dvdrental --collection actor --join-strategy inner --join-key actor_id
+  peer-ai-mongo-migrator cross-query --postgres "SELECT * FROM actor LIMIT 5" --mongo '{}' --database default --collection actor --join-strategy inner --join-key actor_id
 
   # Show PostgreSQL schema
   peer-ai-mongo-migrator schema --postgres
 
   # Compare schemas between databases
-  peer-ai-mongo-migrator schema --compare --database dvdrental
+  peer-ai-mongo-migrator schema --compare --database default
 
   # Validate PostgreSQL schema
   peer-ai-mongo-migrator schema --validate
 
   # Analyze PostgreSQL schema comprehensively and generate documentation
   peer-ai-mongo-migrator schema --analyze
+
+  # Generate ER diagrams in multiple formats
+  peer-ai-mongo-migrator er-diagram --format mermaid --style detailed
+  peer-ai-mongo-migrator er-diagram --format plantuml --output ./diagrams
+  peer-ai-mongo-migrator er-diagram --documentation
+
+  # Enhanced schema analysis with business context (NEW!)
+  peer-ai-mongo-migrator schema --analyze --business-context
 
   # Migrate data (ON-DEMAND only)
   peer-ai-mongo-migrator migrate --source actor --target actors --batch-size 100 --validate
@@ -127,12 +135,29 @@ HUMAN LANGUAGE INTERACTION:
   • "How are the databases doing?"
   • "list the tables in postgres" (lists tables and row counts)
   • "list the collections in mongo" (lists collections and document counts)
+  • "generate ER diagram for my postgres schema" (creates comprehensive ER diagrams)
+  • "show me the database relationships" (displays entity-relationship diagrams)
+  • "create database diagram in plantuml format" (generates PlantUML ER diagrams)
 
 NOTE: "list the tables in postgres" = quick overview, "analyze the postgres schema" = comprehensive documentation
 
 MCP TOOLS SUPPORTED:
   PostgreSQL: read_query, write_query, list_tables, describe_table, create_table, alter_table, drop_table, export_query
   MongoDB: connect, list-databases, list-collections, find, insert-many, update-many, delete-many, count, aggregate, create-collection, drop-collection, create-index, collection-schema, explain
+
+ER DIAGRAM FEATURES:
+  🗺️ Multiple Formats: Mermaid, PlantUML, DBML, JSON
+  🎨 Customizable Styles: Detailed, Simplified, Minimal
+  📊 Comprehensive: Tables, Relationships, Indexes, Constraints
+  🔗 Interactive: Clickable diagrams with relationship details
+  📚 Documentation: Complete ER diagram documentation with usage instructions
+
+NEW: RELATIONSHIP BEYOND DDL FEATURES:
+  🧠 Semantic Relationships: Business context and purpose of table relationships
+  🌊 Data Flow Patterns: How data moves through business workflows
+  🏢 Business Processes: Operational processes supported by the database
+  📋 Business Rules: Governance rules and data integrity constraints
+  📊 Impact Matrix: Risk assessment and business criticality analysis
 
 FEATURES:
   ✅ Complete MCP Integration with real tool calls
@@ -141,6 +166,9 @@ FEATURES:
   ✅ Human language interaction capabilities
   ✅ Database state monitoring and comparison
   ✅ Comprehensive schema analysis and documentation
+  ✅ Enhanced Entity-Relationship (ER) diagram generation
+  ✅ Multiple diagram formats: Mermaid, PlantUML, DBML, JSON
+  ✅ Interactive ER diagram documentation
   ✅ Simplified and focused functionality
   ✅ Health monitoring (every 5 minutes instead of constantly)
 

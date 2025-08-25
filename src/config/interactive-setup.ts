@@ -99,7 +99,7 @@ export class InteractiveSetup {
         type: 'input',
         name: 'pgDatabase',
         message: 'PostgreSQL Database:',
-        default: 'dvdrental',
+        default: 'default',
         validate: (input: string) => input.trim() ? true : 'Database name is required'
       },
       {
@@ -135,7 +135,7 @@ export class InteractiveSetup {
         type: 'input',
         name: 'mongoDatabase',
         message: 'MongoDB Database:',
-        default: 'dvdrental',
+        default: 'default',
         validate: (input: string) => input.trim() ? true : 'Database name is required'
       }
     ]);

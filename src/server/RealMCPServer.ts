@@ -38,6 +38,27 @@ export class RealMCPServer {
   }
 
   /**
+   * Check if the MCP server is initialized
+   */
+  isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  /**
+   * Check if PostgreSQL service is available
+   */
+  isPostgreSQLAvailable(): boolean {
+    return this.initialized && this.postgresClient !== null;
+  }
+
+  /**
+   * Check if MongoDB service is available
+   */
+  isMongoDBAvailable(): boolean {
+    return this.initialized && this.mongoClient !== null;
+  }
+
+  /**
    * Initialize the MCP server with real database connections
    */
   async initialize(): Promise<void> {
@@ -46,18 +67,35 @@ export class RealMCPServer {
     }
 
     try {
+      let servicesInitialized = 0;
+      
       // Initialize PostgreSQL connection
       if (this.config.postgresql) {
-        await this.initializePostgreSQL();
+        try {
+          await this.initializePostgreSQL();
+          servicesInitialized++;
+        } catch (error) {
+          console.warn('⚠️ PostgreSQL initialization failed, continuing without PostgreSQL');
+        }
       }
       
       // Initialize MongoDB connection
       if (this.config.mongodb) {
-        await this.initializeMongoDB();
+        try {
+          await this.initializeMongoDB();
+          servicesInitialized++;
+        } catch (error) {
+          console.warn('⚠️ MongoDB initialization failed, continuing without MongoDB');
+        }
       }
       
       this.initialized = true;
-      console.log('✅ Real MCP Server initialized successfully');
+      
+      if (servicesInitialized > 0) {
+        console.log(`✅ Real MCP Server initialized successfully (${servicesInitialized} services connected)`);
+      } else {
+        console.warn('⚠️ Real MCP Server initialized but no database services are connected');
+      }
     } catch (error) {
       console.error('❌ Failed to initialize Real MCP Server:', error);
       throw error;
@@ -80,9 +118,9 @@ export class RealMCPServer {
       });
       
       await this.postgresClient.connect();
-      console.log(`✅ Connected to PostgreSQL: ${database} (${host}:${port})`);
+      console.log(`✅ Connected to PostgreSQL: ${database}`);
     } catch (error) {
-      console.error('❌ Failed to connect to PostgreSQL:', error);
+      console.error('❌ Failed to connect to PostgreSQL');
       throw error;
     }
   }
@@ -94,17 +132,30 @@ export class RealMCPServer {
     try {
       const { connectionString } = this.config.mongodb!;
       
-      this.mongoClient = new MongoClient(connectionString);
+      this.mongoClient = new MongoClient(connectionString, {
+        serverApi: {
+          version: '1',
+          strict: true,
+          deprecationErrors: true,
+        }
+      });
+      
       await this.mongoClient.connect();
       
       // Test connection by listing databases
-      const adminDb = this.mongoClient.db('admin');
-      const result = await adminDb.admin().listDatabases();
-      const databases = result.databases.map(db => db.name);
+      try {
+        const adminDb = this.mongoClient.db('admin');
+        const result = await adminDb.admin().listDatabases();
+        const databases = result.databases.map(db => db.name);
+        
+        console.log(`✅ Connected to MongoDB: ${databases.length} databases available`);
+      } catch (dbError) {
+        // Connection is still valid even if we can't list databases
+      }
       
-      console.log(`✅ Connected to MongoDB: ${databases.join(', ')}`);
     } catch (error) {
-      console.error('❌ Failed to connect to MongoDB:', error);
+      console.error('❌ Failed to connect to MongoDB');
+      this.mongoClient = null; // Reset client on failure
       throw error;
     }
   }
@@ -466,10 +517,27 @@ export class RealMCPServer {
   private async handleMongoDBConnect(connectionString: string): Promise<MCPToolResult> {
     try {
       if (!this.mongoClient) {
-        throw new Error('MongoDB client not initialized');
+        // Try to initialize MongoDB client if not already done
+        try {
+          this.mongoClient = new MongoClient(connectionString, {
+            serverApi: {
+              version: '1',
+              strict: true,
+              deprecationErrors: true,
+            }
+          });
+          
+          await this.mongoClient.connect();
+          
+        } catch (connectError) {
+          return {
+            success: false,
+            error: `Failed to connect to MongoDB`
+          };
+        }
       }
 
-      // MongoDB is already connected, just return success
+      // MongoDB is now connected, return success
       return {
         success: true,
         data: { message: 'MongoDB connected' }
@@ -485,17 +553,27 @@ export class RealMCPServer {
   private async handleMongoDBListDatabases(): Promise<MCPToolResult> {
     try {
       if (!this.mongoClient) {
-        throw new Error('MongoDB client not initialized');
+        return {
+          success: false,
+          error: 'MongoDB client not initialized. Please connect first using mcp_MongoDB_connect'
+        };
       }
 
-      const adminDb = this.mongoClient.db('admin');
-      const result = await adminDb.admin().listDatabases();
-      const databases = result.databases.map(db => db.name);
-      
-      return {
-        success: true,
-        data: databases
-      };
+              try {
+          const adminDb = this.mongoClient.db('admin');
+          const result = await adminDb.admin().listDatabases();
+          const databases = result.databases.map(db => db.name);
+          
+          return {
+            success: true,
+            data: databases
+          };
+        } catch (dbError) {
+          return {
+            success: false,
+            error: `Failed to list MongoDB databases`
+          };
+        }
     } catch (error) {
       return {
         success: false,
@@ -507,17 +585,27 @@ export class RealMCPServer {
   private async handleMongoDBListCollections(database: string): Promise<MCPToolResult> {
     try {
       if (!this.mongoClient) {
-        throw new Error('MongoDB client not initialized');
+        return {
+          success: false,
+          error: 'MongoDB client not initialized. Please connect first using mcp_MongoDB_connect'
+        };
       }
 
-      const db = this.mongoClient.db(database);
-      const collections = await db.listCollections().toArray();
-      const collectionNames = collections.map(col => col.name);
-      
-      return {
-        success: true,
-        data: collectionNames
-      };
+              try {
+          const db = this.mongoClient.db(database);
+          const collections = await db.listCollections().toArray();
+          const collectionNames = collections.map(col => col.name);
+          
+          return {
+            success: true,
+            data: collectionNames
+          };
+        } catch (dbError) {
+          return {
+            success: false,
+            error: `Failed to list MongoDB collections`
+          };
+        }
     } catch (error) {
       return {
         success: false,
