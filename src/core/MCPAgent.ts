@@ -7,6 +7,10 @@ import { MarkdownGenerator } from '../services/MarkdownGenerator.js';
 import { MongoDBSchemaGenerator } from '../services/MongoDBSchemaGenerator.js';
 import { MongoDBSchemaMarkdownGenerator } from '../services/MongoDBSchemaMarkdownGenerator.js';
 import { PostgreSQLSchemaFileParser } from '../services/PostgreSQLSchemaFileParser.js';
+import { IntelligentMongoDBDesigner } from '../services/IntelligentMongoDBDesigner.js';
+import { StoredProcedureAnalyzer } from '../services/StoredProcedureAnalyzer.js';
+import { QueryPatternAnalyzer } from '../services/QueryPatternAnalyzer.js';
+import { EnhancedMigrationService } from '../services/EnhancedMigrationService.js';
 import { MCPClient, MCPHealthStatus } from './MCPClient.js';
 import chalk from 'chalk';
 
@@ -64,6 +68,10 @@ export class MCPAgent {
   private mongoDBSchemaMarkdownGenerator: MongoDBSchemaMarkdownGenerator;
   private postgreSQLSchemaFileParser: PostgreSQLSchemaFileParser;
   private mcpClient: MCPClient;
+  private intelligentMongoDBDesigner: IntelligentMongoDBDesigner;
+  private storedProcedureAnalyzer: StoredProcedureAnalyzer;
+  private queryPatternAnalyzer: QueryPatternAnalyzer;
+  private enhancedMigrationService: EnhancedMigrationService;
   private config: DatabaseConfig;
   private status: DatabaseStatus;
   private healthCheckInterval: NodeJS.Timeout | null = null;
@@ -80,6 +88,16 @@ export class MCPAgent {
     this.postgreSQLSchemaFileParser = new PostgreSQLSchemaFileParser();
     this.mcpClient = new MCPClient(config);
     
+    this.intelligentMongoDBDesigner = new IntelligentMongoDBDesigner(this.postgresqlService);
+    this.storedProcedureAnalyzer = new StoredProcedureAnalyzer(this.postgresqlService);
+    this.queryPatternAnalyzer = new QueryPatternAnalyzer(this.postgresqlService);
+    this.enhancedMigrationService = new EnhancedMigrationService(
+      this.postgresqlService,
+      this.intelligentMongoDBDesigner,
+      this.storedProcedureAnalyzer,
+      this.queryPatternAnalyzer,
+      this.schemaService
+    );
     this.status = {
       postgresql: {
         connected: false,
