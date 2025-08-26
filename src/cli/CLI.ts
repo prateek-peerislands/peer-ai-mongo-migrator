@@ -90,6 +90,20 @@ export class CLI {
       .option('-d, --database <db>', 'MongoDB database name')
       .action(this.handleMigration.bind(this));
 
+    // Enhanced Migration operations
+    this.program
+      .command('enhanced-migrate')
+      .description('Generate intelligent MongoDB migration plan with embedded documents and stored procedure analysis')
+      .option('--include-stored-procedures', 'Analyze and migrate stored procedures', true)
+      .option('--include-query-patterns', 'Analyze query patterns for optimization', true)
+      .option('--embedded-documents', 'Design embedded documents instead of separate collections', true)
+      .option('--performance-analysis', 'Include performance analysis and optimization', true)
+      .option('--risk-assessment', 'Include comprehensive risk assessment', true)
+      .option('--timeline-estimation', 'Include detailed timeline estimation', true)
+      .option('-o, --output <path>', 'Output directory for migration plan files')
+      .option('--format <format>', 'Output format: markdown, json, html', 'markdown')
+      .action(this.handleEnhancedMigration.bind(this));
+
     // Status and monitoring
     this.program
       .command('status')
@@ -720,6 +734,119 @@ export class CLI {
       }
     } catch (error) {
       console.error('❌ Migration failed:', error);
+    }
+  }
+
+  /**
+   * Handle enhanced migration operations with intelligent MongoDB design
+   */
+  private async handleEnhancedMigration(options: any): Promise<void> {
+    try {
+      const spinner = ora('Starting enhanced migration planning...').start();
+      
+      // Initialize MCP agent if not already done
+      if (!this.agent) {
+        // Use default config for enhanced migration
+        const defaultConfig: DatabaseConfig = {
+          postgresql: {
+            host: 'localhost',
+            port: 5432,
+            database: 'postgres',
+            username: 'postgres',
+            password: ''
+          },
+          mongodb: {
+            connectionString: 'mongodb://localhost:27017'
+          }
+        };
+        await this.initialize(defaultConfig);
+      }
+      
+      const {
+        includeStoredProcedures,
+        includeQueryPatterns,
+        embeddedDocuments,
+        performanceAnalysis,
+        riskAssessment,
+        timelineEstimation,
+        output,
+        format
+      } = options;
+      
+      spinner.text = 'Analyzing PostgreSQL database comprehensively...';
+      const analysisResult = await this.agent.analyzePostgreSQLComprehensive({
+        includeStoredProcedures: includeStoredProcedures === 'true',
+        includeQueryPatterns: includeQueryPatterns === 'true',
+        includePerformanceAnalysis: performanceAnalysis === 'true'
+      });
+      
+      if (!analysisResult.success) {
+        spinner.fail('Failed to analyze PostgreSQL database');
+        return;
+      }
+      
+      spinner.text = 'Designing intelligent MongoDB collections...';
+      const designResult = await this.agent.designIntelligentMongoDB({
+        embeddedDocuments: embeddedDocuments === 'true',
+        includePerformanceOptimization: performanceAnalysis === 'true'
+      });
+      
+      if (!designResult.success) {
+        spinner.fail('Failed to design intelligent MongoDB collections');
+        return;
+      }
+      
+      spinner.text = 'Generating comprehensive migration plan...';
+      const migrationPlan = await this.agent.generateEnhancedMigrationPlan({
+        includeRiskAssessment: riskAssessment === 'true',
+        includeTimelineEstimation: timelineEstimation === 'true'
+      });
+      
+      if (!migrationPlan.success) {
+        spinner.fail('Failed to generate migration plan');
+        return;
+      }
+      
+      spinner.text = 'Generating output files...';
+      const outputResult = await this.agent.generateMigrationPlanOutput(
+        migrationPlan.data,
+        {
+          format: format || 'markdown',
+          outputDirectory: output || './migration-plan',
+          includeAllSections: true
+        }
+      );
+      
+      if (outputResult.success) {
+        spinner.succeed('Enhanced migration plan generated successfully!');
+        console.log(chalk.green('\nEnhanced Migration Plan Summary:'));
+        console.log(chalk.cyan(`Output directory: ${outputResult.data?.outputDirectory || 'migration-plan'}`));
+        console.log(chalk.cyan(`Files generated: ${outputResult.data?.filesGenerated?.length || 0}`));
+        console.log(chalk.cyan(`Collections designed: ${designResult.data?.collections?.length || 0}`));
+        console.log(chalk.cyan(`Embedded documents: ${designResult.data?.embeddedDocuments?.length || 0}`));
+        
+        if (outputResult.data?.filesGenerated) {
+          console.log(chalk.yellow('\nGenerated Files:'));
+          outputResult.data.filesGenerated.forEach((file: string) => {
+            console.log(chalk.cyan(`  - ${file}`));
+          });
+        }
+        
+        console.log(chalk.green('\n🎉 Your intelligent MongoDB migration plan is ready!'));
+        console.log(chalk.cyan('The plan includes:'));
+        if (includeStoredProcedures === 'true') console.log(chalk.cyan('  ✓ Stored procedure analysis and migration'));
+        if (includeQueryPatterns === 'true') console.log(chalk.cyan('  ✓ Query pattern analysis and optimization'));
+        if (embeddedDocuments === 'true') console.log(chalk.cyan('  ✓ Intelligent embedded document design'));
+        if (performanceAnalysis === 'true') console.log(chalk.cyan('  ✓ Performance analysis and optimization'));
+        if (riskAssessment === 'true') console.log(chalk.cyan('  ✓ Comprehensive risk assessment'));
+        if (timelineEstimation === 'true') console.log(chalk.cyan('  ✓ Detailed timeline estimation'));
+      } else {
+        spinner.fail('Failed to generate output files');
+        console.error(chalk.red('Error:'), outputResult.error);
+      }
+      
+    } catch (error) {
+      console.error(chalk.red('Enhanced migration error:'), error);
     }
   }
 
@@ -1466,35 +1593,23 @@ export class CLI {
         console.log(chalk.cyan(`📁 Documentation file: ${result.filepath}`));
         console.log(chalk.green('✨ A comprehensive MongoDB schema has been generated from your PostgreSQL database!'));
         
-        if (result.postgresSchema) {
-          console.log(chalk.blue('\n📊 PostgreSQL Source:'));
+        if (result.postgresSchema && result.mongodbSchema) {
+          console.log(chalk.blue('\n📊 Summary:'));
+          console.log(chalk.gray(`  • PostgreSQL Tables: ${result.postgresSchema.totalTables}`));
+          console.log(chalk.gray(`  • MongoDB Collections: ${result.mongodbSchema.totalCollections}`));
           console.log(chalk.gray(`  • Source: ${result.postgresSchema.source}`));
-          console.log(chalk.gray(`  • Total Tables: ${result.postgresSchema.totalTables}`));
-        }
-        
-        if (result.mongodbSchema) {
-          console.log(chalk.blue('\n🍃 MongoDB Schema:'));
-          console.log(chalk.gray(`  • Total Collections: ${result.mongodbSchema.totalCollections}`));
         }
         
         if (result.compatibilityReport) {
-          console.log(chalk.blue('\n🔍 Compatibility Report:'));
-          console.log(chalk.gray(`  • Compatible Tables: ${result.compatibilityReport.compatibleTables?.length || 0}`));
-          console.log(chalk.gray(`  • Incompatible Tables: ${result.compatibilityReport.incompatibleTables?.length || 0}`));
-          console.log(chalk.gray(`  • Type Mappings: ${Object.keys(result.compatibilityReport.typeMappings || {}).length}`));
-          console.log(chalk.gray(`  • Relationship Strategies: ${Object.keys(result.compatibilityReport.relationshipStrategies || {}).length}`));
+          const compatible = result.compatibilityReport.compatibleTables?.length || 0;
+          const incompatible = result.compatibilityReport.incompatibleTables?.length || 0;
+          console.log(chalk.gray(`  • Compatibility: ${compatible} compatible, ${incompatible} incompatible`));
         }
         
-        console.log(chalk.green('\n💡 Your MongoDB schema documentation has been generated!'));
-        console.log(chalk.yellow('📖 The file contains:'));
-        console.log(chalk.gray('  • Complete MongoDB collection schemas'));
-        console.log(chalk.gray('  • Type mappings from PostgreSQL to MongoDB'));
-        console.log(chalk.gray('  • Relationship strategies (embedded vs references)'));
-        console.log(chalk.gray('  • Performance considerations and indexing recommendations'));
-        console.log(chalk.gray('  • Migration guide and best practices'));
-        console.log(chalk.gray('  • Mermaid diagrams for visual representation'));
-        console.log(chalk.blue('\n📝 Note: Each generation creates a new timestamped file to preserve historical versions'));
-        console.log(chalk.cyan('\n🔍 You can also use: "peer-ai-mongo-migrator schema --mongodb" for the same functionality'));
+        console.log(chalk.green('\n💡 MongoDB schema documentation generated successfully!'));
+        console.log(chalk.gray('📖 Contains: schemas, type mappings, relationships, performance tips, and migration guide'));
+        console.log(chalk.blue('\n📝 Note: Each generation creates a new timestamped file'));
+        console.log(chalk.cyan('\n🔍 Alternative: "peer-ai-mongo-migrator schema --mongodb"'));
       } else {
         console.log(chalk.red('\n❌ MongoDB schema generation failed:'), result.error);
         console.log(chalk.yellow('💡 Please check your PostgreSQL connection and try again.'));

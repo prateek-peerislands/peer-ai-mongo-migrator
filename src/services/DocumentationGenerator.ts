@@ -653,6 +653,24 @@ ${apiStructure}`;
   }
 
   /**
+   * Extract package name from analysis
+   */
+  private extractPackageName(analysis: SourceCodeAnalysis): string {
+    // Try to extract package name from entity files
+    if (analysis.entities.length > 0) {
+      const firstEntity = analysis.entities[0];
+      if (firstEntity.filePath.includes('java/')) {
+        const pathParts = firstEntity.filePath.split('java/');
+        if (pathParts.length > 1) {
+          return pathParts[1].split('/').slice(0, -1).join('/');
+        }
+      }
+    }
+    // Default fallback
+    return 'com/example/application';
+  }
+
+  /**
    * Generate dynamic project structure based on actual analysis
    */
   private generateProjectStructure(analysis: SourceCodeAnalysis): string {
@@ -661,10 +679,11 @@ ${apiStructure}`;
     const serviceCount = analysis.services.length;
     const controllerCount = analysis.controllers.length;
     
+    // Generate dynamic structure based on actual analysis
     let structure = `├── src/\n`;
     structure += `│   ├── main/\n`;
     structure += `│   │   ├── java/\n`;
-    structure += `│   │   │   └── com/dvdrental/management/\n`;
+    structure += `│   │   │   └── ${this.extractPackageName(analysis)}/\n`;
     structure += `│   │   │       ├── entity/          (${entityCount} files)\n`;
     structure += `│   │   │       ├── repository/      (${repositoryCount} files)\n`;
     structure += `│   │   │       ├── service/         (${serviceCount} files)\n`;
@@ -1177,8 +1196,139 @@ ${this.generateLowImpactFilesTable(analysis)}
 | \`config/database.js\` | MongoDB connection configuration | 2 hours | None |
 | \`models/*.js\` | MongoDB schema definitions | ${analysis.entities.length * 2} hours | Data model |
 | \`routes/*.js\` | Express.js route handlers | ${analysis.controllers.length * 1.5} hours | Controllers |
-| \`services/*.js\` | Node.js service classes | ${analysis.services.length * 2} hours | Services |
-| \`middleware/*.js\` | Express.js middleware | 8 hours | None |
+
+### **🔄 Spring Boot → Node.js Transformation with Embedded Documents**
+
+#### **Why Classes Will Change Dramatically**
+
+**Current Spring Boot Structure (Normalized):**
+\`\`\`java
+@Entity
+public class Film {
+    @Id
+    private Long id;
+    private String title;
+    
+    @ManyToOne
+    @JoinColumn(name = "language_id")
+    private Language language;
+    
+    @ManyToMany
+    @JoinTable(name = "film_actor")
+    private List<Actor> actors;
+}
+
+@Entity
+public class Language {
+    @Id
+    private Long id;
+    private String name;
+}
+
+@Entity
+public class Actor {
+    @Id
+    private Long id;
+    private String firstName;
+    private String lastName;
+}
+\`\`\`
+
+**New Node.js Structure (Denormalized with Embedding):**
+\`\`\`javascript
+// models/film.js - Single collection with embedded documents
+const filmSchema = new mongoose.Schema({
+  title: String,
+  description: String,
+  
+  // Embedded language document (not separate class!)
+  language: {
+    name: String,
+    last_update: Date
+  },
+  
+  // Embedded actors array (not separate classes!)
+  actors: [{
+    first_name: String,
+    last_name: String,
+    last_update: Date
+  }]
+});
+\`\`\`
+
+#### **Key Transformations Required:**
+
+1. **🔄 Entity Classes → Embedded Documents**
+   - **Language Entity** → **Embedded in Film** (no separate Language class)
+   - **Actor Entity** → **Embedded in Film** (no separate Actor class)
+   - **Category Entity** → **Embedded in Film** (no separate Category class)
+
+2. **🔄 Repository Layer → MongoDB Operations**
+   - **FilmRepository** → **Film.find()** with embedded data
+   - **LanguageRepository** → **Eliminated** (data embedded in Film)
+   - **ActorRepository** → **Eliminated** (data embedded in Film)
+
+3. **🔄 Service Layer → Business Logic Adaptation**
+   - **FilmService.createFilm()** → **Create film with embedded language/actors**
+   - **LanguageService.getLanguage()** → **Access film.language.name directly**
+   - **ActorService.getActors()** → **Access film.actors array directly**
+
+4. **🔄 Controller Layer → Express.js Routes**
+   - **FilmController** → **/api/films** (handles all film operations)
+   - **LanguageController** → **Eliminated** (no separate endpoints)
+   - **ActorController** → **Eliminated** (no separate endpoints)
+
+#### **Benefits of This Transformation:**
+
+- **🚀 Performance**: Single query gets complete film data with language and actors
+- **💾 Storage**: No need for separate collections and JOINs
+- **🔧 Maintenance**: Simpler codebase with fewer classes and files
+- **📱 API**: Cleaner REST endpoints (e.g., \`/api/films\` instead of \`/api/films/{id}/language\`)
+- **🔄 Updates**: Atomic updates to film and related data
+
+### **📁 File Transformation Analysis: Spring Boot → Node.js Migration**
+
+**Why This Transformation Happens:**
+When moving from PostgreSQL (with separate tables) to MongoDB (with embedded documents), we eliminate many separate Java classes because related data is now embedded within main entities. 
+
+**Examples of Transformation:**
+- **Film.java** + **Language.java** + **Category.java** → **film.js** (one file with embedded data)
+- **Customer.java** + **Address.java** + **City.java** + **Country.java** → **customer.js** (one file with nested embedding)
+- **Staff.java** + **Address.java** + **City.java** + **Country.java** → **staff.js** (one file with nested embedding)
+
+**What This Means**: 
+- **Fewer Java files** to maintain (Language.java, Category.java, City.java, Country.java are eliminated)
+- **Simpler data access** patterns (no JOINs needed)
+- **Better performance** (single query gets all related data)
+- **Atomic updates** to main entity and related data
+
+// Section removed as requested by user
+
+// Section removed as requested by user
+
+#### **🔄 Repository Layer Transformation:**
+
+${this.generateRepositoryTransformationTable(analysis)}
+
+#### **🔄 Service Layer Transformation:**
+
+${this.generateServiceTransformationTable(analysis)}
+
+#### **🔄 Controller Layer Transformation:**
+
+${this.generateControllerTransformationTable(analysis)}
+
+#### **💡 Key Benefits of This Transformation:**
+
+1. **🚀 Performance**: Single query gets complete data with embedded relationships
+2. **💾 Storage**: No need for separate collections and JOINs
+3. **🔧 Maintenance**: Simpler codebase with fewer files and classes
+4. **📱 API**: Cleaner REST endpoints with embedded data
+5. **🔄 Updates**: Atomic updates to main entities and related data
+6. **📊 Consistency**: No more data inconsistency between related tables
+
+  | \`services/*.js\` | Node.js service classes | ${analysis.services.length * 2} hours | Services |
+  | \`middleware/*.js\` | Express.js middleware | 8 hours | None |
 | \`tests/*.js\` | Test files | 16 hours | All components |`;
   }
 
@@ -2364,5 +2514,178 @@ const ${entityName.toLowerCase()}Details = await ${entityName}.findById(id)
     }
 
     return example;
+  }
+
+  /**
+   * Generate table showing eliminated Java files based on actual analysis
+   */
+  private generateEliminatedJavaFilesTable(analysis: SourceCodeAnalysis): string {
+    const eliminatedFiles: string[] = [];
+    
+    // Define which entities will be eliminated due to embedding
+    const eliminatedEntities = [
+      'language', 'actor', 'category', 'city', 'country',
+      'filmactor', 'filmcategory', 'filmactorid', 'filmcategoryid'
+    ];
+    
+    // Analyze which entities will be eliminated due to embedding
+    analysis.entities.forEach(entity => {
+      const entityName = entity.fileName.replace('.java', '').toLowerCase();
+      
+      // Check if this entity should be eliminated
+      if (eliminatedEntities.some(eliminated => entityName.includes(eliminated))) {
+        // Determine where this entity gets embedded
+        let embeddedIn = '';
+        if (entityName.includes('language') || entityName.includes('category') || entityName.includes('actor')) {
+          embeddedIn = 'Film.java';
+        } else if (entityName.includes('city') || entityName.includes('country')) {
+          embeddedIn = 'Address.java';
+        } else if (entityName.includes('filmactor') || entityName.includes('filmcategory')) {
+          embeddedIn = 'Film.java';
+        }
+        
+        eliminatedFiles.push(`| \`${entity.fileName}\` | Data embedded in ${embeddedIn} | \`mainEntity.${entityName}.field\` |`);
+      }
+    });
+    
+    if (eliminatedFiles.length === 0) {
+      return 'No specific Java files identified for elimination in your current schema.';
+    }
+    
+    return `| **Spring Boot File** | **Why Eliminated** | **Node.js Alternative** |
+|----------------------|-------------------|-------------------------|
+${eliminatedFiles.join('\n')}`;
+  }
+
+  /**
+   * Generate table showing new Node.js files based on actual analysis
+   */
+  private generateNewNodeJSFilesTable(analysis: SourceCodeAnalysis): string {
+    const newNodeJSFiles: string[] = [];
+    
+    // Define which entities will become main Node.js files (NOT eliminated ones)
+    const mainEntities = [
+      'film', 'customer', 'staff', 'address', 'store', 'rental', 'payment', 'inventory'
+    ];
+    
+    // Generate based on actual entities - only main entities that will have collections
+    analysis.entities.forEach(entity => {
+      const entityName = entity.fileName.replace('.java', '').toLowerCase();
+      
+      // Only create Node.js files for main entities (not eliminated ones)
+      if (mainEntities.some(main => entityName.includes(main))) {
+        // Determine what gets embedded in this entity
+        let embeddedEntities = '';
+        if (entityName.includes('film')) {
+          embeddedEntities = 'language, category, actors';
+        } else if (entityName.includes('customer') || entityName.includes('staff')) {
+          embeddedEntities = 'address (with city and country)';
+        } else if (entityName.includes('address')) {
+          embeddedEntities = 'city (with country)';
+        } else if (entityName.includes('store')) {
+          embeddedEntities = 'address, staff';
+        } else if (entityName.includes('rental')) {
+          embeddedEntities = 'customer, inventory, staff';
+        } else if (entityName.includes('payment')) {
+          embeddedEntities = 'customer, rental, staff';
+        } else if (entityName.includes('inventory')) {
+          embeddedEntities = 'film, store';
+        }
+        
+        newNodeJSFiles.push(`| \`models/${entityName}.js\` | ${entityName} schema with embedded: ${embeddedEntities} | \`${entityName}.java\` + related entity classes |`);
+      }
+    });
+    
+    if (newNodeJSFiles.length === 0) {
+      return 'No specific Node.js files identified in your current schema.';
+    }
+    
+    return `| **New File** | **Purpose** | **Replaces** |
+|--------------|-------------|--------------|
+${newNodeJSFiles.join('\n')}`;
+  }
+
+  /**
+   * Generate repository transformation table based on actual analysis
+   */
+  private generateRepositoryTransformationTable(analysis: SourceCodeAnalysis): string {
+    const transformations: string[] = [];
+    
+    analysis.entities.forEach(entity => {
+      const entityName = entity.fileName.replace('.java', '');
+      if (entity.fileName.toLowerCase().includes('language') ||
+          entity.fileName.toLowerCase().includes('actor') ||
+          entity.fileName.toLowerCase().includes('category') ||
+          entity.fileName.toLowerCase().includes('city') ||
+          entity.fileName.toLowerCase().includes('country')) {
+        transformations.push(`| \`${entityName}Repository.java\` | **ELIMINATED** | Data embedded in main entity |`);
+      } else {
+        transformations.push(`| \`${entityName}Repository.java\` | \`${entityName}.find()\` | Direct MongoDB operations |`);
+      }
+    });
+    
+    if (transformations.length === 0) {
+      return 'No repository transformations identified in your current schema.';
+    }
+    
+    return `| **Spring Boot Repository** | **Node.js Equivalent** | **Why Changed** |
+|---------------------------|------------------------|-----------------|
+${transformations.join('\n')}`;
+  }
+
+  /**
+   * Generate service transformation table based on actual analysis
+   */
+  private generateServiceTransformationTable(analysis: SourceCodeAnalysis): string {
+    const transformations: string[] = [];
+    
+    analysis.entities.forEach(entity => {
+      const entityName = entity.fileName.replace('.java', '');
+      if (entity.fileName.toLowerCase().includes('language') ||
+          entity.fileName.toLowerCase().includes('actor') ||
+          entity.fileName.toLowerCase().includes('category') ||
+          entity.fileName.toLowerCase().includes('city') ||
+          entity.fileName.toLowerCase().includes('country')) {
+        transformations.push(`| \`${entityName}Service.get${entityName}(id)\` | **ELIMINATED** | Data embedded in main entity |`);
+      } else {
+        transformations.push(`| \`${entityName}Service.get${entityName}WithDetails(id)\` | \`${entityName}.findById(id)\` | Single query gets everything |`);
+      }
+    });
+    
+    if (transformations.length === 0) {
+      return 'No service transformations identified in your current schema.';
+    }
+    
+    return `| **Spring Boot Service** | **Node.js Equivalent** | **Data Access Pattern** |
+|------------------------|------------------------|-------------------------|
+${transformations.join('\n')}`;
+  }
+
+  /**
+   * Generate controller transformation table based on actual analysis
+   */
+  private generateControllerTransformationTable(analysis: SourceCodeAnalysis): string {
+    const transformations: string[] = [];
+    
+    analysis.entities.forEach(entity => {
+      const entityName = entity.fileName.replace('.java', '');
+      if (entity.fileName.toLowerCase().includes('language') ||
+          entity.fileName.toLowerCase().includes('actor') ||
+          entity.fileName.toLowerCase().includes('category') ||
+          entity.fileName.toLowerCase().includes('city') ||
+          entity.fileName.toLowerCase().includes('country')) {
+        transformations.push(`| \`GET /api/${entityName.toLowerCase()}s/{id}\` | **ELIMINATED** | Data embedded in main entity |`);
+      } else {
+        transformations.push(`| \`GET /api/${entityName.toLowerCase()}s/{id}\` | \`GET /api/${entityName.toLowerCase()}s/:id\` | Single endpoint gets all data |`);
+      }
+    });
+    
+    if (transformations.length === 0) {
+      return 'No controller transformations identified in your current schema.';
+    }
+    
+    return `| **Spring Boot Endpoint** | **Node.js Endpoint** | **Why Simplified** |
+|-------------------------|---------------------|-------------------|
+${transformations.join('\n')}`;
   }
 }

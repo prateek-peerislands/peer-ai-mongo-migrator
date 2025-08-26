@@ -131,7 +131,10 @@ export class PostgreSQLSchemaFileParser {
       }
     }
     
-    console.log(`📊 Parsed ${tables.length} unique tables from markdown (deduplicated)`);
+    // Only log summary if there are tables found
+    if (tables.length > 0) {
+      console.log(`📊 Parsed ${tables.length} unique tables from markdown`);
+    }
     return tables;
   }
 
@@ -208,7 +211,10 @@ export class PostgreSQLSchemaFileParser {
       }
     }
     
-    console.log(`🔍 Found ${columns.length} columns for table`);
+    // Only log if there are columns found and it's a meaningful table
+    if (columns.length > 0) {
+      console.log(`🔍 Parsed ${columns.length} columns for table`);
+    }
     return columns;
   }
 
