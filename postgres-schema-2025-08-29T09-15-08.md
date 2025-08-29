@@ -1,6 +1,6 @@
 # PostgreSQL Schema Documentation
 
-**Generated:** 8/25/2025, 4:26:51 PM
+**Generated:** 29/8/2025, 2:45:08 pm
 **Database:** PostgreSQL
 **Analysis Type:** Comprehensive Schema Analysis
 
@@ -89,17 +89,17 @@ This database contains a comprehensive set of database objects designed for effi
 - **Total Triggers:** 15
 - **Total Indexes:** 32
 - **Total Relationships:** 18
-- **Last Analyzed:** 8/25/2025, 4:26:51 PM
+- **Last Analyzed:** 29/8/2025, 2:45:08 pm
 
 ### 🎯 Purpose
-This database appears to be designed for user management and customer relationship management. The schema demonstrates well-normalized structure with proper referential integrity, optimized for read performance with strategic indexing, abstraction layers for complex data access, business logic encapsulation at the database level.
+This database appears to be designed for complex business operations with relational data management. The schema demonstrates well-normalized structure with proper referential integrity, optimized for read performance with strategic indexing, abstraction layers for complex data access, business logic encapsulation at the database level.
 
 ### 🧠 Enhanced Relationship Analysis
 This comprehensive analysis goes beyond traditional DDL relationships to provide business context and insights:
 
 - **Semantic Relationships:** 18 business relationships discovered
-- **Data Flow Patterns:** 5 workflow patterns identified
-- **Business Processes:** 4 operational processes mapped
+- **Data Flow Patterns:** 9 workflow patterns identified
+- **Business Processes:** 7 operational processes mapped
 - **Business Rules:** 41 governance rules extracted
 - **Impact Matrix:** Risk assessment for all 22 tables
 
@@ -111,7 +111,7 @@ The following tables form the core data structure of the database:
 
 ### Table: `actor`
 
-**Purpose:** Manages performer and talent information
+**Purpose:** Stores business data and supports application functionality
 
 **Columns:**
 
@@ -120,7 +120,7 @@ The following tables form the core data structure of the database:
 | `actor_id` | `integer` | NO |  |  |  | Unique identifier for the record |
 | `first_name` | `character varying` | NO |  |  |  | Human-readable name or title |
 | `last_name` | `character varying` | NO |  |  |  | Human-readable name or title |
-| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 
 **Primary Key:** `actor_id`
 
@@ -140,7 +140,7 @@ CREATE TABLE "actor" (
 
 ### Table: `actor_info`
 
-**Purpose:** Manages performer and talent information
+**Purpose:** Stores business data and supports application functionality
 
 **Columns:**
 
@@ -173,13 +173,13 @@ CREATE TABLE "actor_info" (
 | Column | Type | Nullable | Default | Primary | Foreign | Description |
 |--------|------|----------|---------|---------|---------|-------------|
 | `address_id` | `integer` | NO |  |  |  | Unique identifier for the record |
-| `address` | `character varying` | NO |  |  |  | Business data field |
-| `address2` | `character varying` | YES |  |  |  | Business data field |
+| `address` | `character varying` | NO |  |  |  | Geographic or physical location information |
+| `address2` | `character varying` | YES |  |  |  | Geographic or physical location information |
 | `district` | `character varying` | NO |  |  |  | Business data field |
 | `city_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
 | `postal_code` | `character varying` | YES |  |  |  | Business data field |
-| `phone` | `character varying` | NO |  |  |  | Business data field |
-| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `phone` | `character varying` | NO |  |  |  | Contact information |
+| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 
 **Primary Key:** `address_id`
 
@@ -208,7 +208,7 @@ CREATE TABLE "address" (
 
 ### Table: `category`
 
-**Purpose:** Defines classification and categorization data
+**Purpose:** Stores business data and supports application functionality
 
 **Columns:**
 
@@ -216,7 +216,7 @@ CREATE TABLE "address" (
 |--------|------|----------|---------|---------|---------|-------------|
 | `category_id` | `integer` | NO |  |  |  | Unique identifier for the record |
 | `name` | `character varying` | NO |  |  |  | Human-readable name or title |
-| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 
 **Primary Key:** `category_id`
 
@@ -244,7 +244,7 @@ CREATE TABLE "category" (
 | `city_id` | `integer` | NO |  |  |  | Unique identifier for the record |
 | `city` | `character varying` | NO |  |  |  | Business data field |
 | `country_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
-| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 
 **Primary Key:** `city_id`
 
@@ -276,8 +276,8 @@ CREATE TABLE "city" (
 | Column | Type | Nullable | Default | Primary | Foreign | Description |
 |--------|------|----------|---------|---------|---------|-------------|
 | `country_id` | `integer` | NO |  |  |  | Unique identifier for the record |
-| `country` | `character varying` | NO |  |  |  | Business data field |
-| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `country` | `character varying` | NO |  |  |  | Numeric count or total value |
+| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 
 **Primary Key:** `country_id`
 
@@ -296,7 +296,7 @@ CREATE TABLE "country" (
 
 ### Table: `customer`
 
-**Purpose:** Stores user/customer information and profiles
+**Purpose:** Stores business data and supports application functionality
 
 **Columns:**
 
@@ -306,11 +306,11 @@ CREATE TABLE "country" (
 | `store_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
 | `first_name` | `character varying` | NO |  |  |  | Human-readable name or title |
 | `last_name` | `character varying` | NO |  |  |  | Human-readable name or title |
-| `email` | `character varying` | YES |  |  |  | Business data field |
+| `email` | `character varying` | YES |  |  |  | Contact information |
 | `address_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
 | `activebool` | `boolean` | NO |  |  |  | Business data field |
-| `create_date` | `date` | NO |  |  |  | Timestamp of record creation |
-| `last_update` | `timestamp without time zone` | YES |  |  |  | Timestamp of record creation |
+| `create_date` | `date` | NO |  |  |  | Timestamp of record creation or modification |
+| `last_update` | `timestamp without time zone` | YES |  |  |  | Timestamp of record creation or modification |
 | `active` | `integer` | YES |  |  |  | Business data field |
 
 **Primary Key:** `customer_id`
@@ -342,7 +342,7 @@ CREATE TABLE "customer" (
 
 ### Table: `customer_list`
 
-**Purpose:** Stores user/customer information and profiles
+**Purpose:** Stores business data and supports application functionality
 
 **Columns:**
 
@@ -350,13 +350,13 @@ CREATE TABLE "customer" (
 |--------|------|----------|---------|---------|---------|-------------|
 | `id` | `integer` | YES |  |  |  | Unique identifier for the record |
 | `name` | `text` | YES |  |  |  | Human-readable name or title |
-| `address` | `character varying` | YES |  |  |  | Business data field |
+| `address` | `character varying` | YES |  |  |  | Geographic or physical location information |
 | `zip code` | `character varying` | YES |  |  |  | Business data field |
-| `phone` | `character varying` | YES |  |  |  | Business data field |
+| `phone` | `character varying` | YES |  |  |  | Contact information |
 | `city` | `character varying` | YES |  |  |  | Business data field |
-| `country` | `character varying` | YES |  |  |  | Business data field |
+| `country` | `character varying` | YES |  |  |  | Numeric count or total value |
 | `notes` | `text` | YES |  |  |  | Business data field |
-| `sid` | `smallint` | YES |  |  |  | Unique identifier for the record |
+| `sid` | `smallint` | YES |  |  |  | Business data field |
 
 **DDL:**
 
@@ -378,23 +378,23 @@ CREATE TABLE "customer_list" (
 
 ### Table: `film`
 
-**Purpose:** Stores media content and metadata
+**Purpose:** Stores business data and supports application functionality
 
 **Columns:**
 
 | Column | Type | Nullable | Default | Primary | Foreign | Description |
 |--------|------|----------|---------|---------|---------|-------------|
 | `film_id` | `integer` | NO |  |  |  | Unique identifier for the record |
-| `title` | `character varying` | NO |  |  |  | Business data field |
+| `title` | `character varying` | NO |  |  |  | Human-readable name or title |
 | `description` | `text` | YES |  |  |  | Detailed explanation or notes |
 | `release_year` | `integer` | YES |  |  |  | Business data field |
 | `language_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
 | `rental_duration` | `smallint` | NO |  |  |  | Business data field |
 | `rental_rate` | `numeric` | NO |  |  |  | Business data field |
 | `length` | `smallint` | YES |  |  |  | Business data field |
-| `replacement_cost` | `numeric` | NO |  |  |  | Business data field |
+| `replacement_cost` | `numeric` | NO |  |  |  | Monetary value or cost |
 | `rating` | `USER-DEFINED` | YES |  |  |  | Business data field |
-| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 | `special_features` | `ARRAY` | YES |  |  |  | Business data field |
 | `fulltext` | `tsvector` | NO |  |  |  | Business data field |
 
@@ -430,7 +430,7 @@ CREATE TABLE "film" (
 
 ### Table: `film_actor`
 
-**Purpose:** Stores media content and metadata
+**Purpose:** Stores business data and supports application functionality
 
 **Columns:**
 
@@ -438,7 +438,7 @@ CREATE TABLE "film" (
 |--------|------|----------|---------|---------|---------|-------------|
 | `actor_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
 | `film_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
-| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 
 **Primary Key:** `actor_id`
 
@@ -464,7 +464,7 @@ CREATE TABLE "film_actor" (
 
 ### Table: `film_category`
 
-**Purpose:** Stores media content and metadata
+**Purpose:** Stores business data and supports application functionality
 
 **Columns:**
 
@@ -472,7 +472,7 @@ CREATE TABLE "film_actor" (
 |--------|------|----------|---------|---------|---------|-------------|
 | `film_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
 | `category_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
-| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 
 **Primary Key:** `film_id`
 
@@ -498,17 +498,17 @@ CREATE TABLE "film_category" (
 
 ### Table: `film_list`
 
-**Purpose:** Stores media content and metadata
+**Purpose:** Stores business data and supports application functionality
 
 **Columns:**
 
 | Column | Type | Nullable | Default | Primary | Foreign | Description |
 |--------|------|----------|---------|---------|---------|-------------|
-| `fid` | `integer` | YES |  |  |  | Unique identifier for the record |
-| `title` | `character varying` | YES |  |  |  | Business data field |
+| `fid` | `integer` | YES |  |  |  | Business data field |
+| `title` | `character varying` | YES |  |  |  | Human-readable name or title |
 | `description` | `text` | YES |  |  |  | Detailed explanation or notes |
-| `category` | `character varying` | YES |  |  |  | Business data field |
-| `price` | `numeric` | YES |  |  |  | Business data field |
+| `category` | `character varying` | YES |  |  |  | Classification or categorization |
+| `price` | `numeric` | YES |  |  |  | Monetary value or cost |
 | `length` | `smallint` | YES |  |  |  | Business data field |
 | `rating` | `USER-DEFINED` | YES |  |  |  | Business data field |
 | `actors` | `text` | YES |  |  |  | Business data field |
@@ -541,7 +541,7 @@ CREATE TABLE "film_list" (
 | `inventory_id` | `integer` | NO |  |  |  | Unique identifier for the record |
 | `film_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
 | `store_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
-| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 
 **Primary Key:** `inventory_id`
 
@@ -574,7 +574,7 @@ CREATE TABLE "inventory" (
 |--------|------|----------|---------|---------|---------|-------------|
 | `language_id` | `integer` | NO |  |  |  | Unique identifier for the record |
 | `name` | `character` | NO |  |  |  | Human-readable name or title |
-| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 
 **Primary Key:** `language_id`
 
@@ -593,17 +593,17 @@ CREATE TABLE "language" (
 
 ### Table: `nicer_but_slower_film_list`
 
-**Purpose:** Stores media content and metadata
+**Purpose:** Stores business data with complex relationships
 
 **Columns:**
 
 | Column | Type | Nullable | Default | Primary | Foreign | Description |
 |--------|------|----------|---------|---------|---------|-------------|
-| `fid` | `integer` | YES |  |  |  | Unique identifier for the record |
-| `title` | `character varying` | YES |  |  |  | Business data field |
+| `fid` | `integer` | YES |  |  |  | Business data field |
+| `title` | `character varying` | YES |  |  |  | Human-readable name or title |
 | `description` | `text` | YES |  |  |  | Detailed explanation or notes |
-| `category` | `character varying` | YES |  |  |  | Business data field |
-| `price` | `numeric` | YES |  |  |  | Business data field |
+| `category` | `character varying` | YES |  |  |  | Classification or categorization |
+| `price` | `numeric` | YES |  |  |  | Monetary value or cost |
 | `length` | `smallint` | YES |  |  |  | Business data field |
 | `rating` | `USER-DEFINED` | YES |  |  |  | Business data field |
 | `actors` | `text` | YES |  |  |  | Business data field |
@@ -637,8 +637,8 @@ CREATE TABLE "nicer_but_slower_film_list" (
 | `customer_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
 | `staff_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
 | `rental_id` | `integer` | NO |  |  |  | Unique identifier for the record |
-| `amount` | `numeric` | NO |  |  |  | Business data field |
-| `payment_date` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `amount` | `numeric` | NO |  |  |  | Monetary value or cost |
+| `payment_date` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 
 **Primary Key:** `payment_id`
 
@@ -676,12 +676,12 @@ CREATE TABLE "payment" (
 | Column | Type | Nullable | Default | Primary | Foreign | Description |
 |--------|------|----------|---------|---------|---------|-------------|
 | `rental_id` | `integer` | NO |  |  |  | Unique identifier for the record |
-| `rental_date` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `rental_date` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 | `inventory_id` | `integer` | NO |  |  |  | Unique identifier for the record |
 | `customer_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
-| `return_date` | `timestamp without time zone` | YES |  |  |  | Timestamp of record creation |
+| `return_date` | `timestamp without time zone` | YES |  |  |  | Timestamp of record creation or modification |
 | `staff_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
-| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 
 **Primary Key:** `rental_id`
 
@@ -713,14 +713,14 @@ CREATE TABLE "rental" (
 
 ### Table: `sales_by_film_category`
 
-**Purpose:** Stores media content and metadata
+**Purpose:** Stores business data with complex relationships
 
 **Columns:**
 
 | Column | Type | Nullable | Default | Primary | Foreign | Description |
 |--------|------|----------|---------|---------|---------|-------------|
-| `category` | `character varying` | YES |  |  |  | Business data field |
-| `total_sales` | `numeric` | YES |  |  |  | Business data field |
+| `category` | `character varying` | YES |  |  |  | Classification or categorization |
+| `total_sales` | `numeric` | YES |  |  |  | Numeric count or total value |
 
 **DDL:**
 
@@ -735,7 +735,7 @@ CREATE TABLE "sales_by_film_category" (
 
 ### Table: `sales_by_store`
 
-**Purpose:** Stores business data and supports application functionality
+**Purpose:** Stores business data with complex relationships
 
 **Columns:**
 
@@ -743,7 +743,7 @@ CREATE TABLE "sales_by_film_category" (
 |--------|------|----------|---------|---------|---------|-------------|
 | `store` | `text` | YES |  |  |  | Business data field |
 | `manager` | `text` | YES |  |  |  | Business data field |
-| `total_sales` | `numeric` | YES |  |  |  | Business data field |
+| `total_sales` | `numeric` | YES |  |  |  | Numeric count or total value |
 
 **DDL:**
 
@@ -769,12 +769,12 @@ CREATE TABLE "sales_by_store" (
 | `first_name` | `character varying` | NO |  |  |  | Human-readable name or title |
 | `last_name` | `character varying` | NO |  |  |  | Human-readable name or title |
 | `address_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
-| `email` | `character varying` | YES |  |  |  | Business data field |
+| `email` | `character varying` | YES |  |  |  | Contact information |
 | `store_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
 | `active` | `boolean` | NO |  |  |  | Business data field |
 | `username` | `character varying` | NO |  |  |  | Human-readable name or title |
 | `password` | `character varying` | YES |  |  |  | Business data field |
-| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 | `picture` | `bytea` | YES |  |  |  | Business data field |
 
 **Primary Key:** `staff_id`
@@ -815,12 +815,12 @@ CREATE TABLE "staff" (
 |--------|------|----------|---------|---------|---------|-------------|
 | `id` | `integer` | YES |  |  |  | Unique identifier for the record |
 | `name` | `text` | YES |  |  |  | Human-readable name or title |
-| `address` | `character varying` | YES |  |  |  | Business data field |
+| `address` | `character varying` | YES |  |  |  | Geographic or physical location information |
 | `zip code` | `character varying` | YES |  |  |  | Business data field |
-| `phone` | `character varying` | YES |  |  |  | Business data field |
+| `phone` | `character varying` | YES |  |  |  | Contact information |
 | `city` | `character varying` | YES |  |  |  | Business data field |
-| `country` | `character varying` | YES |  |  |  | Business data field |
-| `sid` | `smallint` | YES |  |  |  | Unique identifier for the record |
+| `country` | `character varying` | YES |  |  |  | Numeric count or total value |
+| `sid` | `smallint` | YES |  |  |  | Business data field |
 
 **DDL:**
 
@@ -850,7 +850,7 @@ CREATE TABLE "staff_list" (
 | `store_id` | `integer` | NO |  |  |  | Unique identifier for the record |
 | `manager_staff_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
 | `address_id` | `smallint` | NO |  |  |  | Unique identifier for the record |
-| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation |
+| `last_update` | `timestamp without time zone` | NO |  |  |  | Timestamp of record creation or modification |
 
 **Primary Key:** `store_id`
 
@@ -917,7 +917,7 @@ The following views provide simplified access to complex data relationships:
 
 ### View: `customer_list`
 
-**Purpose:** Simplifies access to complex data relationships
+**Purpose:** Provides a list or catalog view of data
 
 **Dependencies:** address, city, country
 
@@ -960,7 +960,7 @@ The following views provide simplified access to complex data relationships:
 
 ### View: `film_list`
 
-**Purpose:** Simplifies access to complex data relationships
+**Purpose:** Provides a list or catalog view of data
 
 **Dependencies:** film_category, film, film_actor, actor
 
@@ -1000,7 +1000,7 @@ The following views provide simplified access to complex data relationships:
 
 ### View: `nicer_but_slower_film_list`
 
-**Purpose:** Simplifies access to complex data relationships
+**Purpose:** Provides a list or catalog view of data
 
 **Dependencies:** film_category, film, film_actor, actor
 
@@ -1104,7 +1104,7 @@ The following views provide simplified access to complex data relationships:
 
 ### View: `staff_list`
 
-**Purpose:** Simplifies access to complex data relationships
+**Purpose:** Provides a list or catalog view of data
 
 **Dependencies:** address, city, country
 
@@ -2389,162 +2389,298 @@ Beyond the structural foreign key constraints, these tables have the following b
 
 The following patterns show how data flows through the system in business processes:
 
-### Film Rental Workflow
+### Address Data Flow
 
-**Description:** Process for renting a film by a customer.
+**Description:** Data flow pattern for address and related operations
 
-**Business Process:** Film Rental
-**Frequency:** high
+**Business Process:** Address Management
+**Frequency:** medium
 **Data Volume:** medium
 **Performance Impact:** moderate
 
 **Tables Involved:**
-- `customer`
-- `film`
-- `rental`
-- `inventory`
-- `payment`
-
-**Flow Sequence:**
-1. **read** on `customer`
-   - Customer identification and validation
-
-2. **read** on `film`
-   - Film availability check
-   - Dependencies: customer
-
-3. **write** on `rental`
-   - Rental record creation
-   - Dependencies: customer, film
-
-4. **write** on `payment`
-   - Payment processing
-   - Dependencies: rental
-
-5. **write** on `inventory`
-   - Inventory update
-   - Dependencies: rental, payment
-
----
-
-### Customer Management Workflow
-
-**Description:** Process for managing customer information and payments.
-
-**Business Process:** Customer Management
-**Frequency:** medium
-**Data Volume:** small
-**Performance Impact:** minimal
-
-**Tables Involved:**
-- `customer`
-- `payment`
-- `rental`
 - `address`
-
-**Flow Sequence:**
-1. **write** on `customer`
-   - Customer account creation
-
-2. **write** on `address`
-   - Address validation and storage
-   - Dependencies: customer
-
-3. **write** on `payment`
-   - Payment method setup
-   - Dependencies: customer
-
-4. **read** on `rental`
-   - Rental history access
-   - Dependencies: customer
-
----
-
-### Payment Processing Workflow
-
-**Description:** Process for handling customer payments and rental transactions.
-
-**Business Process:** Payment Processing
-**Frequency:** high
-**Data Volume:** medium
-**Performance Impact:** significant
-
-**Tables Involved:**
+- `city`
 - `customer`
-- `payment`
-- `rental`
+- `staff`
+- `store`
 
 **Flow Sequence:**
-1. **read** on `customer`
-   - Customer payment method validation
+1. **read** on `address`
+   - Access address information
 
-2. **write** on `payment`
-   - Payment transaction processing
-   - Dependencies: customer
+2. **read** on `city`
+   - Process city data
+   - Dependencies: address
 
-3. **write** on `rental`
-   - Rental confirmation after payment
-   - Dependencies: payment
+3. **read** on `customer`
+   - Process customer data
+   - Dependencies: payment, rental
+
+4. **read** on `staff`
+   - Process staff data
+   - Dependencies: payment, rental, store
+
+5. **write** on `store`
+   - Process store data
 
 ---
 
-### Generic Workflow
+### Film Data Flow
 
-**Description:** Common patterns observed across multiple tables.
+**Description:** Data flow pattern for film and related operations
 
-**Business Process:** Generic Data Processing
-**Frequency:** continuous
+**Business Process:** Film Management
+**Frequency:** medium
 **Data Volume:** large
 **Performance Impact:** moderate
 
 **Tables Involved:**
-- `address`
 - `film`
-- `customer`
-- `payment`
-- `rental`
+- `language`
+- `film_actor`
+- `film_category`
+- `inventory`
 
 **Flow Sequence:**
-1. **read** on `user`
-   - Data entry and validation
+1. **read** on `film`
+   - Access film information
 
-2. **process** on `application`
-   - Data processing and transformation
-   - Dependencies: user
+2. **read** on `language`
+   - Process language data
+   - Dependencies: film
 
-3. **write** on `database`
-   - Data storage and persistence
-   - Dependencies: application
+3. **write** on `film_actor`
+   - Process film_actor data
+
+4. **write** on `film_category`
+   - Process film_category data
+
+5. **read** on `inventory`
+   - Process inventory data
+   - Dependencies: rental
 
 ---
 
-### Cascading Updates/Deletes
+### Rental Data Flow
 
-**Description:** Common pattern where updates/deletes cascade across tables.
+**Description:** Data flow pattern for rental and related operations
 
-**Business Process:** Data Consistency
+**Business Process:** Rental Management
 **Frequency:** medium
 **Data Volume:** medium
-**Performance Impact:** significant
+**Performance Impact:** moderate
+
+**Tables Involved:**
+- `rental`
+- `payment`
+- `customer`
+- `inventory`
+- `staff`
+
+**Flow Sequence:**
+1. **read** on `rental`
+   - Access rental information
+
+2. **write** on `payment`
+   - Process payment data
+
+3. **read** on `customer`
+   - Process customer data
+   - Dependencies: payment, rental
+
+4. **read** on `inventory`
+   - Process inventory data
+   - Dependencies: rental
+
+5. **read** on `staff`
+   - Process staff data
+   - Dependencies: payment, rental, store
+
+---
+
+### Staff Data Flow
+
+**Description:** Data flow pattern for staff and related operations
+
+**Business Process:** Staff Management
+**Frequency:** medium
+**Data Volume:** large
+**Performance Impact:** moderate
+
+**Tables Involved:**
+- `staff`
+- `payment`
+- `rental`
+- `address`
+- `store`
+
+**Flow Sequence:**
+1. **read** on `staff`
+   - Access staff information
+
+2. **write** on `payment`
+   - Process payment data
+
+3. **read** on `rental`
+   - Process rental data
+   - Dependencies: payment
+
+4. **read** on `address`
+   - Process address data
+   - Dependencies: customer, staff, store
+
+5. **write** on `store`
+   - Process store data
+
+---
+
+### Customer Data Flow
+
+**Description:** Data flow pattern for customer and related operations
+
+**Business Process:** Customer Management
+**Frequency:** low
+**Data Volume:** medium
+**Performance Impact:** minimal
 
 **Tables Involved:**
 - `customer`
 - `address`
-- `film`
-- `language`
-- `film_actor`
+- `payment`
+- `rental`
 
 **Flow Sequence:**
-1. **write** on `source`
-   - Update/Delete initiated on source table
+1. **read** on `customer`
+   - Access customer information
 
-2. **write** on `target`
-   - Cascading update/delete propagated
-   - Dependencies: source
+2. **read** on `address`
+   - Process address data
+   - Dependencies: customer, staff, store
 
-3. **process** on `system`
-   - Data consistency maintenance
-   - Dependencies: target
+3. **write** on `payment`
+   - Process payment data
+
+4. **read** on `rental`
+   - Process rental data
+   - Dependencies: payment
+
+---
+
+### Payment Data Flow
+
+**Description:** Data flow pattern for payment and related operations
+
+**Business Process:** Payment Management
+**Frequency:** low
+**Data Volume:** medium
+**Performance Impact:** minimal
+
+**Tables Involved:**
+- `payment`
+- `customer`
+- `rental`
+- `staff`
+
+**Flow Sequence:**
+1. **read** on `payment`
+   - Access payment information
+
+2. **read** on `customer`
+   - Process customer data
+   - Dependencies: payment, rental
+
+3. **read** on `rental`
+   - Process rental data
+   - Dependencies: payment
+
+4. **read** on `staff`
+   - Process staff data
+   - Dependencies: payment, rental, store
+
+---
+
+### City Data Flow
+
+**Description:** Data flow pattern for city and related operations
+
+**Business Process:** City Management
+**Frequency:** low
+**Data Volume:** small
+**Performance Impact:** minimal
+
+**Tables Involved:**
+- `city`
+- `address`
+- `country`
+
+**Flow Sequence:**
+1. **read** on `city`
+   - Access city information
+
+2. **read** on `address`
+   - Process address data
+   - Dependencies: customer, staff, store
+
+3. **read** on `country`
+   - Process country data
+   - Dependencies: city
+
+---
+
+### Film_actor Data Flow
+
+**Description:** Data flow pattern for film_actor and related operations
+
+**Business Process:** Film_actor Management
+**Frequency:** low
+**Data Volume:** small
+**Performance Impact:** minimal
+
+**Tables Involved:**
+- `film_actor`
+- `actor`
+- `film`
+
+**Flow Sequence:**
+1. **read** on `film_actor`
+   - Access film_actor information
+
+2. **read** on `actor`
+   - Process actor data
+   - Dependencies: film_actor
+
+3. **read** on `film`
+   - Process film data
+   - Dependencies: film_actor, film_category, inventory
+
+---
+
+### Film_category Data Flow
+
+**Description:** Data flow pattern for film_category and related operations
+
+**Business Process:** Film_category Management
+**Frequency:** low
+**Data Volume:** small
+**Performance Impact:** minimal
+
+**Tables Involved:**
+- `film_category`
+- `category`
+- `film`
+
+**Flow Sequence:**
+1. **read** on `film_category`
+   - Access film_category information
+
+2. **read** on `category`
+   - Process category data
+   - Dependencies: film_category
+
+3. **read** on `film`
+   - Process film data
+   - Dependencies: film_actor, film_category, inventory
 
 ---
 
@@ -2552,200 +2688,343 @@ The following patterns show how data flows through the system in business proces
 
 The following business processes are supported by this database:
 
-### Film Rental Process
+### Address Management Process
 
-**Description:** Process for renting a film by a customer.
+**Description:** Process for managing address and related operations
 
-**Owner:** Store Staff
-**Trigger:** Customer rental request
+**Owner:** System Users
+**Trigger:** User request or system event
 **Criticality:** HIGH
 **Estimated Duration:** 5-10 minutes
 
 **Stakeholders:**
-- Customer
-- Store Staff
-- Management
+- Users
+- Administrators
 
 **Tables Involved:**
+- `address`
+- `city`
 - `customer`
+- `staff`
+- `store`
+
+**Process Steps:**
+1. **Access** on `address`
+   - Access address information
+   - Business Rules: Ensure proper access permissions for address
+
+2. **Access** on `city`
+   - Process city data
+   - Business Rules: Maintain relationship integrity with address
+   - Dependencies: address
+
+3. **Access** on `customer`
+   - Process customer data
+   - Business Rules: Maintain relationship integrity with address
+   - Dependencies: address
+
+4. **Access** on `staff`
+   - Process staff data
+   - Business Rules: Maintain relationship integrity with address
+   - Dependencies: address
+
+5. **Write** on `store`
+   - Process store data
+   - Business Rules: Maintain relationship integrity with address
+   - Dependencies: address
+
+**Business Rules:**
+- address must have a unique identifier
+- address must maintain referential integrity with related tables
+- Changes to address may affect 4 related tables
+
+---
+
+### Film Management Process
+
+**Description:** Process for managing film and related operations
+
+**Owner:** System Users
+**Trigger:** User request or system event
+**Criticality:** HIGH
+**Estimated Duration:** 5-10 minutes
+
+**Stakeholders:**
+- Users
+- Administrators
+
+**Tables Involved:**
 - `film`
-- `rental`
-- `payment`
+- `language`
+- `film_actor`
+- `film_category`
 - `inventory`
 
 **Process Steps:**
-1. **Customer identification and validation** on `customer`
-   - Verify customer identity and eligibility
-   - Business Rules: Customer must be active, Valid ID required
+1. **Access** on `film`
+   - Access film information
+   - Business Rules: Ensure proper access permissions for film
 
-2. **Film availability check** on `film`
-   - Check if requested film is available
-   - Business Rules: Film must be in stock, Age restrictions apply
-   - Dependencies: customer
+2. **Read** on `language`
+   - Process language data
+   - Business Rules: Maintain relationship integrity with film
+   - Dependencies: film
 
-3. **Rental record creation** on `rental`
-   - Create rental transaction record
-   - Business Rules: Rental duration limits, Late fee policies
-   - Dependencies: customer, film
+3. **Write** on `film_actor`
+   - Process film_actor data
+   - Business Rules: Maintain relationship integrity with film
+   - Dependencies: film
 
-4. **Payment processing** on `payment`
-   - Process rental payment
-   - Business Rules: Full payment required, Payment method validation
-   - Dependencies: rental
+4. **Write** on `film_category`
+   - Process film_category data
+   - Business Rules: Maintain relationship integrity with film
+   - Dependencies: film
 
-5. **Inventory update** on `inventory`
-   - Update film inventory status
-   - Business Rules: Real-time inventory tracking, Stock level maintenance
-   - Dependencies: payment
+5. **Access** on `inventory`
+   - Process inventory data
+   - Business Rules: Maintain relationship integrity with film
+   - Dependencies: film
 
 **Business Rules:**
-- Customer must be 18+ for adult films
-- Rental duration maximum 30 days
-- Late fees apply after due date
-- Payment must be completed before rental
+- film must have a unique identifier
+- film must maintain referential integrity with related tables
+- Changes to film may affect 4 related tables
+
+---
+
+### Rental Management Process
+
+**Description:** Process for managing rental and related operations
+
+**Owner:** System Users
+**Trigger:** User request or system event
+**Criticality:** HIGH
+**Estimated Duration:** 5-10 minutes
+
+**Stakeholders:**
+- Users
+- Administrators
+
+**Tables Involved:**
+- `rental`
+- `payment`
+- `customer`
+- `inventory`
+- `staff`
+
+**Process Steps:**
+1. **Access** on `rental`
+   - Access rental information
+   - Business Rules: Ensure proper access permissions for rental
+
+2. **Write** on `payment`
+   - Process payment data
+   - Business Rules: Maintain relationship integrity with rental
+   - Dependencies: rental
+
+3. **Access** on `customer`
+   - Process customer data
+   - Business Rules: Maintain relationship integrity with rental
+   - Dependencies: rental
+
+4. **Access** on `inventory`
+   - Process inventory data
+   - Business Rules: Maintain relationship integrity with rental
+   - Dependencies: rental
+
+5. **Access** on `staff`
+   - Process staff data
+   - Business Rules: Maintain relationship integrity with rental
+   - Dependencies: rental
+
+**Business Rules:**
+- rental must have a unique identifier
+- rental must maintain referential integrity with related tables
+- Changes to rental may affect 4 related tables
+
+---
+
+### Staff Management Process
+
+**Description:** Process for managing staff and related operations
+
+**Owner:** System Users
+**Trigger:** User request or system event
+**Criticality:** HIGH
+**Estimated Duration:** 5-10 minutes
+
+**Stakeholders:**
+- Users
+- Administrators
+
+**Tables Involved:**
+- `staff`
+- `payment`
+- `rental`
+- `address`
+- `store`
+
+**Process Steps:**
+1. **Access** on `staff`
+   - Access staff information
+   - Business Rules: Ensure proper access permissions for staff
+
+2. **Write** on `payment`
+   - Process payment data
+   - Business Rules: Maintain relationship integrity with staff
+   - Dependencies: staff
+
+3. **Access** on `rental`
+   - Process rental data
+   - Business Rules: Maintain relationship integrity with staff
+   - Dependencies: staff
+
+4. **Access** on `address`
+   - Process address data
+   - Business Rules: Maintain relationship integrity with staff
+   - Dependencies: staff
+
+5. **Write** on `store`
+   - Process store data
+   - Business Rules: Maintain relationship integrity with staff
+   - Dependencies: staff
+
+**Business Rules:**
+- staff must have a unique identifier
+- staff must maintain referential integrity with related tables
+- Changes to staff may affect 4 related tables
 
 ---
 
 ### Customer Management Process
 
-**Description:** Process for managing customer information and payments.
+**Description:** Process for managing customer and related operations
 
-**Owner:** Customer Service
-**Trigger:** Customer registration or update request
+**Owner:** System Users
+**Trigger:** User request or system event
 **Criticality:** MEDIUM
-**Estimated Duration:** 10-15 minutes
+**Estimated Duration:** 2-5 minutes
 
 **Stakeholders:**
-- Customer
-- Customer Service
-- IT Support
+- Users
+- Administrators
 
 **Tables Involved:**
 - `customer`
 - `address`
 - `payment`
+- `rental`
 
 **Process Steps:**
-1. **Customer account creation** on `customer`
-   - Create new customer account
-   - Business Rules: Unique email required, Valid phone number
+1. **Access** on `customer`
+   - Access customer information
+   - Business Rules: Ensure proper access permissions for customer
 
-2. **Address validation** on `address`
-   - Verify and store customer address
-   - Business Rules: Valid postal code, Supported region
+2. **Access** on `address`
+   - Process address data
+   - Business Rules: Maintain relationship integrity with customer
    - Dependencies: customer
 
-3. **Payment method setup** on `payment`
-   - Configure customer payment options
-   - Business Rules: Valid payment method, Security compliance
+3. **Write** on `payment`
+   - Process payment data
+   - Business Rules: Maintain relationship integrity with customer
    - Dependencies: customer
 
-4. **Account verification** on `customer`
-   - Verify customer account details
-   - Business Rules: Email verification, Phone verification
-   - Dependencies: address, payment
+4. **Access** on `rental`
+   - Process rental data
+   - Business Rules: Maintain relationship integrity with customer
+   - Dependencies: customer
 
 **Business Rules:**
-- Customer must provide valid contact information
-- Address must be in supported regions
-- Payment method must be verified
-- Account verification required before activation
+- customer must have a unique identifier
+- customer must maintain referential integrity with related tables
+- Changes to customer may affect 3 related tables
 
 ---
 
-### Payment Processing Process
+### Payment Management Process
 
-**Description:** Process for handling customer payments and rental transactions.
+**Description:** Process for managing payment and related operations
 
-**Owner:** Finance Department
-**Trigger:** Payment transaction request
-**Criticality:** HIGH
+**Owner:** System Users
+**Trigger:** User request or system event
+**Criticality:** MEDIUM
 **Estimated Duration:** 2-5 minutes
 
 **Stakeholders:**
-- Customer
-- Finance
-- IT Security
+- Users
+- Administrators
 
 **Tables Involved:**
 - `payment`
-- `rental`
 - `customer`
+- `rental`
+- `staff`
 
 **Process Steps:**
-1. **Payment validation** on `payment`
-   - Validate payment method and amount
-   - Business Rules: Valid payment method, Sufficient funds
+1. **Access** on `payment`
+   - Access payment information
+   - Business Rules: Ensure proper access permissions for payment
 
-2. **Transaction processing** on `payment`
-   - Process payment through gateway
-   - Business Rules: Secure processing, Transaction logging
+2. **Access** on `customer`
+   - Process customer data
+   - Business Rules: Maintain relationship integrity with payment
    - Dependencies: payment
 
-3. **Confirmation generation** on `payment`
-   - Generate payment confirmation
-   - Business Rules: Receipt generation, Email notification
+3. **Access** on `rental`
+   - Process rental data
+   - Business Rules: Maintain relationship integrity with payment
    - Dependencies: payment
 
-4. **Record update** on `rental`
-   - Update rental status after payment
-   - Business Rules: Status synchronization, Audit trail
+4. **Access** on `staff`
+   - Process staff data
+   - Business Rules: Maintain relationship integrity with payment
    - Dependencies: payment
 
 **Business Rules:**
-- Payment must be processed securely
-- Transaction must be logged for audit
-- Confirmation must be sent to customer
-- Rental status must be updated immediately
+- payment must have a unique identifier
+- payment must maintain referential integrity with related tables
+- Changes to payment may affect 3 related tables
 
 ---
 
-### Store Management Process
+### City Management Process
 
-**Description:** Process for managing store inventory and customer interactions.
+**Description:** Process for managing city and related operations
 
-**Owner:** Store Manager
-**Trigger:** Store operations or inventory changes
+**Owner:** System Users
+**Trigger:** User request or system event
 **Criticality:** MEDIUM
-**Estimated Duration:** Ongoing
+**Estimated Duration:** 2-5 minutes
 
 **Stakeholders:**
-- Store Manager
-- Staff
-- Customers
-- Management
+- Users
+- Administrators
 
 **Tables Involved:**
-- `inventory`
-- `staff`
-- `customer`
-- `store`
+- `city`
+- `address`
+- `country`
 
 **Process Steps:**
-1. **Inventory assessment** on `inventory`
-   - Review current inventory levels
-   - Business Rules: Regular stock counts, Threshold monitoring
+1. **Access** on `city`
+   - Access city information
+   - Business Rules: Ensure proper access permissions for city
 
-2. **Staff scheduling** on `staff`
-   - Manage staff schedules and assignments
-   - Business Rules: Minimum staffing requirements, Skill-based assignments
-   - Dependencies: inventory
+2. **Access** on `address`
+   - Process address data
+   - Business Rules: Maintain relationship integrity with city
+   - Dependencies: city
 
-3. **Customer service** on `customer`
-   - Handle customer inquiries and issues
-   - Business Rules: Response time standards, Issue escalation
-   - Dependencies: staff
-
-4. **Performance monitoring** on `store`
-   - Track store performance metrics
-   - Business Rules: KPI monitoring, Report generation
-   - Dependencies: customer, staff
+3. **Read** on `country`
+   - Process country data
+   - Business Rules: Maintain relationship integrity with city
+   - Dependencies: city
 
 **Business Rules:**
-- Inventory must be checked daily
-- Staff must be properly trained
-- Customer issues must be resolved within 24 hours
-- Performance reports must be generated weekly
+- city must have a unique identifier
+- city must maintain referential integrity with related tables
+- Changes to city may affect 2 related tables
 
 ---
 
@@ -3585,39 +3864,39 @@ The following matrix shows the business impact and risk assessment for each tabl
 
 | Table | Business Criticality | Data Quality Impact | Business Process Impact | Compliance Impact |
 |-------|---------------------|---------------------|------------------------|-------------------|
-| `actor` | MEDIUM | Table actor has 1 dependencies and 0 foreign keys... | Affects 1 related business processes... | Primary key and constraint enforcement for data in... |
+| `actor` | MEDIUM | Table actor has 2 dependencies and 0 foreign keys... | Affects 2 related business processes... | Primary key and constraint enforcement for data in... |
 | `actor_info` | LOW | Table actor_info has 0 dependencies and 0 foreign ... | Affects 0 related business processes... | Primary key and constraint enforcement for data in... |
 | `address` | MEDIUM | Table address has 5 dependencies and 1 foreign key... | Affects 5 related business processes... | Primary key and constraint enforcement for data in... |
-| `category` | MEDIUM | Table category has 1 dependencies and 0 foreign ke... | Affects 1 related business processes... | Primary key and constraint enforcement for data in... |
+| `category` | MEDIUM | Table category has 2 dependencies and 0 foreign ke... | Affects 2 related business processes... | Primary key and constraint enforcement for data in... |
 | `city` | MEDIUM | Table city has 2 dependencies and 1 foreign keys... | Affects 2 related business processes... | Primary key and constraint enforcement for data in... |
 | `country` | MEDIUM | Table country has 1 dependencies and 0 foreign key... | Affects 1 related business processes... | Primary key and constraint enforcement for data in... |
 | `customer` | MEDIUM | Table customer has 4 dependencies and 1 foreign ke... | Affects 4 related business processes... | Primary key and constraint enforcement for data in... |
 | `customer_list` | LOW | Table customer_list has 0 dependencies and 0 forei... | Affects 0 related business processes... | Primary key and constraint enforcement for data in... |
 | `film` | MEDIUM | Table film has 5 dependencies and 1 foreign keys... | Affects 5 related business processes... | Primary key and constraint enforcement for data in... |
 | `film_actor` | HIGH | Table film_actor has 3 dependencies and 2 foreign ... | Affects 3 related business processes... | Primary key and constraint enforcement for data in... |
-| `film_category` | HIGH | Table film_category has 2 dependencies and 2 forei... | Affects 2 related business processes... | Primary key and constraint enforcement for data in... |
+| `film_category` | HIGH | Table film_category has 3 dependencies and 2 forei... | Affects 3 related business processes... | Primary key and constraint enforcement for data in... |
 | `film_list` | LOW | Table film_list has 0 dependencies and 0 foreign k... | Affects 0 related business processes... | Primary key and constraint enforcement for data in... |
-| `inventory` | MEDIUM | Table inventory has 2 dependencies and 1 foreign k... | Affects 2 related business processes... | Primary key and constraint enforcement for data in... |
+| `inventory` | MEDIUM | Table inventory has 3 dependencies and 1 foreign k... | Affects 3 related business processes... | Primary key and constraint enforcement for data in... |
 | `language` | MEDIUM | Table language has 2 dependencies and 0 foreign ke... | Affects 2 related business processes... | Primary key and constraint enforcement for data in... |
 | `nicer_but_slower_film_list` | LOW | Table nicer_but_slower_film_list has 0 dependencie... | Affects 0 related business processes... | Primary key and constraint enforcement for data in... |
-| `payment` | HIGH | Table payment has 3 dependencies and 3 foreign key... | Affects 3 related business processes... | Primary key and constraint enforcement for data in... |
-| `rental` | HIGH | Table rental has 4 dependencies and 2 foreign keys... | Affects 4 related business processes... | Primary key and constraint enforcement for data in... |
+| `payment` | HIGH | Table payment has 4 dependencies and 3 foreign key... | Affects 4 related business processes... | Primary key and constraint enforcement for data in... |
+| `rental` | HIGH | Table rental has 5 dependencies and 2 foreign keys... | Affects 5 related business processes... | Primary key and constraint enforcement for data in... |
 | `sales_by_film_category` | LOW | Table sales_by_film_category has 0 dependencies an... | Affects 0 related business processes... | Primary key and constraint enforcement for data in... |
 | `sales_by_store` | LOW | Table sales_by_store has 0 dependencies and 0 fore... | Affects 0 related business processes... | Primary key and constraint enforcement for data in... |
-| `staff` | MEDIUM | Table staff has 4 dependencies and 1 foreign keys... | Affects 4 related business processes... | Primary key and constraint enforcement for data in... |
+| `staff` | MEDIUM | Table staff has 5 dependencies and 1 foreign keys... | Affects 5 related business processes... | Primary key and constraint enforcement for data in... |
 | `staff_list` | LOW | Table staff_list has 0 dependencies and 0 foreign ... | Affects 0 related business processes... | Primary key and constraint enforcement for data in... |
-| `store` | HIGH | Table store has 2 dependencies and 2 foreign keys... | Affects 2 related business processes... | Primary key and constraint enforcement for data in... |
+| `store` | HIGH | Table store has 3 dependencies and 2 foreign keys... | Affects 3 related business processes... | Primary key and constraint enforcement for data in... |
 
 ### Table: `actor`
 
 **Business Criticality:** MEDIUM
 
-**Data Quality Impact:** Table actor has 1 dependencies and 0 foreign keys
-**Business Process Impact:** Affects 1 related business processes
+**Data Quality Impact:** Table actor has 2 dependencies and 0 foreign keys
+**Business Process Impact:** Affects 2 related business processes
 **Compliance Impact:** Primary key and constraint enforcement for data integrity
 
 **Risk Factors:**
-- High dependency count: 1
+- High dependency count: 2
 - Foreign key relationships: 0
 - Data integrity constraints: 1
 
@@ -3672,12 +3951,12 @@ The following matrix shows the business impact and risk assessment for each tabl
 
 **Business Criticality:** MEDIUM
 
-**Data Quality Impact:** Table category has 1 dependencies and 0 foreign keys
-**Business Process Impact:** Affects 1 related business processes
+**Data Quality Impact:** Table category has 2 dependencies and 0 foreign keys
+**Business Process Impact:** Affects 2 related business processes
 **Compliance Impact:** Primary key and constraint enforcement for data integrity
 
 **Risk Factors:**
-- High dependency count: 1
+- High dependency count: 2
 - Foreign key relationships: 0
 - Data integrity constraints: 1
 
@@ -3812,12 +4091,12 @@ The following matrix shows the business impact and risk assessment for each tabl
 
 **Business Criticality:** HIGH
 
-**Data Quality Impact:** Table film_category has 2 dependencies and 2 foreign keys
-**Business Process Impact:** Affects 2 related business processes
+**Data Quality Impact:** Table film_category has 3 dependencies and 2 foreign keys
+**Business Process Impact:** Affects 3 related business processes
 **Compliance Impact:** Primary key and constraint enforcement for data integrity
 
 **Risk Factors:**
-- High dependency count: 2
+- High dependency count: 3
 - Foreign key relationships: 2
 - Data integrity constraints: 1
 
@@ -3852,12 +4131,12 @@ The following matrix shows the business impact and risk assessment for each tabl
 
 **Business Criticality:** MEDIUM
 
-**Data Quality Impact:** Table inventory has 2 dependencies and 1 foreign keys
-**Business Process Impact:** Affects 2 related business processes
+**Data Quality Impact:** Table inventory has 3 dependencies and 1 foreign keys
+**Business Process Impact:** Affects 3 related business processes
 **Compliance Impact:** Primary key and constraint enforcement for data integrity
 
 **Risk Factors:**
-- High dependency count: 2
+- High dependency count: 3
 - Foreign key relationships: 1
 - Data integrity constraints: 1
 
@@ -3912,12 +4191,12 @@ The following matrix shows the business impact and risk assessment for each tabl
 
 **Business Criticality:** HIGH
 
-**Data Quality Impact:** Table payment has 3 dependencies and 3 foreign keys
-**Business Process Impact:** Affects 3 related business processes
+**Data Quality Impact:** Table payment has 4 dependencies and 3 foreign keys
+**Business Process Impact:** Affects 4 related business processes
 **Compliance Impact:** Primary key and constraint enforcement for data integrity
 
 **Risk Factors:**
-- High dependency count: 3
+- High dependency count: 4
 - Foreign key relationships: 3
 - Data integrity constraints: 1
 
@@ -3932,12 +4211,12 @@ The following matrix shows the business impact and risk assessment for each tabl
 
 **Business Criticality:** HIGH
 
-**Data Quality Impact:** Table rental has 4 dependencies and 2 foreign keys
-**Business Process Impact:** Affects 4 related business processes
+**Data Quality Impact:** Table rental has 5 dependencies and 2 foreign keys
+**Business Process Impact:** Affects 5 related business processes
 **Compliance Impact:** Primary key and constraint enforcement for data integrity
 
 **Risk Factors:**
-- High dependency count: 4
+- High dependency count: 5
 - Foreign key relationships: 2
 - Data integrity constraints: 1
 
@@ -3992,12 +4271,12 @@ The following matrix shows the business impact and risk assessment for each tabl
 
 **Business Criticality:** MEDIUM
 
-**Data Quality Impact:** Table staff has 4 dependencies and 1 foreign keys
-**Business Process Impact:** Affects 4 related business processes
+**Data Quality Impact:** Table staff has 5 dependencies and 1 foreign keys
+**Business Process Impact:** Affects 5 related business processes
 **Compliance Impact:** Primary key and constraint enforcement for data integrity
 
 **Risk Factors:**
-- High dependency count: 4
+- High dependency count: 5
 - Foreign key relationships: 1
 - Data integrity constraints: 1
 
@@ -4032,12 +4311,12 @@ The following matrix shows the business impact and risk assessment for each tabl
 
 **Business Criticality:** HIGH
 
-**Data Quality Impact:** Table store has 2 dependencies and 2 foreign keys
-**Business Process Impact:** Affects 2 related business processes
+**Data Quality Impact:** Table store has 3 dependencies and 2 foreign keys
+**Business Process Impact:** Affects 3 related business processes
 **Compliance Impact:** Primary key and constraint enforcement for data integrity
 
 **Risk Factors:**
-- High dependency count: 2
+- High dependency count: 3
 - Foreign key relationships: 2
 - Data integrity constraints: 1
 
@@ -4814,9 +5093,9 @@ CREATE TRIGGER last_updated BEFORE UPDATE ON public.store FOR EACH ROW EXECUTE F
 
 > **🎯 Click the button below to open the interactive ER diagram in your browser**
 
-**📱 [🖱️ Click to View Interactive ER Diagram](file:///Users/prateek/Desktop/cursor-database-v8/diagrams/er_diagram_1756119411352.html)**
+**📱 [🖱️ Click to View Interactive ER Diagram](file:///Users/prateek/Desktop/cursor-database/diagrams/er_diagram_1756458908268.html)**
 
-**💻 Or run this command to open directly:** `open /Users/prateek/Desktop/cursor-database-v8/diagrams/er_diagram_1756119411352.html`
+**💻 Or run this command to open directly:** `open /Users/prateek/Desktop/cursor-database/diagrams/er_diagram_1756458908268.html`
 
 ### 📖 How to View the ER Diagram
 
@@ -4837,4 +5116,4 @@ CREATE TRIGGER last_updated BEFORE UPDATE ON public.store FOR EACH ROW EXECUTE F
 This documentation was automatically generated by the PeerAI MongoMigrator. For questions or updates, please refer to the database administrator or use the agent's interactive mode.
 
 **Generated by:** PeerAI MongoMigrator v2.0
-**Generation Date:** 8/25/2025, 4:26:51 PM
+**Generation Date:** 29/8/2025, 2:45:08 pm

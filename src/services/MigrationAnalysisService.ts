@@ -326,17 +326,29 @@ export class MigrationAnalysisService {
   }
 
   /**
-   * Analyze project structure
+   * Analyze project structure dynamically
    */
-  private async analyzeProjectStructure(sourceCodePath: string): Promise<any> {
-    const structure: any = {
+  private async analyzeProjectStructure(sourceCodePath: string): Promise<{
+    mainJavaPath: string;
+    mainResourcesPath: string;
+    testPath: string;
+    configPath: string;
+    layers: string[];
+    hasSpringBoot: boolean;
+    hasJPA: boolean;
+    hasMongoDB: boolean;
+  }> {
+    const structure = {
       mainJavaPath: '',
       mainResourcesPath: '',
       testPath: '',
       configPath: '',
-      layers: []
+      layers: [] as string[],
+      hasSpringBoot: false,
+      hasJPA: false,
+      hasMongoDB: false
     };
-    
+
     try {
       const srcPath = path.join(sourceCodePath, 'src');
       if (fs.existsSync(srcPath)) {
@@ -344,11 +356,20 @@ export class MigrationAnalysisService {
         const testPath = path.join(srcPath, 'test');
         
         if (fs.existsSync(mainPath)) {
-          structure.mainJavaPath = path.join(mainPath, 'java');
-          structure.mainResourcesPath = path.join(mainPath, 'resources');
+          // Dynamically detect Java source path
+          const javaPath = path.join(mainPath, 'java');
+          if (fs.existsSync(javaPath)) {
+            structure.mainJavaPath = javaPath;
+          }
           
-          // Detect layers
-          if (fs.existsSync(structure.mainJavaPath)) {
+          // Dynamically detect resources path
+          const resourcesPath = path.join(mainPath, 'resources');
+          if (fs.existsSync(resourcesPath)) {
+            structure.mainResourcesPath = resourcesPath;
+          }
+          
+          // Detect layers dynamically based on actual directory structure
+          if (structure.mainJavaPath) {
             const javaItems = await fs.promises.readdir(structure.mainJavaPath);
             structure.layers = javaItems.filter(item => {
               const fullPath = path.join(structure.mainJavaPath, item);

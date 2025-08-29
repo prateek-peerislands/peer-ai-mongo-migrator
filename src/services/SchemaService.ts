@@ -105,7 +105,7 @@ export class SchemaService {
       // NEW: Extract enhanced relationship information
       const [semanticRelationships, dataFlowPatterns, businessProcesses, businessRules, impactMatrix] = await Promise.all([
         this.analyzeSemanticRelationships(tables, relationships),
-        this.discoverDataFlowPatterns(tables, relationships),
+        this.analyzeDataFlowPatterns(tables, relationships),
         this.extractBusinessProcesses(tables, relationships),
         this.analyzeBusinessRules(tables, relationships, triggers, functions),
         this.generateImpactMatrix(tables, relationships)
@@ -178,6 +178,7 @@ export class SchemaService {
     try {
       console.log('👁️ Extracting view information...');
       
+      const schemaName = this.getSchemaName();
       const query = `
         SELECT 
           v.viewname as name,
@@ -189,8 +190,8 @@ export class SchemaService {
         FROM pg_views v
         LEFT JOIN information_schema.columns c 
           ON c.table_name = v.viewname 
-          AND c.table_schema = 'public'
-        WHERE v.schemaname = 'public'
+          AND c.table_schema = '${schemaName}'
+        WHERE v.schemaname = '${schemaName}'
         ORDER BY v.viewname, c.ordinal_position
       `;
 
@@ -357,19 +358,20 @@ export class SchemaService {
   }
 
   /**
-   * Extract relationship information
+   * Extract relationships information
    */
   private async extractRelationships(): Promise<RelationshipSchema[]> {
     try {
       console.log('🔗 Extracting relationship information...');
       
+      const schemaName = this.getSchemaName();
       const query = `
         SELECT 
-          tc.constraint_name,
           tc.table_name as source_table,
           kcu.column_name as source_column,
           ccu.table_name as target_table,
           ccu.column_name as target_column,
+          tc.constraint_name,
           rc.delete_rule,
           rc.update_rule
         FROM information_schema.table_constraints tc
@@ -380,7 +382,7 @@ export class SchemaService {
         JOIN information_schema.referential_constraints rc 
           ON tc.constraint_name = rc.constraint_name
         WHERE tc.constraint_type = 'FOREIGN KEY'
-        AND tc.table_schema = 'public'
+        AND tc.table_schema = '${schemaName}'
         ORDER BY tc.table_name, kcu.column_name
       `;
 
@@ -513,77 +515,449 @@ export class SchemaService {
   }
 
   /**
-   * NEW: Discover data flow patterns
+   * NEW: Analyze business naming patterns for relationships
    */
-  private async discoverDataFlowPatterns(tables: TableSchema[], relationships: RelationshipSchema[]): Promise<DataFlowPattern[]> {
-    try {
-      console.log('🌊 Discovering data flow patterns...');
-      
-      const patterns: DataFlowPattern[] = [];
-      
-      // Analyze common business workflows
-      const rentalWorkflow = this.analyzeRentalWorkflow(tables, relationships);
-      if (rentalWorkflow) patterns.push(rentalWorkflow);
-      
-      const customerWorkflow = this.analyzeCustomerWorkflow(tables, relationships);
-      if (customerWorkflow) patterns.push(customerWorkflow);
-      
-      const paymentWorkflow = this.analyzePaymentWorkflow(tables, relationships);
-      if (paymentWorkflow) patterns.push(paymentWorkflow);
-      
-      // Generic workflow patterns
-      const genericPatterns = this.analyzeGenericWorkflows(tables, relationships);
-      patterns.push(...genericPatterns);
-      
-      console.log(`✅ Discovered ${patterns.length} data flow patterns`);
-      return patterns;
-      
-    } catch (error) {
-      console.error('Failed to discover data flow patterns:', error);
-      return [];
+  private analyzeBusinessNamingPatterns(tables: TableSchema[]): SemanticRelationship[] {
+    const relationships: SemanticRelationship[] = [];
+
+    // Example: If a table name contains "customer" and another table name contains "order",
+    // it might indicate a customer-order relationship.
+    for (const table1 of tables) {
+      for (const table2 of tables) {
+        if (table1.name !== table2.name) {
+          if (table1.name.toLowerCase().includes('customer') && table2.name.toLowerCase().includes('order')) {
+            relationships.push({
+              sourceTable: table1.name,
+              targetTable: table2.name,
+              relationshipType: 'business',
+              businessPurpose: `Customer order management relationship`,
+              dataFlowDirection: 'unidirectional',
+              businessRules: [
+                `Customer must exist before order can be created`,
+                `Order history maintained per customer`
+              ],
+              usagePatterns: [
+                `Customer order lookup`,
+                `Order history by customer`
+              ],
+              impactAnalysis: {
+                criticality: 'HIGH',
+                businessImpact: `Core business process for order management`,
+                dataIntegrityRisk: 'MEDIUM - Business logic dependent'
+              },
+              confidence: 0.7
+            });
+          }
+        }
+      }
     }
+    return relationships;
   }
 
   /**
-   * NEW: Extract business processes
+   * NEW: Infer semantic relationship from foreign key
+   */
+  private inferSemanticRelationship(rel: RelationshipSchema, sourceTable: TableSchema, targetTable: TableSchema): SemanticRelationship | null {
+    const sourceColumns = sourceTable.columns.filter(col => col.name === rel.sourceColumn);
+    const targetColumns = targetTable.columns.filter(col => col.name === rel.targetColumn);
+
+    if (sourceColumns.length === 1 && targetColumns.length === 1) {
+      const sourceCol = sourceColumns[0];
+      const targetCol = targetColumns[0];
+
+      // Determine relationship type based on table names and column types
+      let relationshipType: 'business' | 'logical' | 'temporal' | 'hierarchical' | 'workflow' = 'business';
+      let businessPurpose = `Data relationship between ${sourceTable.name} and ${targetTable.name}`;
+      
+      if (sourceCol.type.includes('timestamp') || targetCol.type.includes('timestamp')) {
+        relationshipType = 'temporal';
+        businessPurpose = `Temporal relationship between ${sourceTable.name} and ${targetTable.name}`;
+      } else if (sourceTable.name.toLowerCase().includes('parent') || targetTable.name.toLowerCase().includes('child')) {
+        relationshipType = 'hierarchical';
+        businessPurpose = `Hierarchical relationship between ${sourceTable.name} and ${targetTable.name}`;
+      } else if (sourceTable.name.toLowerCase().includes('workflow') || targetTable.name.toLowerCase().includes('process')) {
+        relationshipType = 'workflow';
+        businessPurpose = `Workflow relationship between ${sourceTable.name} and ${targetTable.name}`;
+      }
+
+      return {
+        sourceTable: sourceTable.name,
+        targetTable: targetTable.name,
+        relationshipType,
+        businessPurpose,
+        dataFlowDirection: 'unidirectional',
+        businessRules: [
+          `Data integrity maintained through foreign key constraint`,
+          `Referential integrity enforced between ${sourceTable.name} and ${targetTable.name}`
+        ],
+        usagePatterns: [
+          `JOIN operations between ${sourceTable.name} and ${targetTable.name}`,
+          `Data validation and consistency checks`
+        ],
+        impactAnalysis: {
+          criticality: 'MEDIUM',
+          businessImpact: `Ensures data consistency between ${sourceTable.name} and ${targetTable.name}`,
+          dataIntegrityRisk: 'LOW - Foreign key constraints enforced'
+        },
+        confidence: 0.9
+      };
+    }
+    return null;
+  }
+
+  /**
+   * NEW: Extract business processes dynamically based on actual schema
    */
   private async extractBusinessProcesses(tables: TableSchema[], relationships: RelationshipSchema[]): Promise<BusinessProcess[]> {
     try {
-      console.log('🏢 Extracting business processes...');
+      console.log('🏢 Extracting business processes dynamically...');
       
       const processes: BusinessProcess[] = [];
       
-      // Analyze table patterns to identify business processes
+      // Analyze table patterns dynamically based on actual schema
       const tableNames = tables.map(t => t.name.toLowerCase());
+      const tableRelationships = this.analyzeTableRelationships(tables, relationships);
       
-      // Film rental business process
-      if (tableNames.some(name => name.includes('rental')) && 
-          tableNames.some(name => name.includes('film'))) {
-        processes.push(this.createFilmRentalProcess(tables, relationships));
+      // Generate business processes based on actual table relationships and patterns
+      const detectedProcesses = this.detectBusinessProcessesFromSchema(tables, relationships, tableRelationships);
+      processes.push(...detectedProcesses);
+      
+      // If no specific processes detected, create a generic one based on schema characteristics
+      if (processes.length === 0) {
+        processes.push(this.createGenericBusinessProcess(tables, relationships));
       }
       
-      // Customer management process
-      if (tableNames.some(name => name.includes('customer'))) {
-        processes.push(this.createCustomerManagementProcess(tables, relationships));
-      }
-      
-      // Payment processing
-      if (tableNames.some(name => name.includes('payment'))) {
-        processes.push(this.createPaymentProcess(tables, relationships));
-      }
-      
-      // Store management
-      if (tableNames.some(name => name.includes('store'))) {
-        processes.push(this.createStoreManagementProcess(tables, relationships));
-      }
-      
-      console.log(`✅ Extracted ${processes.length} business processes`);
+      console.log(`✅ Extracted ${processes.length} business processes dynamically`);
       return processes;
       
     } catch (error) {
       console.error('Failed to extract business processes:', error);
       return [];
     }
+  }
+
+  /**
+   * NEW: Analyze table relationships to understand business context
+   */
+  private analyzeTableRelationships(tables: TableSchema[], relationships: RelationshipSchema[]): Map<string, string[]> {
+    const tableRelationships = new Map<string, string[]>();
+    
+    for (const table of tables) {
+      const relatedTables: string[] = [];
+      
+      // Find tables that reference this table
+      relationships.forEach(rel => {
+        if (rel.targetTable === table.name) {
+          relatedTables.push(rel.sourceTable);
+        }
+        if (rel.sourceTable === table.name) {
+          relatedTables.push(rel.targetTable);
+        }
+      });
+      
+      tableRelationships.set(table.name, relatedTables);
+    }
+    
+    return tableRelationships;
+  }
+
+  /**
+   * NEW: Detect business processes based on actual schema patterns
+   */
+  private detectBusinessProcessesFromSchema(
+    tables: TableSchema[], 
+    relationships: RelationshipSchema[], 
+    tableRelationships: Map<string, string[]>
+  ): BusinessProcess[] {
+    const processes: BusinessProcess[] = [];
+    
+    // Analyze tables with high connectivity (many foreign keys) as potential core entities
+    const coreTables = this.identifyCoreTables(tables, relationships);
+    
+    // Generate processes based on core tables and their relationships
+    for (const coreTable of coreTables) {
+      const process = this.createProcessFromCoreTable(coreTable, tables, relationships, tableRelationships);
+      if (process) {
+        processes.push(process);
+      }
+    }
+    
+    return processes;
+  }
+
+  /**
+   * NEW: Identify core tables based on foreign key relationships
+   */
+  private identifyCoreTables(tables: TableSchema[], relationships: RelationshipSchema[]): TableSchema[] {
+    const tableConnectivity = new Map<string, number>();
+    
+    // Count foreign key relationships for each table
+    for (const table of tables) {
+      let connectivity = 0;
+      relationships.forEach(rel => {
+        if (rel.sourceTable === table.name || rel.targetTable === table.name) {
+          connectivity++;
+        }
+      });
+      tableConnectivity.set(table.name, connectivity);
+    }
+    
+    // Return tables with highest connectivity (potential core entities)
+    const sortedTables = [...tables].sort((a, b) => 
+      (tableConnectivity.get(b.name) || 0) - (tableConnectivity.get(a.name) || 0)
+    );
+    
+    // Return top 30% of tables as core entities
+    const coreCount = Math.max(1, Math.ceil(sortedTables.length * 0.3));
+    return sortedTables.slice(0, coreCount);
+  }
+
+  /**
+   * NEW: Create business process from core table analysis
+   */
+  private createProcessFromCoreTable(
+    coreTable: TableSchema, 
+    tables: TableSchema[], 
+    relationships: RelationshipSchema[], 
+    tableRelationships: Map<string, string[]>
+  ): BusinessProcess | null {
+    const relatedTables = tableRelationships.get(coreTable.name) || [];
+    
+    if (relatedTables.length === 0) {
+      return null;
+    }
+    
+    // Analyze the workflow based on actual relationships
+    const workflowSteps = this.analyzeWorkflowFromRelationships(coreTable, relatedTables, relationships);
+    
+    return {
+      id: `${coreTable.name.toLowerCase()}_process`,
+      name: `${this.capitalizeFirst(coreTable.name)} Management Process`,
+      description: `Process for managing ${coreTable.name.toLowerCase()} and related operations`,
+      owner: 'System Users',
+      trigger: 'User request or system event',
+      steps: workflowSteps,
+      tables: [coreTable.name, ...relatedTables],
+      businessRules: this.generateBusinessRulesForTable(coreTable, relatedTables, relationships),
+      criticality: this.assessProcessCriticality(coreTable, relatedTables),
+      estimatedDuration: this.estimateProcessDuration(relatedTables.length),
+      stakeholders: ['Users', 'Administrators']
+    };
+  }
+
+  /**
+   * NEW: Generate business rules for a table based on its characteristics
+   */
+  private generateBusinessRulesForTable(
+    coreTable: TableSchema, 
+    relatedTables: string[], 
+    relationships: RelationshipSchema[]
+  ): string[] {
+    const rules: string[] = [];
+    
+    // Add rules based on table characteristics
+    if (coreTable.primaryKey) {
+      rules.push(`${coreTable.name} must have a unique identifier`);
+    }
+    
+    if (coreTable.foreignKeys && coreTable.foreignKeys.length > 0) {
+      rules.push(`${coreTable.name} must maintain referential integrity with related tables`);
+    }
+    
+    // Add rules based on relationships
+    if (relatedTables.length > 0) {
+      rules.push(`Changes to ${coreTable.name} may affect ${relatedTables.length} related tables`);
+    }
+    
+    return rules;
+  }
+
+  /**
+   * NEW: Analyze workflow from actual table relationships
+   */
+  private analyzeWorkflowFromRelationships(
+    coreTable: TableSchema, 
+    relatedTables: string[], 
+    relationships: RelationshipSchema[]
+  ): Array<{
+    stepNumber: number;
+    action: string;
+    table: string;
+    description: string;
+    businessRules: string[];
+    dependencies: string[];
+  }> {
+    const workflow: Array<{
+      stepNumber: number;
+      action: string;
+      table: string;
+      description: string;
+      businessRules: string[];
+      dependencies: string[];
+    }> = [];
+    let step = 1;
+    
+    // Start with core table
+    workflow.push({
+      stepNumber: step++,
+      action: 'Access',
+      table: coreTable.name,
+      description: `Access ${coreTable.name.toLowerCase()} information`,
+      businessRules: [`Ensure proper access permissions for ${coreTable.name}`],
+      dependencies: []
+    });
+    
+    // Add related tables based on actual relationships
+    for (const relatedTable of relatedTables) {
+      workflow.push({
+        stepNumber: step++,
+        action: this.determineActionForTable(relatedTable, relationships),
+        table: relatedTable,
+        description: `Process ${relatedTable.toLowerCase()} data`,
+        businessRules: [`Maintain relationship integrity with ${coreTable.name}`],
+        dependencies: [coreTable.name]
+      });
+    }
+    
+    return workflow;
+  }
+
+  /**
+   * NEW: Determine appropriate action for table based on its role
+   */
+  private determineActionForTable(tableName: string, relationships: RelationshipSchema[]): string {
+    // Check if this table is referenced by others (likely read-heavy)
+    const isReferenced = relationships.some(rel => rel.targetTable === tableName);
+    // Check if this table references others (likely write-heavy)
+    const referencesOthers = relationships.some(rel => rel.sourceTable === tableName);
+    
+    if (isReferenced && !referencesOthers) return 'Read';
+    if (referencesOthers && !isReferenced) return 'Write';
+    return 'Access'; // Default to access for balanced tables
+  }
+
+  /**
+   * NEW: Assess process criticality based on table characteristics
+   */
+  private assessProcessCriticality(coreTable: TableSchema, relatedTables: string[]): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+    if (relatedTables.length > 5) return 'CRITICAL';
+    if (relatedTables.length > 3) return 'HIGH';
+    if (relatedTables.length > 1) return 'MEDIUM';
+    return 'LOW';
+  }
+
+  /**
+   * NEW: Estimate process duration based on complexity
+   */
+  private estimateProcessDuration(relatedTableCount: number): string {
+    if (relatedTableCount > 5) return '10-15 minutes';
+    if (relatedTableCount > 3) return '5-10 minutes';
+    if (relatedTableCount > 1) return '2-5 minutes';
+    return '1-2 minutes';
+  }
+
+  /**
+   * NEW: Assess process frequency based on table relationships
+   */
+  private assessProcessFrequency(relatedTableCount: number): string {
+    if (relatedTableCount > 5) return 'high';
+    if (relatedTableCount > 3) return 'medium';
+    return 'low';
+  }
+
+  /**
+   * NEW: Assess data volume based on table characteristics
+   */
+  private assessDataVolume(coreTable: TableSchema, relatedTables: string[]): string {
+    const totalColumns = coreTable.columns.length + relatedTables.reduce((sum, tableName) => {
+      const table = this.findTableByName(tableName);
+      return sum + (table?.columns.length || 0);
+    }, 0);
+    
+    if (totalColumns > 20) return 'large';
+    if (totalColumns > 10) return 'medium';
+    return 'small';
+  }
+
+  /**
+   * NEW: Assess performance impact based on complexity
+   */
+  private assessPerformanceImpact(relatedTableCount: number): string {
+    if (relatedTableCount > 5) return 'significant';
+    if (relatedTableCount > 3) return 'moderate';
+    return 'minimal';
+  }
+
+  /**
+   * NEW: Find table by name
+   */
+  private findTableByName(tableName: string): TableSchema | undefined {
+    // This would need access to the tables array - you might need to pass it as a parameter
+    // or store it as a class property
+    return undefined; // Placeholder
+  }
+
+  /**
+   * NEW: Create generic business process when no specific patterns detected
+   */
+  private createGenericBusinessProcess(tables: TableSchema[], relationships: RelationshipSchema[]): BusinessProcess {
+    const workflowSteps = this.createGenericWorkflow(tables);
+    
+    return {
+      id: 'generic_business_process',
+      name: 'General Business Operations',
+      description: 'Standard business operations supported by the database schema',
+      owner: 'System Users',
+      trigger: 'General system operations',
+      steps: workflowSteps,
+      tables: tables.map(t => t.name),
+      businessRules: ['Maintain data integrity across all tables', 'Follow standard database operations'],
+      criticality: 'MEDIUM',
+      estimatedDuration: '5-10 minutes',
+      stakeholders: ['Users', 'Administrators']
+    };
+  }
+
+  /**
+   * NEW: Create generic workflow based on actual tables
+   */
+  private createGenericWorkflow(tables: TableSchema[]): Array<{
+    stepNumber: number;
+    action: string;
+    table: string;
+    description: string;
+    businessRules: string[];
+    dependencies: string[];
+  }> {
+    const workflow: Array<{
+      stepNumber: number;
+      action: string;
+      table: string;
+      description: string;
+      businessRules: string[];
+      dependencies: string[];
+    }> = [];
+    let step = 1;
+    
+    for (const table of tables) {
+      workflow.push({
+        stepNumber: step++,
+        action: 'Access',
+        table: table.name,
+        description: `Access ${table.name.toLowerCase()} data`,
+        businessRules: [`Ensure proper access permissions for ${table.name}`],
+        dependencies: step > 1 ? [tables[step - 2].name] : []
+      });
+    }
+    
+    return workflow;
+  }
+
+  /**
+   * NEW: Utility function to capitalize first letter
+   */
+  private capitalizeFirst(str: string): string {
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   }
 
   /**
@@ -647,608 +1021,6 @@ export class SchemaService {
       console.error('Failed to generate impact matrix:', error);
       return [];
     }
-  }
-
-  /**
-   * NEW: Infer semantic relationship from foreign key
-   */
-  private inferSemanticRelationship(rel: RelationshipSchema, sourceTable: TableSchema, targetTable: TableSchema): SemanticRelationship | null {
-    const sourceColumns = sourceTable.columns.filter(col => col.name === rel.sourceColumn);
-    const targetColumns = targetTable.columns.filter(col => col.name === rel.targetColumn);
-
-    if (sourceColumns.length === 1 && targetColumns.length === 1) {
-      const sourceCol = sourceColumns[0];
-      const targetCol = targetColumns[0];
-
-      // Determine relationship type based on table names and column types
-      let relationshipType: 'business' | 'logical' | 'temporal' | 'hierarchical' | 'workflow' = 'business';
-      let businessPurpose = `Data relationship between ${sourceTable.name} and ${targetTable.name}`;
-      
-      if (sourceCol.type.includes('timestamp') || targetCol.type.includes('timestamp')) {
-        relationshipType = 'temporal';
-        businessPurpose = `Temporal relationship between ${sourceTable.name} and ${targetTable.name}`;
-      } else if (sourceTable.name.toLowerCase().includes('parent') || targetTable.name.toLowerCase().includes('child')) {
-        relationshipType = 'hierarchical';
-        businessPurpose = `Hierarchical relationship between ${sourceTable.name} and ${targetTable.name}`;
-      } else if (sourceTable.name.toLowerCase().includes('workflow') || targetTable.name.toLowerCase().includes('process')) {
-        relationshipType = 'workflow';
-        businessPurpose = `Workflow relationship between ${sourceTable.name} and ${targetTable.name}`;
-      }
-
-      return {
-        sourceTable: sourceTable.name,
-        targetTable: targetTable.name,
-        relationshipType,
-        businessPurpose,
-        dataFlowDirection: 'unidirectional',
-        businessRules: [
-          `Data integrity maintained through foreign key constraint`,
-          `Referential integrity enforced between ${sourceTable.name} and ${targetTable.name}`
-        ],
-        usagePatterns: [
-          `JOIN operations between ${sourceTable.name} and ${targetTable.name}`,
-          `Data validation and consistency checks`
-        ],
-        impactAnalysis: {
-          criticality: 'MEDIUM',
-          businessImpact: `Ensures data consistency between ${sourceTable.name} and ${targetTable.name}`,
-          dataIntegrityRisk: 'LOW - Foreign key constraints enforced'
-        },
-        confidence: 0.9
-      };
-    }
-    return null;
-  }
-
-  /**
-   * NEW: Analyze business naming patterns for relationships
-   */
-  private analyzeBusinessNamingPatterns(tables: TableSchema[]): SemanticRelationship[] {
-    const relationships: SemanticRelationship[] = [];
-
-    // Example: If a table name contains "customer" and another table name contains "order",
-    // it might indicate a customer-order relationship.
-    for (const table1 of tables) {
-      for (const table2 of tables) {
-        if (table1.name !== table2.name) {
-          if (table1.name.toLowerCase().includes('customer') && table2.name.toLowerCase().includes('order')) {
-            relationships.push({
-              sourceTable: table1.name,
-              targetTable: table2.name,
-              relationshipType: 'business',
-              businessPurpose: `Customer order management relationship`,
-              dataFlowDirection: 'unidirectional',
-              businessRules: [
-                `Customer must exist before order can be created`,
-                `Order history maintained per customer`
-              ],
-              usagePatterns: [
-                `Customer order lookup`,
-                `Order history by customer`
-              ],
-              impactAnalysis: {
-                criticality: 'HIGH',
-                businessImpact: `Core business process for order management`,
-                dataIntegrityRisk: 'MEDIUM - Business logic dependent'
-              },
-              confidence: 0.7
-            });
-          }
-        }
-      }
-    }
-    return relationships;
-  }
-
-  /**
-   * NEW: Analyze a specific business workflow (e.g., rental workflow)
-   */
-  private analyzeRentalWorkflow(tables: TableSchema[], relationships: RelationshipSchema[]): DataFlowPattern | null {
-    const rentalTables = tables.filter(t => t.name.toLowerCase().includes('rental'));
-    const filmTables = tables.filter(t => t.name.toLowerCase().includes('film'));
-    const customerTables = tables.filter(t => t.name.toLowerCase().includes('customer'));
-
-    if (rentalTables.length > 0 && filmTables.length > 0 && customerTables.length > 0) {
-      return {
-        id: 'rental_workflow',
-        name: 'Film Rental Workflow',
-        description: 'Process for renting a film by a customer.',
-        tables: ['customer', 'film', 'rental', 'inventory', 'payment'],
-        flowSequence: [
-          {
-            step: 1,
-            table: 'customer',
-            action: 'read',
-            description: 'Customer identification and validation',
-            dependencies: []
-          },
-          {
-            step: 2,
-            table: 'film',
-            action: 'read',
-            description: 'Film availability check',
-            dependencies: ['customer']
-          },
-          {
-            step: 3,
-            table: 'rental',
-            action: 'write',
-            description: 'Rental record creation',
-            dependencies: ['customer', 'film']
-          },
-          {
-            step: 4,
-            table: 'payment',
-            action: 'write',
-            description: 'Payment processing',
-            dependencies: ['rental']
-          },
-          {
-            step: 5,
-            table: 'inventory',
-            action: 'write',
-            description: 'Inventory update',
-            dependencies: ['rental', 'payment']
-          }
-        ],
-        businessProcess: 'Film Rental',
-        frequency: 'high',
-        dataVolume: 'medium',
-        performanceImpact: 'moderate'
-      };
-    }
-    return null;
-  }
-
-  /**
-   * NEW: Analyze a specific business workflow (e.g., customer management workflow)
-   */
-  private analyzeCustomerWorkflow(tables: TableSchema[], relationships: RelationshipSchema[]): DataFlowPattern | null {
-    const customerTables = tables.filter(t => t.name.toLowerCase().includes('customer'));
-    const paymentTables = tables.filter(t => t.name.toLowerCase().includes('payment'));
-    const rentalTables = tables.filter(t => t.name.toLowerCase().includes('rental'));
-
-    if (customerTables.length > 0 && paymentTables.length > 0 && rentalTables.length > 0) {
-      return {
-        id: 'customer_workflow',
-        name: 'Customer Management Workflow',
-        description: 'Process for managing customer information and payments.',
-        tables: ['customer', 'payment', 'rental', 'address'],
-        flowSequence: [
-          {
-            step: 1,
-            table: 'customer',
-            action: 'write',
-            description: 'Customer account creation',
-            dependencies: []
-          },
-          {
-            step: 2,
-            table: 'address',
-            action: 'write',
-            description: 'Address validation and storage',
-            dependencies: ['customer']
-          },
-          {
-            step: 3,
-            table: 'payment',
-            action: 'write',
-            description: 'Payment method setup',
-            dependencies: ['customer']
-          },
-          {
-            step: 4,
-            table: 'rental',
-            action: 'read',
-            description: 'Rental history access',
-            dependencies: ['customer']
-          }
-        ],
-        businessProcess: 'Customer Management',
-        frequency: 'medium',
-        dataVolume: 'small',
-        performanceImpact: 'minimal'
-      };
-    }
-    return null;
-  }
-
-  /**
-   * NEW: Analyze a specific business workflow (e.g., payment processing workflow)
-   */
-  private analyzePaymentWorkflow(tables: TableSchema[], relationships: RelationshipSchema[]): DataFlowPattern | null {
-    const paymentTables = tables.filter(t => t.name.toLowerCase().includes('payment'));
-    const rentalTables = tables.filter(t => t.name.toLowerCase().includes('rental'));
-    const customerTables = tables.filter(t => t.name.toLowerCase().includes('customer'));
-
-    if (paymentTables.length > 0 && rentalTables.length > 0 && customerTables.length > 0) {
-      return {
-        id: 'payment_workflow',
-        name: 'Payment Processing Workflow',
-        description: 'Process for handling customer payments and rental transactions.',
-        tables: ['customer', 'payment', 'rental'],
-        flowSequence: [
-          {
-            step: 1,
-            table: 'customer',
-            action: 'read',
-            description: 'Customer payment method validation',
-            dependencies: []
-          },
-          {
-            step: 2,
-            table: 'payment',
-            action: 'write',
-            description: 'Payment transaction processing',
-            dependencies: ['customer']
-          },
-          {
-            step: 3,
-            table: 'rental',
-            action: 'write',
-            description: 'Rental confirmation after payment',
-            dependencies: ['payment']
-          }
-        ],
-        businessProcess: 'Payment Processing',
-        frequency: 'high',
-        dataVolume: 'medium',
-        performanceImpact: 'significant'
-      };
-    }
-    return null;
-  }
-
-  /**
-   * NEW: Analyze generic workflow patterns
-   */
-  private analyzeGenericWorkflows(tables: TableSchema[], relationships: RelationshipSchema[]): DataFlowPattern[] {
-    const patterns: DataFlowPattern[] = [];
-
-    // Example: If a table is frequently joined with another table, it might be part of a common workflow.
-    const frequentlyJoinedTables = this.findFrequentlyJoinedTables(tables, relationships);
-    if (frequentlyJoinedTables.length > 0) {
-      patterns.push({
-        id: 'generic_workflow',
-        name: 'Generic Workflow',
-        description: 'Common patterns observed across multiple tables.',
-        tables: frequentlyJoinedTables,
-        flowSequence: [
-          {
-            step: 1,
-            table: 'user',
-            action: 'read',
-            description: 'Data entry and validation',
-            dependencies: []
-          },
-          {
-            step: 2,
-            table: 'application',
-            action: 'process',
-            description: 'Data processing and transformation',
-            dependencies: ['user']
-          },
-          {
-            step: 3,
-            table: 'database',
-            action: 'write',
-            description: 'Data storage and persistence',
-            dependencies: ['application']
-          }
-        ],
-        businessProcess: 'Generic Data Processing',
-        frequency: 'continuous',
-        dataVolume: 'large',
-        performanceImpact: 'moderate'
-      });
-    }
-
-    // Example: If a table is frequently updated and has a foreign key to another table,
-    // it might be part of a cascading update/delete workflow.
-    const tablesWithCascadingUpdates = this.findTablesWithCascadingUpdates(tables, relationships);
-    if (tablesWithCascadingUpdates.length > 0) {
-      patterns.push({
-        id: 'cascading_workflow',
-        name: 'Cascading Updates/Deletes',
-        description: 'Common pattern where updates/deletes cascade across tables.',
-        tables: tablesWithCascadingUpdates,
-        flowSequence: [
-          {
-            step: 1,
-            table: 'source',
-            action: 'write',
-            description: 'Update/Delete initiated on source table',
-            dependencies: []
-          },
-          {
-            step: 2,
-            table: 'target',
-            action: 'write',
-            description: 'Cascading update/delete propagated',
-            dependencies: ['source']
-          },
-          {
-            step: 3,
-            table: 'system',
-            action: 'process',
-            description: 'Data consistency maintenance',
-            dependencies: ['target']
-          }
-        ],
-        businessProcess: 'Data Consistency',
-        frequency: 'medium',
-        dataVolume: 'medium',
-        performanceImpact: 'significant'
-      });
-    }
-
-    return patterns;
-  }
-
-  /**
-   * NEW: Find tables that are frequently joined together
-   */
-  private findFrequentlyJoinedTables(tables: TableSchema[], relationships: RelationshipSchema[]): string[] {
-    const joinCount: { [key: string]: number } = {};
-    relationships.forEach(rel => {
-      if (rel.constraintName.toLowerCase().includes('fk')) { // Assuming foreign keys have 'fk' in their name
-        joinCount[rel.sourceTable] = (joinCount[rel.sourceTable] || 0) + 1;
-        joinCount[rel.targetTable] = (joinCount[rel.targetTable] || 0) + 1;
-      }
-    });
-
-    const sortedTables = Object.entries(joinCount).sort(([, countA], [, countB]) => countB - countA);
-    return sortedTables.map(([table]) => table).slice(0, 5); // Top 5 tables by join frequency
-  }
-
-  /**
-   * NEW: Find tables that have cascading updates/deletes
-   */
-  private findTablesWithCascadingUpdates(tables: TableSchema[], relationships: RelationshipSchema[]): string[] {
-    const cascadingUpdates: string[] = [];
-    relationships.forEach(rel => {
-      if (rel.deleteRule.toLowerCase() === 'cascade' || rel.updateRule.toLowerCase() === 'cascade') {
-        cascadingUpdates.push(rel.sourceTable);
-        cascadingUpdates.push(rel.targetTable);
-      }
-    });
-    return [...new Set(cascadingUpdates)].slice(0, 5); // Top 5 tables by cascading frequency
-  }
-
-  /**
-   * NEW: Create a business process object
-   */
-  private createFilmRentalProcess(tables: TableSchema[], relationships: RelationshipSchema[]): BusinessProcess {
-    return {
-      id: 'film_rental_process',
-      name: 'Film Rental Process',
-      description: 'Process for renting a film by a customer.',
-      owner: 'Store Staff',
-      trigger: 'Customer rental request',
-      steps: [
-        {
-          stepNumber: 1,
-          action: 'Customer identification and validation',
-          table: 'customer',
-          description: 'Verify customer identity and eligibility',
-          businessRules: ['Customer must be active', 'Valid ID required'],
-          dependencies: []
-        },
-        {
-          stepNumber: 2,
-          action: 'Film availability check',
-          table: 'film',
-          description: 'Check if requested film is available',
-          businessRules: ['Film must be in stock', 'Age restrictions apply'],
-          dependencies: ['customer']
-        },
-        {
-          stepNumber: 3,
-          action: 'Rental record creation',
-          table: 'rental',
-          description: 'Create rental transaction record',
-          businessRules: ['Rental duration limits', 'Late fee policies'],
-          dependencies: ['customer', 'film']
-        },
-        {
-          stepNumber: 4,
-          action: 'Payment processing',
-          table: 'payment',
-          description: 'Process rental payment',
-          businessRules: ['Full payment required', 'Payment method validation'],
-          dependencies: ['rental']
-        },
-        {
-          stepNumber: 5,
-          action: 'Inventory update',
-          table: 'inventory',
-          description: 'Update film inventory status',
-          businessRules: ['Real-time inventory tracking', 'Stock level maintenance'],
-          dependencies: ['payment']
-        }
-      ],
-      tables: ['customer', 'film', 'rental', 'payment', 'inventory'],
-      businessRules: [
-        'Customer must be 18+ for adult films',
-        'Rental duration maximum 30 days',
-        'Late fees apply after due date',
-        'Payment must be completed before rental'
-      ],
-      criticality: 'HIGH',
-      estimatedDuration: '5-10 minutes',
-      stakeholders: ['Customer', 'Store Staff', 'Management']
-    };
-  }
-
-  /**
-   * NEW: Create a business process object
-   */
-  private createCustomerManagementProcess(tables: TableSchema[], relationships: RelationshipSchema[]): BusinessProcess {
-    return {
-      id: 'customer_management_process',
-      name: 'Customer Management Process',
-      description: 'Process for managing customer information and payments.',
-      owner: 'Customer Service',
-      trigger: 'Customer registration or update request',
-      steps: [
-        {
-          stepNumber: 1,
-          action: 'Customer account creation',
-          table: 'customer',
-          description: 'Create new customer account',
-          businessRules: ['Unique email required', 'Valid phone number'],
-          dependencies: []
-        },
-        {
-          stepNumber: 2,
-          action: 'Address validation',
-          table: 'address',
-          description: 'Verify and store customer address',
-          businessRules: ['Valid postal code', 'Supported region'],
-          dependencies: ['customer']
-        },
-        {
-          stepNumber: 3,
-          action: 'Payment method setup',
-          table: 'payment',
-          description: 'Configure customer payment options',
-          businessRules: ['Valid payment method', 'Security compliance'],
-          dependencies: ['customer']
-        },
-        {
-          stepNumber: 4,
-          action: 'Account verification',
-          table: 'customer',
-          description: 'Verify customer account details',
-          businessRules: ['Email verification', 'Phone verification'],
-          dependencies: ['address', 'payment']
-        }
-      ],
-      tables: ['customer', 'address', 'payment'],
-      businessRules: [
-        'Customer must provide valid contact information',
-        'Address must be in supported regions',
-        'Payment method must be verified',
-        'Account verification required before activation'
-      ],
-      criticality: 'MEDIUM',
-      estimatedDuration: '10-15 minutes',
-      stakeholders: ['Customer', 'Customer Service', 'IT Support']
-    };
-  }
-
-  /**
-   * NEW: Create a business process object
-   */
-  private createPaymentProcess(tables: TableSchema[], relationships: RelationshipSchema[]): BusinessProcess {
-    return {
-      id: 'payment_process',
-      name: 'Payment Processing Process',
-      description: 'Process for handling customer payments and rental transactions.',
-      owner: 'Finance Department',
-      trigger: 'Payment transaction request',
-      steps: [
-        {
-          stepNumber: 1,
-          action: 'Payment validation',
-          table: 'payment',
-          description: 'Validate payment method and amount',
-          businessRules: ['Valid payment method', 'Sufficient funds'],
-          dependencies: []
-        },
-        {
-          stepNumber: 2,
-          action: 'Transaction processing',
-          table: 'payment',
-          description: 'Process payment through gateway',
-          businessRules: ['Secure processing', 'Transaction logging'],
-          dependencies: ['payment']
-        },
-        {
-          stepNumber: 3,
-          action: 'Confirmation generation',
-          table: 'payment',
-          description: 'Generate payment confirmation',
-          businessRules: ['Receipt generation', 'Email notification'],
-          dependencies: ['payment']
-        },
-        {
-          stepNumber: 4,
-          action: 'Record update',
-          table: 'rental',
-          description: 'Update rental status after payment',
-          businessRules: ['Status synchronization', 'Audit trail'],
-          dependencies: ['payment']
-        }
-      ],
-      tables: ['payment', 'rental', 'customer'],
-      businessRules: [
-        'Payment must be processed securely',
-        'Transaction must be logged for audit',
-        'Confirmation must be sent to customer',
-        'Rental status must be updated immediately'
-      ],
-      criticality: 'HIGH',
-      estimatedDuration: '2-5 minutes',
-      stakeholders: ['Customer', 'Finance', 'IT Security']
-    };
-  }
-
-  /**
-   * NEW: Create a business process object
-   */
-  private createStoreManagementProcess(tables: TableSchema[], relationships: RelationshipSchema[]): BusinessProcess {
-    return {
-      id: 'store_management_process',
-      name: 'Store Management Process',
-      description: 'Process for managing store inventory and customer interactions.',
-      owner: 'Store Manager',
-      trigger: 'Store operations or inventory changes',
-      steps: [
-        {
-          stepNumber: 1,
-          action: 'Inventory assessment',
-          table: 'inventory',
-          description: 'Review current inventory levels',
-          businessRules: ['Regular stock counts', 'Threshold monitoring'],
-          dependencies: []
-        },
-        {
-          stepNumber: 2,
-          action: 'Staff scheduling',
-          table: 'staff',
-          description: 'Manage staff schedules and assignments',
-          businessRules: ['Minimum staffing requirements', 'Skill-based assignments'],
-          dependencies: ['inventory']
-        },
-        {
-          stepNumber: 3,
-          action: 'Customer service',
-          table: 'customer',
-          description: 'Handle customer inquiries and issues',
-          businessRules: ['Response time standards', 'Issue escalation'],
-          dependencies: ['staff']
-        },
-        {
-          stepNumber: 4,
-          action: 'Performance monitoring',
-          table: 'store',
-          description: 'Track store performance metrics',
-          businessRules: ['KPI monitoring', 'Report generation'],
-          dependencies: ['customer', 'staff']
-        }
-      ],
-      tables: ['inventory', 'staff', 'customer', 'store'],
-      businessRules: [
-        'Inventory must be checked daily',
-        'Staff must be properly trained',
-        'Customer issues must be resolved within 24 hours',
-        'Performance reports must be generated weekly'
-      ],
-      criticality: 'MEDIUM',
-      estimatedDuration: 'Ongoing',
-      stakeholders: ['Store Manager', 'Staff', 'Customers', 'Management']
-    };
   }
 
   /**
@@ -1408,6 +1180,20 @@ export class SchemaService {
   }
 
   /**
+   * NEW: Find tables with cascading updates
+   */
+  private findTablesWithCascadingUpdates(tables: TableSchema[], relationships: RelationshipSchema[]): string[] {
+    const cascadingTables: string[] = [];
+    relationships.forEach(rel => {
+      if (rel.deleteRule?.toLowerCase() === 'cascade' || rel.updateRule?.toLowerCase() === 'cascade') {
+        cascadingTables.push(rel.sourceTable);
+        cascadingTables.push(rel.targetTable);
+      }
+    });
+    return [...new Set(cascadingTables)];
+  }
+
+  /**
    * NEW: Find dependencies of a table (foreign keys and cascading updates)
    */
   private findTableDependencies(table: TableSchema, relationships: RelationshipSchema[], allTables: TableSchema[]): string[] {
@@ -1420,8 +1206,12 @@ export class SchemaService {
         dependencies.push(rel.sourceTable);
       }
     });
-    const cascadingUpdates = this.findTablesWithCascadingUpdates(allTables, relationships).filter(dep => dep === table.name);
-    return [...new Set([...dependencies, ...cascadingUpdates])];
+    
+    // Find tables with cascading updates
+    const cascadingTables = this.findTablesWithCascadingUpdates(allTables, relationships);
+    const cascadingDeps = cascadingTables.filter((dep: string) => dep === table.name);
+    
+    return [...new Set([...dependencies, ...cascadingDeps])];
   }
 
   /**
@@ -1447,6 +1237,247 @@ export class SchemaService {
     }
     // Check for other unique constraints if available
     return uniqueConstraints;
+  }
+
+  /**
+   * NEW: Analyze data flow patterns dynamically
+   */
+  private async analyzeDataFlowPatterns(tables: TableSchema[], relationships: RelationshipSchema[]): Promise<DataFlowPattern[]> {
+    try {
+      console.log('🌊 Analyzing data flow patterns dynamically...');
+      
+      const patterns: DataFlowPattern[] = [];
+      
+      // Analyze actual table relationships to identify data flow patterns
+      const tableConnectivity = this.analyzeTableConnectivity(tables, relationships);
+      const highConnectivityTables = this.getHighConnectivityTables(tableConnectivity);
+      
+      // Generate patterns based on actual connectivity
+      for (const table of highConnectivityTables) {
+        const pattern = this.createDataFlowPatternFromTable(table, tables, relationships, tableConnectivity);
+        if (pattern) {
+          patterns.push(pattern);
+        }
+      }
+      
+      // If no specific patterns, create a generic one
+      if (patterns.length === 0) {
+        patterns.push(this.createGenericDataFlowPattern(tables, relationships));
+      }
+      
+      console.log(`✅ Analyzed ${patterns.length} data flow patterns dynamically`);
+      return patterns;
+      
+    } catch (error) {
+      console.error('Failed to analyze data flow patterns:', error);
+      return [];
+    }
+  }
+
+  /**
+   * NEW: Analyze table connectivity for data flow analysis
+   */
+  private analyzeTableConnectivity(tables: TableSchema[], relationships: RelationshipSchema[]): Map<string, number> {
+    const connectivity = new Map<string, number>();
+    
+    for (const table of tables) {
+      let connections = 0;
+      relationships.forEach(rel => {
+        if (rel.sourceTable === table.name || rel.targetTable === table.name) {
+          connections++;
+        }
+      });
+      connectivity.set(table.name, connections);
+    }
+    
+    return connectivity;
+  }
+
+  /**
+   * NEW: Get tables with high connectivity
+   */
+  private getHighConnectivityTables(connectivity: Map<string, number>): string[] {
+    const sortedTables = Array.from(connectivity.entries())
+      .sort(([, a], [, b]) => b - a);
+    
+    // Return top 40% of tables as high connectivity
+    const highConnectivityCount = Math.max(1, Math.ceil(sortedTables.length * 0.4));
+    return sortedTables.slice(0, highConnectivityCount).map(([tableName]) => tableName);
+  }
+
+  /**
+   * NEW: Create data flow pattern from table analysis
+   */
+  private createDataFlowPatternFromTable(
+    tableName: string, 
+    tables: TableSchema[], 
+    relationships: RelationshipSchema[], 
+    connectivity: Map<string, number>
+  ): DataFlowPattern | null {
+    const table = tables.find(t => t.name === tableName);
+    if (!table) return null;
+    
+    const relatedTables = this.getRelatedTables(tableName, relationships);
+    if (relatedTables.length === 0) return null;
+    
+    const flowSequence = this.createFlowSequence(tableName, relatedTables, relationships);
+    
+    return {
+      id: `${tableName.toLowerCase()}_data_flow`,
+      name: `${this.capitalizeFirst(tableName)} Data Flow`,
+      description: `Data flow pattern for ${tableName.toLowerCase()} and related operations`,
+      tables: [tableName, ...relatedTables],
+      flowSequence,
+      businessProcess: `${this.capitalizeFirst(tableName)} Management`,
+      frequency: this.assessFlowFrequency(relatedTables.length) as 'low' | 'medium' | 'high' | 'continuous',
+      dataVolume: this.assessFlowDataVolume(table, relatedTables) as 'small' | 'medium' | 'large',
+      performanceImpact: this.assessFlowPerformanceImpact(relatedTables.length) as 'minimal' | 'moderate' | 'significant'
+    };
+  }
+
+  /**
+   * NEW: Get related tables for a given table
+   */
+  private getRelatedTables(tableName: string, relationships: RelationshipSchema[]): string[] {
+    const related: string[] = [];
+    
+    relationships.forEach(rel => {
+      if (rel.sourceTable === tableName) {
+        related.push(rel.targetTable);
+      }
+      if (rel.targetTable === tableName) {
+        related.push(rel.sourceTable);
+      }
+    });
+    
+    return [...new Set(related)];
+  }
+
+  /**
+   * NEW: Create flow sequence based on actual relationships
+   */
+  private createFlowSequence(
+    startTable: string, 
+    relatedTables: string[], 
+    relationships: RelationshipSchema[]
+  ): any[] {
+    const sequence: any[] = [];
+    let step = 1;
+    
+    // Start with the main table
+    sequence.push({
+      step: step++,
+      table: startTable,
+      action: 'read',
+      description: `Access ${startTable.toLowerCase()} information`,
+      dependencies: []
+    });
+    
+    // Add related tables in dependency order
+    for (const relatedTable of relatedTables) {
+      const dependencies = this.getTableDependencies(relatedTable, relationships);
+      sequence.push({
+        step: step++,
+        table: relatedTable,
+        action: this.determineFlowAction(relatedTable, relationships),
+        description: `Process ${relatedTable.toLowerCase()} data`,
+        dependencies
+      });
+    }
+    
+    return sequence;
+  }
+
+  /**
+   * NEW: Get table dependencies for flow sequence
+   */
+  private getTableDependencies(tableName: string, relationships: RelationshipSchema[]): string[] {
+    const dependencies: string[] = [];
+    
+    relationships.forEach(rel => {
+      if (rel.targetTable === tableName) {
+        dependencies.push(rel.sourceTable);
+      }
+    });
+    
+    return dependencies;
+  }
+
+  /**
+   * NEW: Determine action for flow sequence
+   */
+  private determineFlowAction(tableName: string, relationships: RelationshipSchema[]): 'read' | 'write' {
+    const isReferenced = relationships.some(rel => rel.targetTable === tableName);
+    const referencesOthers = relationships.some(rel => rel.sourceTable === tableName);
+    
+    if (isReferenced && !referencesOthers) return 'read';
+    if (referencesOthers && !isReferenced) return 'write';
+    return 'read';
+  }
+
+  /**
+   * NEW: Assess flow frequency
+   */
+  private assessFlowFrequency(relatedTableCount: number): string {
+    if (relatedTableCount > 5) return 'high';
+    if (relatedTableCount > 3) return 'medium';
+    return 'low';
+  }
+
+  /**
+   * NEW: Assess flow data volume
+   */
+  private assessFlowDataVolume(table: TableSchema, relatedTables: string[]): string {
+    const totalColumns = table.columns.length + relatedTables.length * 5; // Estimate
+    if (totalColumns > 30) return 'large';
+    if (totalColumns > 15) return 'medium';
+    return 'small';
+  }
+
+  /**
+   * NEW: Assess flow performance impact
+   */
+  private assessFlowPerformanceImpact(relatedTableCount: number): string {
+    if (relatedTableCount > 5) return 'significant';
+    if (relatedTableCount > 3) return 'moderate';
+    return 'minimal';
+  }
+
+  /**
+   * NEW: Create generic data flow pattern
+   */
+  private createGenericDataFlowPattern(tables: TableSchema[], relationships: RelationshipSchema[]): DataFlowPattern {
+    return {
+      id: 'generic_data_flow',
+      name: 'General Data Flow',
+      description: 'Standard data flow pattern across the database schema',
+      tables: tables.map(t => t.name),
+      flowSequence: this.createGenericFlowSequence(tables),
+      businessProcess: 'General Operations',
+      frequency: 'medium',
+      dataVolume: 'medium',
+      performanceImpact: 'moderate'
+    };
+  }
+
+  /**
+   * NEW: Create generic flow sequence
+   */
+  private createGenericFlowSequence(tables: TableSchema[]): any[] {
+    const sequence: any[] = [];
+    let step = 1;
+    
+    for (const table of tables) {
+      sequence.push({
+        step: step++,
+        table: table.name,
+        action: 'read',
+        description: `Access ${table.name.toLowerCase()} data`,
+        dependencies: step > 1 ? [tables[step - 2].name] : []
+      });
+    }
+    
+    return sequence;
   }
 
   /**
@@ -1553,5 +1584,14 @@ export class SchemaService {
       console.error('❌ Failed to generate ER diagram documentation:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get the current schema name (e.g., 'public')
+   */
+  private getSchemaName(): string {
+    // This would typically be retrieved from the PostgreSQLService or a configuration
+    // For now, we'll use 'public' as a placeholder
+    return 'public';
   }
 }

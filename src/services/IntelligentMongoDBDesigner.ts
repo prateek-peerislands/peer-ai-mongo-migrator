@@ -659,7 +659,138 @@ export class IntelligentMongoDBDesigner {
   }
 
   /**
-   * Generate optimization recommendations
+   * Generate migration steps dynamically based on actual schema
+   */
+  private generateMigrationSteps(collections: IntelligentCollectionDesign[]): any[] {
+    const steps = [];
+    let stepNumber = 1;
+
+    // Step 1: Data preparation
+    steps.push({
+      step: stepNumber++,
+      action: 'Data Preparation',
+      description: 'Prepare and validate source data for migration',
+      complexity: 'MEDIUM',
+      estimatedTime: 2,
+      dependencies: [],
+      codeExamples: [
+        '// Validate data integrity before migration',
+        'const validationResult = await validateSourceData(sourceTables);',
+        'if (!validationResult.isValid) {',
+        '  throw new Error("Source data validation failed");',
+        '}'
+      ]
+    });
+
+    // Step 2: Create MongoDB collections
+    steps.push({
+      step: stepNumber++,
+      action: 'Create MongoDB Collections',
+      description: 'Create target MongoDB collections with proper indexes',
+      complexity: 'MEDIUM',
+      estimatedTime: 3,
+      dependencies: ['Data Preparation'],
+      codeExamples: [
+        '// Create collections with proper structure',
+        'for (const collection of collections) {',
+        '  await mongo.createCollection(collection.name);',
+        '  if (collection.indexes.length > 0) {',
+        '    await createIndexes(collection.name, collection.indexes);',
+        '  }',
+        '}'
+      ]
+    });
+
+    // Step 3: Create data migration scripts
+    steps.push({
+      step: stepNumber++,
+      action: 'Create Data Migration Scripts',
+      description: 'Generate scripts to migrate data from PostgreSQL to MongoDB',
+      complexity: 'HIGH',
+      estimatedTime: 4,
+      dependencies: ['Create MongoDB Collections'],
+      codeExamples: [
+        '// Generate migration script for each collection',
+        'for (const collection of collections) {',
+        '  const script = generateMigrationScript(collection);',
+        '  await saveMigrationScript(collection.name, script);',
+        '}'
+      ]
+    });
+
+    // Step 4: Update application code
+    steps.push({
+      step: stepNumber++,
+      action: 'Update Application Code',
+      description: 'Modify application entities, repositories, and services for MongoDB',
+      complexity: 'HIGH',
+      estimatedTime: 6,
+      dependencies: ['Create Data Migration Scripts'],
+      codeExamples: [
+        '// Update entity annotations for MongoDB',
+        '// Before: JPA Entity',
+        '@Entity',
+        '@Table(name = "table_name")',
+        'public class Entity {',
+        '  @Id @GeneratedValue',
+        '  private Long id;',
+        '}',
+        '',
+        '// After: MongoDB Document',
+        '@Document(collection = "collection_name")',
+        'public class Entity {',
+        '  @Id',
+        '  private String id;',
+        '}'
+      ]
+    });
+
+    // Step 5: Update configuration
+    steps.push({
+      step: stepNumber++,
+      action: 'Update Configuration',
+      description: 'Modify application configuration for MongoDB',
+      complexity: 'MEDIUM',
+      estimatedTime: 2,
+      dependencies: ['Update Application Code'],
+      codeExamples: [
+        '// Update dependencies',
+        '<dependency>',
+        '  <groupId>org.springframework.boot</groupId>',
+        '  <artifactId>spring-boot-starter-data-mongodb</artifactId>',
+        '</dependency>',
+        '',
+        '// Update application properties',
+        'spring.data.mongodb.uri=mongodb://localhost:27017/database_name',
+        'spring.data.mongodb.database=database_name'
+      ]
+    });
+
+    // Step 6: Testing and validation
+    steps.push({
+      step: stepNumber++,
+      action: 'Testing and Validation',
+      description: 'Test data integrity, performance, and application functionality',
+      complexity: 'MEDIUM',
+      estimatedTime: 3,
+      dependencies: ['Update Configuration'],
+      codeExamples: [
+        '// Test data integrity',
+        'const migratedCount = await mongo.collection("collection_name").countDocuments();',
+        'const originalCount = await postgres.query("SELECT COUNT(*) FROM table_name");',
+        'assert.strictEqual(migratedCount, originalCount.rows[0].count);',
+        '',
+        '// Test embedded documents',
+        'const doc = await mongo.collection("collection_name").findOne({ "embedded_field": { $exists: true } });',
+        'assert.ok(doc.embedded_field);'
+      ]
+    });
+
+    return steps;
+  }
+
+  /**
+   * Generate optimization recommendations based on actual collection characteristics
    */
   private async generateOptimizationRecommendations(
     collections: IntelligentCollectionDesign[],
@@ -667,7 +798,7 @@ export class IntelligentMongoDBDesigner {
   ): Promise<string[]> {
     const recommendations: string[] = [];
     
-    // Collection-specific recommendations
+    // Collection-specific recommendations based on actual characteristics
     for (const collection of collections) {
       if (collection.optimizationStrategy === 'read_heavy') {
         recommendations.push(`Collection ${collection.name}: Add compound indexes for frequently queried field combinations`);
@@ -675,15 +806,27 @@ export class IntelligentMongoDBDesigner {
         recommendations.push(`Collection ${collection.name}: Minimize indexes to optimize write performance`);
       }
       
-      if (collection.embeddedDocuments.length > 3) {
+      if (collection.embeddedDocuments && collection.embeddedDocuments.length > 3) {
         recommendations.push(`Collection ${collection.name}: Consider splitting large embedded documents for better performance`);
+      }
+      
+      if (collection.fields.length > 20) {
+        recommendations.push(`Collection ${collection.name}: Consider denormalization for frequently accessed fields`);
       }
     }
     
-    // General recommendations
-    recommendations.push('Use MongoDB aggregation pipeline for complex queries instead of multiple database calls');
-    recommendations.push('Implement connection pooling for better performance under high load');
-    recommendations.push('Use MongoDB transactions for operations that require atomicity across multiple collections');
+    // General recommendations based on actual schema
+    if (collections.length > 10) {
+      recommendations.push('Use MongoDB aggregation pipeline for complex queries instead of multiple database calls');
+    }
+    
+    if (collections.some(c => c.embeddedDocuments && c.embeddedDocuments.length > 0)) {
+      recommendations.push('Implement connection pooling for better performance under high load');
+    }
+    
+    if (collections.some(c => c.embeddedDocuments && c.embeddedDocuments.length > 0)) {
+      recommendations.push('Use MongoDB transactions for operations that require atomicity across multiple collections');
+    }
     
     return recommendations;
   }

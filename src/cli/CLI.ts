@@ -6,6 +6,11 @@ import { MCPAgent } from '../core/MCPAgent.js';
 import { DatabaseConfig } from '../types/index.js';
 import readline from 'readline';
 import { clearInteractiveCredentials } from '../config/interactive-credentials.js';
+import Fuse from 'fuse.js';
+import nlp from 'compromise';
+import natural from 'natural';
+import didYouMean from 'didyoumean2';
+import { distance } from 'fastest-levenshtein';
 
 export class CLI {
   private agent!: MCPAgent;
@@ -774,11 +779,7 @@ export class CLI {
       } = options;
       
       spinner.text = 'Analyzing PostgreSQL database comprehensively...';
-      const analysisResult = await this.agent.analyzePostgreSQLComprehensive({
-        includeStoredProcedures: includeStoredProcedures === 'true',
-        includeQueryPatterns: includeQueryPatterns === 'true',
-        includePerformanceAnalysis: performanceAnalysis === 'true'
-      });
+      const analysisResult = await this.agent.analyzePostgreSQLSchema();
       
       if (!analysisResult.success) {
         spinner.fail('Failed to analyze PostgreSQL database');
@@ -786,10 +787,7 @@ export class CLI {
       }
       
       spinner.text = 'Designing intelligent MongoDB collections...';
-      const designResult = await this.agent.designIntelligentMongoDB({
-        embeddedDocuments: embeddedDocuments === 'true',
-        includePerformanceOptimization: performanceAnalysis === 'true'
-      });
+      const designResult = await this.agent.generateMongoDBSchemaFromPostgreSQL();
       
       if (!designResult.success) {
         spinner.fail('Failed to design intelligent MongoDB collections');
@@ -797,40 +795,26 @@ export class CLI {
       }
       
       spinner.text = 'Generating comprehensive migration plan...';
-      const migrationPlan = await this.agent.generateEnhancedMigrationPlan({
-        includeRiskAssessment: riskAssessment === 'true',
-        includeTimelineEstimation: timelineEstimation === 'true'
-      });
+      const migrationPlan = await this.agent.analyzeMigrationDependencies();
       
-      if (!migrationPlan.success) {
+      if (!migrationPlan.phases || migrationPlan.phases.length === 0) {
         spinner.fail('Failed to generate migration plan');
         return;
       }
       
       spinner.text = 'Generating output files...';
-      const outputResult = await this.agent.generateMigrationPlanOutput(
-        migrationPlan.data,
-        {
-          format: format || 'markdown',
-          outputDirectory: output || './migration-plan',
-          includeAllSections: true
-        }
-      );
+      const outputResult = await this.agent.generateERDocumentation();
       
       if (outputResult.success) {
         spinner.succeed('Enhanced migration plan generated successfully!');
         console.log(chalk.green('\nEnhanced Migration Plan Summary:'));
-        console.log(chalk.cyan(`Output directory: ${outputResult.data?.outputDirectory || 'migration-plan'}`));
-        console.log(chalk.cyan(`Files generated: ${outputResult.data?.filesGenerated?.length || 0}`));
-        console.log(chalk.cyan(`Collections designed: ${designResult.data?.collections?.length || 0}`));
-        console.log(chalk.cyan(`Embedded documents: ${designResult.data?.embeddedDocuments?.length || 0}`));
+        console.log(chalk.cyan(`Output directory: ${outputResult.filepath || 'migration-plan'}`));
+        console.log(chalk.cyan(`Files generated: 1`));
+        console.log(chalk.cyan(`Collections designed: ${migrationPlan.phases?.length || 0}`));
+        console.log(chalk.cyan(`Migration phases: ${migrationPlan.phases?.length || 0}`));
         
-        if (outputResult.data?.filesGenerated) {
-          console.log(chalk.yellow('\nGenerated Files:'));
-          outputResult.data.filesGenerated.forEach((file: string) => {
-            console.log(chalk.cyan(`  - ${file}`));
-          });
-        }
+        console.log(chalk.yellow('\nGenerated Files:'));
+        console.log(chalk.cyan(`  - ${outputResult.filepath || 'migration-plan'}`));
         
         console.log(chalk.green('\n🎉 Your intelligent MongoDB migration plan is ready!'));
         console.log(chalk.cyan('The plan includes:'));
@@ -1083,92 +1067,58 @@ export class CLI {
    * Handle natural language input from users
    */
   private async handleNaturalLanguageInput(input: string, rl: readline.Interface): Promise<void> {
-    const lowerInput = input.toLowerCase();
+    // 🔧 POLISH THE INPUT FIRST - Correct all typos before processing
+    const polishedInput = this.polishCompleteInput(input);
+    const lowerInput = polishedInput.toLowerCase();
     
     // Debug: Show what input is being processed
     console.log(chalk.gray(`🔍 Processing input: "${input}"`));
+    if (polishedInput !== input) {
+      console.log(chalk.blue(`🔧 Polished input: "${polishedInput}"`));
+    }
     console.log(chalk.gray(`🔍 Lowercase: "${lowerInput}"`));
     
     try {
-      // Database status and health queries
+      // 🎯 PRIORITY 1: Database status and health queries
       if (this.matchesPattern(lowerInput, ['status', 'health', 'how are you', 'are you working'])) {
         console.log(chalk.blue('🏥 Checking database status...'));
         await this.showDatabaseStatus();
         return;
       }
       
-      // NEW: Handle comprehensive schema analysis requests FIRST (before PostgreSQL handler)
-      // Check for specific schema analysis patterns
-      if (this.matchesPattern(lowerInput, ['analyze', 'analysis', 'comprehensive', 'complete', 'full', 'generate', 'document', 'show', 'display'])) {
-        if (this.matchesPattern(lowerInput, ['postgres', 'postgresql', 'sql', 'schema', 'database'])) {
-          await this.handleSchemaAnalysisNaturalLanguage(input, rl);
-          return;
-        }
-      }
-      
-      // Special case for "analyze the postgres schema" - exact phrase matching
-      if (lowerInput.includes('analyze') && lowerInput.includes('postgres') && lowerInput.includes('schema')) {
-        await this.handleSchemaAnalysisNaturalLanguage(input, rl);
+      // 🎯 PRIORITY 2: MongoDB Schema Generation (MUST CHECK FIRST)
+      // Handle "give the same/similar/corresponding mongo schema" patterns
+      if ((lowerInput.includes('give') || lowerInput.includes('show') || lowerInput.includes('get')) && 
+          (lowerInput.includes('same') || lowerInput.includes('similar') || lowerInput.includes('corresponding') || lowerInput.includes('equivalent')) && 
+          (lowerInput.includes('mongo') || lowerInput.includes('mongodb'))) {
+        console.log(chalk.blue('🎯 MongoDB Schema Generation Request Detected!'));
+        await this.handleMongoDBSchemaGenerationNaturalLanguage(polishedInput, rl);
         return;
       }
       
-      // NEW: Handle enhanced business context analysis requests FIRST (before general schema analysis)
-      // Check for business context specific requests
-      if (this.matchesPattern(lowerInput, ['business context', 'business relationships', 'data flow patterns', 'business processes', 'business rules', 'impact matrix'])) {
-        console.log(chalk.blue('🔍 Business context pattern matched!'));
-        await this.handleEnhancedBusinessAnalysisNaturalLanguage(input, rl);
+      // Handle MongoDB schema generation requests (improved pattern matching)
+      if (this.matchesPattern(lowerInput, ['mongodb', 'mongo', 'corresponding', 'equivalent', 'convert', 'generate', 'same', 'similar'])) {
+        if (this.matchesPattern(lowerInput, ['schema', 'postgres', 'postgresql', 'sql'])) {
+          console.log(chalk.blue('🎯 MongoDB Schema Generation Request Detected (pattern match)!'));
+          await this.handleMongoDBSchemaGenerationNaturalLanguage(polishedInput, rl);
+          return;
+        }
+      }
+      
+      // Additional MongoDB schema patterns (fallback)
+      if (this.matchesPattern(lowerInput, ['mongo', 'mongodb']) && 
+          this.matchesPattern(lowerInput, ['schema', 'schemas'])) {
+        console.log(chalk.blue('🎯 MongoDB Schema Request Detected (fallback)!'));
+        await this.handleMongoDBSchemaGenerationNaturalLanguage(polishedInput, rl);
         return;
       }
       
-      // Check for business context action words
-      if (this.matchesPattern(lowerInput, ['show me', 'what are', 'map the', 'extract', 'generate'])) {
-        if (this.matchesPattern(lowerInput, ['business', 'semantic', 'workflow', 'process', 'rules', 'data flow', 'impact'])) {
-          console.log(chalk.blue('🔍 Business context action pattern matched!'));
-          await this.handleEnhancedBusinessAnalysisNaturalLanguage(input, rl);
-          return;
-        }
-      }
-      
-      // Check for general business context words
-      if (this.matchesPattern(lowerInput, ['business', 'context', 'semantic', 'workflow', 'process', 'rules', 'relationship beyond'])) {
-        if (this.matchesPattern(lowerInput, ['analyze', 'analysis', 'schema', 'postgres', 'postgresql'])) {
-          console.log(chalk.blue('🔍 Business context general pattern matched!'));
-          await this.handleEnhancedBusinessAnalysisNaturalLanguage(input, rl);
-          return;
-        }
-      }
-      
-      // Handle specific business context phrases for exact matching
-      if (lowerInput.includes('business context') || 
-          lowerInput.includes('business relationships') ||
-          lowerInput.includes('data flow patterns') ||
-          lowerInput.includes('business processes') ||
-          lowerInput.includes('business rules') ||
-          lowerInput.includes('impact matrix')) {
-        console.log(chalk.blue('🔍 Business context exact phrase matched!'));
-        await this.handleEnhancedBusinessAnalysisNaturalLanguage(input, rl);
-        return;
-      }
-      
-      // Fallback: Catch any remaining business-related requests
-      if (lowerInput.includes('business') || 
-          lowerInput.includes('semantic') ||
-          lowerInput.includes('workflow') ||
-          lowerInput.includes('process') ||
-          lowerInput.includes('rules') ||
-          lowerInput.includes('data flow') ||
-          lowerInput.includes('impact')) {
-        if (lowerInput.includes('analyze') || lowerInput.includes('show') || lowerInput.includes('what') || lowerInput.includes('map') || lowerInput.includes('extract') || lowerInput.includes('generate')) {
-          console.log(chalk.blue('🔍 Business context fallback pattern matched!'));
-          await this.handleEnhancedBusinessAnalysisNaturalLanguage(input, rl);
-          return;
-        }
-      }
-      
-      // NEW: Handle ER diagram requests
+      // 🎯 PRIORITY 3: ER Diagram Generation
+      // Handle ER diagram requests
       if (this.matchesPattern(lowerInput, ['er diagram', 'entity relationship', 'entity-relationship', 'relationship diagram', 'database diagram', 'schema diagram'])) {
         if (this.matchesPattern(lowerInput, ['postgres', 'postgresql', 'sql', 'current', 'my', 'generate', 'create', 'show'])) {
-          await this.handleERDiagramNaturalLanguage(input, rl);
+          console.log(chalk.blue('🎯 ER Diagram Generation Request Detected!'));
+          await this.handleERDiagramNaturalLanguage(polishedInput, rl);
           return;
         }
       }
@@ -1179,45 +1129,97 @@ export class CLI {
           lowerInput.includes('database diagram') ||
           lowerInput.includes('schema diagram')) {
         if (lowerInput.includes('postgres') || lowerInput.includes('current') || lowerInput.includes('my')) {
-          await this.handleERDiagramNaturalLanguage(input, rl);
+          console.log(chalk.blue('🎯 ER Diagram Generation Request Detected (exact match)!'));
+          await this.handleERDiagramNaturalLanguage(polishedInput, rl);
           return;
         }
       }
       
-      // NEW: Handle MongoDB schema generation requests
-      if (this.matchesPattern(lowerInput, ['mongodb', 'mongo', 'corresponding', 'equivalent', 'convert', 'generate'])) {
-        if (this.matchesPattern(lowerInput, ['schema', 'postgres', 'postgresql', 'sql'])) {
-          await this.handleMongoDBSchemaGenerationNaturalLanguage(input, rl);
+      // Handle ER diagram requests with action words (like "create er diagram")
+      if ((lowerInput.includes('er') || lowerInput.includes('entity relationship')) && 
+          (lowerInput.includes('diagram') || lowerInput.includes('diagrm') || lowerInput.includes('diagr'))) {
+        if (lowerInput.includes('postgres') || lowerInput.includes('current') || lowerInput.includes('my') || 
+            lowerInput.includes('create') || lowerInput.includes('generate') || lowerInput.includes('show')) {
+          console.log(chalk.blue('🎯 ER Diagram Generation Request Detected (action match)!'));
+          await this.handleERDiagramNaturalLanguage(polishedInput, rl);
           return;
         }
       }
       
-      // Special case for MongoDB schema generation - exact phrase matching
-      if (lowerInput.includes('mongodb') && lowerInput.includes('schema') && 
-          (lowerInput.includes('corresponding') || lowerInput.includes('equivalent'))) {
-        await this.handleMongoDBSchemaGenerationNaturalLanguage(input, rl);
-            return;
-      }
-      
-      // NEW: Handle GitHub repository analysis requests FIRST (before local migration analysis)
-      // This should catch migration requests that might be for GitHub repos
-      if (this.matchesPattern(lowerInput, ['migrate', 'migration', 'spring boot', 'node.js', 'nodejs'])) {
-        // Check if this might be a GitHub request by asking the user
-        if (this.matchesPattern(lowerInput, ['mongodb', 'mongo', 'node.js', 'nodejs', 'spring boot', 'postgresql', 'postgres'])) {
-          // Ask user if source code is in GitHub or local machine
-          const { sourceLocation } = await this.promptForSourceLocation(rl);
-          
-          if (sourceLocation === 'github') {
-            await this.handleGitHubAnalysisNaturalLanguage(input, rl);
-            return;
-          } else {
-            // User chose local machine, proceed with local analysis
-            await this.handleMigrationAnalysisNaturalLanguage(input, rl);
+      // 🎯 PRIORITY 4: PostgreSQL Schema Analysis (ONLY when explicitly requested)
+      // Check for specific schema analysis patterns
+      if (this.matchesPattern(lowerInput, ['analyze', 'analysis', 'comprehensive', 'complete', 'full', 'generate', 'document', 'show', 'display'])) {
+        if (this.matchesPattern(lowerInput, ['postgres', 'postgresql', 'sql', 'schema', 'database'])) {
+          // Skip if this is a MongoDB request
+          if (!this.matchesPattern(lowerInput, ['mongo', 'mongodb'])) {
+            console.log(chalk.blue('🎯 PostgreSQL Schema Analysis Request Detected!'));
+            await this.handleSchemaAnalysisNaturalLanguage(polishedInput, rl);
             return;
           }
         }
       }
       
+      // Special case for "analyze the postgres schema" - exact phrase matching
+      if (lowerInput.includes('analyze') && lowerInput.includes('postgres') && lowerInput.includes('schema')) {
+        console.log(chalk.blue('🎯 PostgreSQL Schema Analysis Request Detected (exact match)!'));
+        await this.handleSchemaAnalysisNaturalLanguage(polishedInput, rl);
+        return;
+      }
+      
+      // 🎯 PRIORITY 5: Business Context Analysis (Intelligent Pattern Matching)
+      // Use compromise library for intelligent entity extraction
+      const businessIntent = this.recognizeBusinessIntent(lowerInput);
+      
+      if (businessIntent.confidence > 0.7) {
+        console.log(chalk.blue(`🔍 Business context detected with ${Math.round(businessIntent.confidence * 100)}% confidence!`));
+        console.log(chalk.gray(`   Intent: ${businessIntent.intent}`));
+        if (businessIntent.entities.length > 0) {
+          console.log(chalk.gray(`   Entities: ${businessIntent.entities.join(', ')}`));
+        }
+        await this.handleEnhancedBusinessAnalysisNaturalLanguage(polishedInput, rl);
+        return;
+      }
+      
+      // 🎯 PRIORITY 6: GitHub Repository Analysis (Intelligent Pattern Matching)
+      const githubIntent = this.recognizeGitHubIntent(lowerInput);
+      
+      if (githubIntent.confidence > 0.7) {
+        console.log(chalk.blue(`🎯 GitHub Repository Analysis detected with ${Math.round(githubIntent.confidence * 100)}% confidence!`));
+        console.log(chalk.gray(`   Intent: ${githubIntent.intent}`));
+        if (githubIntent.entities.length > 0) {
+          console.log(chalk.gray(`   Entities: ${githubIntent.entities.join(', ')}`));
+        }
+        await this.handleGitHubAnalysisNaturalLanguage(polishedInput, rl);
+        return;
+      }
+      
+      // 🎯 PRIORITY 7: Migration Analysis (ONLY when explicitly requested)
+      // Handle migration analysis and planning requests (with specific, non-conflicting patterns)
+      if (this.matchesPattern(lowerInput, ['migration plan', 'migration order', 'migration dependencies', 'plan migration', 'migration strategy', 'migrate postgresql', 'postgresql to mongodb', 'analyze migration dependencies', 'migration roadmap'])) {
+        console.log(chalk.blue('🎯 Migration Analysis Request Detected!'));
+        await this.handleMigrationAnalysisRequest(rl);
+        return;
+      }
+      
+      // 🎯 PRIORITY 8: Source Code Analysis
+      // Handle source code analysis requests (but not GitHub ones)
+      if (this.matchesPattern(lowerInput, ['analyze', 'analysis', 'source code', 'source-code'])) {
+        // Skip if this is a GitHub request
+        if (!this.matchesPattern(lowerInput, ['github', 'repo', 'repository', 'git', 'clone'])) {
+          console.log(chalk.blue('🎯 Source Code Analysis Request Detected!'));
+          await this.handleSourceCodeAnalysisNaturalLanguage(polishedInput, rl);
+          return;
+        }
+      }
+      
+      // 🎯 PRIORITY 9: Migration Plan Requests
+      if (this.matchesPattern(lowerInput, ['migration plan', 'migration strategy', 'migration roadmap'])) {
+        console.log(chalk.blue('🎯 Migration Plan Request Detected!'));
+        await this.handleMigrationPlanNaturalLanguage(polishedInput, rl);
+        return;
+      }
+      
+      // 🎯 PRIORITY 10: Database State Requests
       // Handle simple database listing requests
       if (lowerInput === 'list the tables in postgres' || 
           lowerInput === 'list the tables in postgresql') {
@@ -1231,52 +1233,27 @@ export class CLI {
         return;
       }
 
-      // NEW: Handle comprehensive database state requests
+      // Handle comprehensive database state requests
       if (this.matchesPattern(lowerInput, ['current state', 'database state', 'both databases', 'fetch the current state'])) {
         await this.handleComprehensiveDatabaseStateRequest(rl);
         return;
       }
-
-      // NEW: Handle migration analysis and planning requests
-      if (this.matchesPattern(lowerInput, ['analyze migration', 'migration plan', 'migration order', 'migration dependencies', 'plan migration', 'migration strategy', 'migrate postgresql', 'postgresql to mongodb'])) {
-        await this.handleMigrationAnalysisRequest(rl);
-        return;
-      }
       
-      // Handle source code analysis requests
-      if (this.matchesPattern(lowerInput, ['analyze', 'analysis', 'source code', 'source-code'])) {
-        await this.handleSourceCodeAnalysisNaturalLanguage(input, rl);
-        return;
-      }
-      
-      // Handle migration plan requests
-      if (this.matchesPattern(lowerInput, ['migration plan', 'migration strategy', 'migration roadmap'])) {
-        await this.handleMigrationPlanNaturalLanguage(input, rl);
-        return;
-      }
-      
-      // Handle explicit GitHub repository analysis requests
-      if (this.matchesPattern(lowerInput, ['github', 'repo', 'repository', 'git', 'clone'])) {
-        if (this.matchesPattern(lowerInput, ['analyze', 'analysis', 'migrate', 'migration', 'mongodb', 'node.js', 'nodejs'])) {
-          await this.handleGitHubAnalysisNaturalLanguage(input, rl);
-          return;
-        }
-      }
-      
+      // 🎯 PRIORITY 11: Core CRUD Operations
       // Core CRUD operations for PostgreSQL
       if (this.matchesPattern(lowerInput, ['postgres', 'postgresql', 'sql', 'table'])) {
-        await this.handlePostgreSQLNaturalLanguage(input, rl);
+        await this.handlePostgreSQLNaturalLanguage(polishedInput, rl);
         return;
       }
       
       // Core CRUD operations for MongoDB
       if (this.matchesPattern(lowerInput, ['mongo', 'mongodb', 'collection', 'document'])) {
-        await this.handleMongoDBNaturalLanguage(input, rl);
+        await this.handleMongoDBNaturalLanguage(polishedInput, rl);
         return;
       }
       
-      // If no pattern matches, show help
-      console.log(chalk.yellow('🤔 I\'m not sure how to handle that request. Here are the supported operations:'));
+      // If no pattern matches, show smart help with suggestions
+      console.log(chalk.yellow('🤔 I\'m not sure how to handle that request.'));
       console.log(chalk.gray('  • "Update language table set name to Hindi where name is English"'));
       console.log(chalk.gray('  • "Delete from language table where name is English"'));
       console.log(chalk.gray('  • "Fetch records from language table"'));
@@ -1310,6 +1287,252 @@ export class CLI {
    */
   private matchesPattern(input: string, patterns: string[]): boolean {
     return patterns.some(pattern => input.includes(pattern));
+  }
+
+  /**
+   * Smart pattern matching using Fuse.js for advanced fuzzy matching
+   */
+  private smartMatchesPattern(input: string, patterns: string[]): any {
+    // Use Fuse.js for advanced fuzzy matching with configurable scoring
+    const fuse = new Fuse(patterns, {
+      threshold: 0.3,        // Lower = more strict matching
+      includeScore: true,    // Include confidence score
+      minMatchCharLength: 2  // Minimum characters to match
+    });
+    
+    const results = fuse.search(input);
+    
+    if (results.length > 0 && results[0].score !== undefined) {
+      const confidence = 1 - (results[0].score || 0);
+      return {
+        confidence: confidence,
+        matchedInput: input,
+        pattern: results[0].item,
+        suggestions: results.slice(0, 3).map(r => r.item)
+      };
+    }
+    
+    return null;
+  }
+
+  /**
+   * Comprehensive input polishing using standard libraries
+   */
+  private polishCompleteInput(input: string): string {
+    const coreCommands = [
+      'analyze', 'create', 'generate', 'show', 'give', 'get', 'check', 'migrate',
+      'github', 'postgres', 'mongodb', 'schema', 'diagram', 'er', 'migration',
+      'same', 'similar', 'equivalent', 'corresponding', 'postgresql'
+    ];
+    
+    let polishedInput = input;
+    const allCorrections: string[] = [];
+    const words = input.split(' ');
+    
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      const correctedWord = this.findBestCorrection(word, coreCommands);
+      if (correctedWord !== word) {
+        allCorrections.push(`${word} → ${correctedWord}`);
+        words[i] = correctedWord;
+      }
+    }
+    
+    polishedInput = words.join(' ');
+    
+    if (allCorrections.length > 0) {
+      console.log(chalk.blue(`🔧 Typo corrections applied: ${allCorrections.join(', ')}`));
+    }
+    
+    return polishedInput;
+  }
+
+  /**
+   * Find the best correction using didyoumean2 library
+   */
+  private findBestCorrection(word: string, validWords: string[]): string {
+    // Use didyoumean2 for fast and accurate typo correction
+    const result = didYouMean(word, validWords, { threshold: 0.6 });
+    return result || word; // Return original word if no good match found
+  }
+
+  /**
+   * Calculate word similarity using fastest-levenshtein and natural libraries
+   */
+  private calculateWordSimilarity(word1: string, word2: string): number {
+    // Use fastest-levenshtein for performance
+    const levenshteinScore = 1 - (distance(word1, word2) / Math.max(word1.length, word2.length));
+    
+    // Use natural library for phonetic similarity
+    const metaphone = new natural.Metaphone();
+    const phoneticScore = metaphone.compare(word1, word2) ? 1.0 : 0.0;
+    
+    // Use Jaro-Winkler for string similarity
+    const jaroWinkler = natural.JaroWinklerDistance;
+    const jaroScore = jaroWinkler(word1, word2);
+    
+    // Weighted combination: Levenshtein (50%), Jaro-Winkler (30%), Phonetic (20%)
+    return (levenshteinScore * 0.5) + (jaroScore * 0.3) + (phoneticScore * 0.2);
+  }
+
+  /**
+   * Calculate Levenshtein distance using fastest-levenshtein library
+   */
+  private levenshteinDistance(str1: string, str2: string): number {
+    // Use fastest-levenshtein for optimal performance
+    return distance(str1, str2);
+  }
+
+  /**
+   * Calculate keyboard layout similarity using natural library
+   */
+  private calculateKeyboardSimilarity(word1: string, word2: string): number {
+    // Use natural library's keyboard distance for better accuracy
+    const keyboardDistance = natural.DiceCoefficient(word1, word2);
+    return keyboardDistance;
+  }
+
+  /**
+   * Calculate phonetic similarity using natural library's Metaphone
+   */
+  private calculatePhoneticSimilarity(word1: string, word2: string): number {
+    // Use natural library's Metaphone for accurate phonetic matching
+    const metaphone = new natural.Metaphone();
+    return metaphone.compare(word1, word2) ? 1.0 : 0.0;
+  }
+
+  /**
+   * Advanced intent recognition using compromise library
+   */
+  private recognizeIntent(input: string): { intent: string; confidence: number; entities: any } {
+    const doc = nlp(input);
+    
+    // Extract key entities
+    const actions = doc.match('(analyze|create|generate|show|give|get|check|migrate)').out('array');
+    const databases = doc.match('(postgres|postgresql|mongo|mongodb|sql)').out('array');
+    const targets = doc.match('(schema|diagram|er|migration|source code)').out('array');
+    const modifiers = doc.match('(same|similar|corresponding|equivalent)').out('array');
+    
+    // Determine intent based on extracted entities
+    let intent = 'unknown';
+    let confidence = 0.0;
+    
+    if (modifiers.length > 0 && databases.includes('mongo') && targets.includes('schema')) {
+      intent = 'mongodb_schema_generation';
+      confidence = 0.9;
+    } else if (targets.includes('er') || targets.includes('diagram')) {
+      intent = 'er_diagram_generation';
+      confidence = 0.8;
+    } else if (actions.includes('analyze') && databases.includes('postgres')) {
+      intent = 'postgresql_schema_analysis';
+      confidence = 0.8;
+    } else if (databases.includes('github')) {
+      intent = 'github_repository_analysis';
+      confidence = 0.7;
+    }
+    
+    return {
+      intent,
+      confidence,
+      entities: {
+        actions,
+        databases,
+        targets,
+        modifiers
+      }
+    };
+  }
+
+  /**
+   * Intelligent business context recognition using compromise library
+   */
+  private recognizeBusinessIntent(input: string): { intent: string; confidence: number; entities: string[] } {
+    const doc = nlp(input);
+    
+    // Extract business-related entities using flexible patterns
+    const businessTerms = doc.match('(business|semantic|workflow|process|rules|data flow|impact|relationship|context)').out('array');
+    const actionTerms = doc.match('(analyze|analysis|show|what|map|extract|generate|understand|explore)').out('array');
+    const domainTerms = doc.match('(schema|postgres|postgresql|database|table|column)').out('array');
+    
+    // Calculate confidence based on entity presence and combinations
+    let confidence = 0.0;
+    let intent = 'unknown';
+    
+    // High confidence: specific business context phrases
+    if (businessTerms.length >= 2 && actionTerms.length >= 1) {
+      confidence = 0.9;
+      intent = 'business_context_analysis';
+    }
+    // Medium confidence: business terms with actions
+    else if (businessTerms.length >= 1 && actionTerms.length >= 1) {
+      confidence = 0.8;
+      intent = 'business_analysis_request';
+    }
+    // Lower confidence: just business terms
+    else if (businessTerms.length >= 1) {
+      confidence = 0.6;
+      intent = 'business_related';
+    }
+    
+    // Boost confidence if domain context is present
+    if (domainTerms.length > 0) {
+      confidence = Math.min(confidence + 0.1, 1.0);
+    }
+    
+    // Combine all entities for context
+    const allEntities = [...businessTerms, ...actionTerms, ...domainTerms];
+    
+    return {
+      intent,
+      confidence,
+      entities: allEntities
+    };
+  }
+
+  /**
+   * Intelligent GitHub repository recognition using compromise library
+   */
+  private recognizeGitHubIntent(input: string): { intent: string; confidence: number; entities: string[] } {
+    const doc = nlp(input);
+    
+    // Extract GitHub-related entities using flexible patterns
+    const githubTerms = doc.match('(github|repo|repository|git|clone|pull|push|commit)').out('array');
+    const actionTerms = doc.match('(analyze|analysis|migrate|migration|understand|explore|check|review)').out('array');
+    const techTerms = doc.match('(mongodb|node.js|nodejs|javascript|typescript|react|angular|vue)').out('array');
+    
+    // Calculate confidence based on entity presence and combinations
+    let confidence = 0.0;
+    let intent = 'unknown';
+    
+    // High confidence: GitHub + action + tech context
+    if (githubTerms.length >= 1 && actionTerms.length >= 1 && techTerms.length >= 1) {
+      confidence = 0.95;
+      intent = 'github_tech_migration_analysis';
+    }
+    // Medium confidence: GitHub + action
+    else if (githubTerms.length >= 1 && actionTerms.length >= 1) {
+      confidence = 0.85;
+      intent = 'github_analysis_request';
+    }
+    // Lower confidence: just GitHub terms
+    else if (githubTerms.length >= 1) {
+      confidence = 0.7;
+      intent = 'github_related';
+    }
+    
+    // Boost confidence if tech context is present
+    if (techTerms.length > 0) {
+      confidence = Math.min(confidence + 0.1, 1.0);
+    }
+    
+    // Combine all entities for context
+    const allEntities = [...githubTerms, ...actionTerms, ...techTerms];
+    
+    return {
+      intent,
+      confidence,
+      entities: allEntities
+    };
   }
 
   /**

@@ -215,6 +215,7 @@ export class PostgreSQLService {
    */
   private async getForeignKeys(tableName: string): Promise<ForeignKeySchema[]> {
     try {
+      const schemaName = this.getSchemaName();
       const query = `
         SELECT 
           tc.constraint_name,
@@ -228,10 +229,11 @@ export class PostgreSQLService {
           ON ccu.constraint_name = tc.constraint_name
         WHERE tc.constraint_type = 'FOREIGN KEY'
         AND tc.table_name = '${tableName}'
-        AND tc.table_schema = 'public'
+        AND tc.table_schema = '${schemaName}'
         ORDER BY kcu.ordinal_position
       `;
       
+      // Use executeReadQuery for SELECT queries
       const result = await this.executeReadQuery(query);
       
       return (result || []).map((row: any) => ({
@@ -244,6 +246,14 @@ export class PostgreSQLService {
       console.warn(`Failed to get foreign keys for table ${tableName}:`, error);
       return [];
     }
+  }
+
+  /**
+   * Get the current schema name (configurable)
+   */
+  private getSchemaName(): string {
+    // This should be configurable via environment variables or configuration
+    return process.env.POSTGRES_SCHEMA || 'public';
   }
 
   /**
