@@ -96,16 +96,18 @@ export class InteractiveSetup {
         validate: (input: number) => input > 0 && input < 65536 ? true : 'Port must be between 1 and 65535'
       },
       {
-        type: 'input',
+        type: 'password',
         name: 'pgDatabase',
         message: 'PostgreSQL Database:',
+        mask: '*',
         default: 'default',
         validate: (input: string) => input.trim() ? true : 'Database name is required'
       },
       {
-        type: 'input',
+        type: 'password',
         name: 'pgUsername',
         message: 'PostgreSQL Username:',
+        mask: '*',
         default: 'postgres',
         validate: (input: string) => input.trim() ? true : 'Username is required'
       },
@@ -119,9 +121,10 @@ export class InteractiveSetup {
       
       // MongoDB Configuration
       {
-        type: 'input',
+        type: 'password',
         name: 'mongoConnectionString',
         message: 'MongoDB Connection String:',
+        mask: '*',
         default: 'mongodb://localhost:27017',
         validate: (input: string) => {
           if (!input.trim()) return 'Connection string is required';
@@ -132,9 +135,10 @@ export class InteractiveSetup {
         }
       },
       {
-        type: 'input',
+        type: 'password',
         name: 'mongoDatabase',
         message: 'MongoDB Database:',
+        mask: '*',
         default: 'default',
         validate: (input: string) => input.trim() ? true : 'Database name is required'
       }

@@ -311,9 +311,10 @@ export class GitHubCLI {
   private async updateUsername(): Promise<void> {
     const { username } = await inquirer.prompt([
       {
-        type: 'input',
+        type: 'password',
         name: 'username',
         message: 'Enter your GitHub username:',
+        mask: '*',
         validate: (input: string) => {
           if (!input.trim()) {
             return 'Username is required';
@@ -361,9 +362,10 @@ export class GitHubCLI {
 
     const { username, token } = await inquirer.prompt([
       {
-        type: 'input',
+        type: 'password',
         name: 'username',
         message: 'GitHub Username:',
+        mask: '*',
         validate: (input: string) => {
           if (!input.trim()) {
             return 'Username is required';

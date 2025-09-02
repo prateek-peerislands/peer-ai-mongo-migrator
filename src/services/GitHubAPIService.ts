@@ -114,9 +114,10 @@ export class GitHubAPIService {
       // Use a single prompt with both fields to avoid any inquirer issues
       const answers = await inquirer.prompt([
         {
-          type: 'input',
+          type: 'password',
           name: 'username',
           message: 'Enter your GitHub username:',
+          mask: '*',
           validate: (input: string) => {
             if (!input.trim()) {
               return 'Username is required';
@@ -130,7 +131,7 @@ export class GitHubAPIService {
           message: 'Enter your GitHub Personal Access Token (PAT):',
           validate: (input: string) => {
             if (!input.trim()) {
-              return 'Personal Access Token is required';
+              return 'Token is required';
             }
             if (input.length < 10) {
               return 'Token seems too short. Please check your PAT.';
