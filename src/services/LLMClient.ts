@@ -119,7 +119,17 @@ export class LLMClient {
         };
       }
 
-      const intentResult = JSON.parse(content);
+      let intentResult;
+      try {
+        intentResult = JSON.parse(content);
+      } catch (parseError) {
+        console.error('JSON Parse Error:', parseError);
+        console.error('LLM Response Content:', content);
+        return {
+          success: false,
+          error: `JSON parsing failed: ${parseError instanceof Error ? parseError.message : String(parseError)}. Content: ${content.substring(0, 200)}...`
+        };
+      }
       
       return {
         success: true,
@@ -188,17 +198,25 @@ AVAILABLE INTENTS:
    - feature_explanation: Explaining features
    - tutorial_request: Requesting tutorials
 
-8. CONFIGURATION:
+8. RATIONALE_CONVERSATION:
+   - rationale_query: General questions about reasoning and decision-making
+   - design_decision_explanation: Questions about why specific design decisions were made
+   - schema_transformation_rationale: Questions about why schema transformations were chosen
+   - migration_rationale: Questions about migration approach and strategy reasoning
+   - embedding_rationale: Questions about why fields were embedded in documents
+   - grouping_rationale: Questions about why tables/collections were grouped together
+
+9. CONFIGURATION:
    - credential_setup: Setting up credentials
    - configuration_change: Changing configuration
    - settings_management: Managing settings
 
-9. COMPLEX_OPERATIONS:
+10. COMPLEX_OPERATIONS:
    - comprehensive_analysis: Multi-step analysis
    - end_to_end_migration: Complete migration process
    - business_context_analysis: Business context analysis
 
-10. FALLBACK:
+11. FALLBACK:
     - unknown_intent: Intent not recognized
     - ambiguous_intent: Multiple possible intents
 
@@ -234,8 +252,29 @@ CRITICAL DISTINCTIONS:
 - "analyze codes for migration" → github_repository_analysis (analyzing code to understand migration needs)
 - "plan migration" or "migration strategy" → migration_planning (planning database migration)
 
+RATIONALE CONVERSATION EXAMPLES:
+- "why did you embed [field] in [collection]" → embedding_rationale
+- "explain the rationale behind this transformation" → schema_transformation_rationale
+- "why was this approach chosen for the migration" → migration_rationale
+- "what's the reasoning behind grouping these tables" → grouping_rationale
+- "why did you make this design decision" → design_decision_explanation
+- "explain why you converted this table to a collection" → schema_transformation_rationale
+- "How many fields does the [table] have?" → rationale_query
+- "What tables are in the PostgreSQL database?" → rationale_query
+- "What's the relationship between [table1] and [table2]?" → rationale_query
+- "How many collections are in MongoDB?" → rationale_query
+- "What's the migration strategy for this database?" → rationale_query
+
+CRITICAL PRIORITY RULES:
+1. ANY question about existing schema data (tables, fields, relationships, collections) → prioritize RATIONALE_CONVERSATION intents
+2. Questions starting with "How", "What", "Why", "When", "Where" about schema → rationale_query
+3. Questions about existing analysis results → rationale_query
+4. Only use analysis intents (postgresql_schema_analysis, mongodb_operations) for NEW analysis requests
+
 When user mentions "codes", "source code", "repository", "files" → prioritize CODE_ANALYSIS intents
-When user mentions "migration", "dependencies", "phases" → prioritize MIGRATION intents`;
+When user mentions "migration", "dependencies", "phases" → prioritize MIGRATION intents
+When user asks "why", "rationale", "reason", "explain the decision" → prioritize RATIONALE_CONVERSATION intents
+When user asks about existing schema data → prioritize RATIONALE_CONVERSATION intents`;
   }
 
   /**
@@ -265,6 +304,37 @@ When user mentions "migration", "dependencies", "phases" → prioritize MIGRATIO
     prompt += `\nPlease classify this user input and return the intent classification in JSON format.`;
 
     return prompt;
+  }
+
+  /**
+   * Generate a general text response using the LLM
+   */
+  async generateTextResponse(systemPrompt: string, userPrompt: string): Promise<string> {
+    if (!this.isInitialized()) {
+      throw new Error('LLM Client not initialized');
+    }
+
+    try {
+      const response = await this.openai!.chat.completions.create({
+        model: this.config!.deploymentName,
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: userPrompt
+          }
+        ],
+        max_tokens: this.config!.maxTokens || 2000,
+        temperature: this.config!.temperature || 0.7
+      });
+
+      return response.choices[0]?.message?.content || 'No response generated';
+    } catch (error) {
+      throw new Error(`Failed to generate text response: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**

@@ -1,6 +1,7 @@
 import { ComprehensivePostgreSQLSchema } from './SchemaService.js';
 import { MongoDBCollectionSchema } from './MongoDBSchemaGenerator.js';
 import { SourceCodeAnalysis, MigrationPlan } from '../types/migration-types.js';
+import { DualLocationFileWriter } from '../utils/DualLocationFileWriter.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -550,16 +551,20 @@ export class UnifiedERDiagramGenerator {
     const extension = format === 'json' ? 'json' : format === 'plantuml' ? 'puml' : 'md';
     const filename = `er_diagram_${timestamp}.${extension}`;
     
-    const filePath = customPath || path.join('/Users/prateek/Desktop/peer-ai-mongo-documents', 'diagrams', filename);
-    
-    // Ensure directory exists
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    if (customPath) {
+      // If custom path is provided, use it directly
+      const filePath = path.join(customPath, filename);
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(filePath, content, 'utf8');
+      return filePath;
+    } else {
+      // Use dual location writing for default behavior
+      const { centralPath, projectPath } = DualLocationFileWriter.writeDiagramToBothLocations(filename, content);
+      return centralPath; // Return central path as primary location
     }
-    
-    fs.writeFileSync(filePath, content, 'utf8');
-    return filePath;
   }
 
   /**

@@ -14,6 +14,8 @@ import { distance } from 'fastest-levenshtein';
 import { IntentMappingService, IntentMappingConfig } from '../services/IntentMappingService.js';
 import { LLMConfigManager } from '../config/llm-config.js';
 import { IntentContext, IntentMappingResult } from '../types/intent-types.js';
+import { DualLocationFileWriter } from '../utils/DualLocationFileWriter.js';
+import { RationaleConversationService } from '../services/RationaleConversationService.js';
 
 export class CLI {
   private agent!: MCPAgent;
@@ -21,11 +23,13 @@ export class CLI {
   private intentMappingService: IntentMappingService;
   private llmConfigManager: LLMConfigManager;
   private llmInitialized: boolean = false;
+  private rationaleConversationService: RationaleConversationService;
 
   constructor() {
     this.program = new Command();
     this.intentMappingService = IntentMappingService.getInstance();
     this.llmConfigManager = LLMConfigManager.getInstance();
+    this.rationaleConversationService = new RationaleConversationService();
     this.setupCommands();
   }
 
@@ -1190,6 +1194,32 @@ export class CLI {
   }
 
   /**
+   * Handle rationale conversation queries
+   */
+  private async handleRationaleConversation(input: string, rl: readline.Interface): Promise<void> {
+    try {
+      console.log(chalk.blue('🧠 Analyzing your question about the rationale...'));
+      
+      const response = await this.rationaleConversationService.handleRationaleQuery(input);
+      
+      console.log(chalk.green('\n💡 Rationale Explanation:'));
+      console.log(chalk.white(response.answer));
+      
+      if (response.context.sourceFiles.length > 0) {
+        console.log(chalk.gray(`\n📁 Based on analysis from: ${response.context.sourceFiles.join(', ')}`));
+      }
+      
+      console.log(chalk.gray('\n💬 You can ask follow-up questions about specific design decisions, transformations, or migration choices.'));
+      
+    } catch (error) {
+      console.error(chalk.red('❌ Error processing rationale query:'), error);
+      console.log(chalk.yellow('🔄 Please ensure you have generated the required analysis files first.'));
+    } finally {
+      rl.prompt();
+    }
+  }
+
+  /**
    * Handle input using fallback keyword matching
    */
   private async handleWithFallbackIntentMapping(input: string, rl: readline.Interface): Promise<void> {
@@ -1289,6 +1319,16 @@ export class CLI {
         case 'feature_explanation':
         case 'tutorial_request':
           await this.showBasicHelp();
+          break;
+          
+        // Rationale Conversation
+        case 'rationale_query':
+        case 'design_decision_explanation':
+        case 'schema_transformation_rationale':
+        case 'migration_rationale':
+        case 'embedding_rationale':
+        case 'grouping_rationale':
+          await this.handleRationaleConversation(input, rl);
           break;
           
         // Complex Operations
@@ -1940,7 +1980,8 @@ export class CLI {
   private async handleMigrationAnalysis(options: any): Promise<void> {
     try {
       const sourceFolder = options.source || 'source-code-1';
-      const outputPath = options.output || `/Users/prateek/Desktop/peer-ai-mongo-documents/${sourceFolder}-analysis.md`;
+      const filename = `${sourceFolder}-analysis.md`;
+      const outputPath = options.output || `/Users/prateek/Desktop/peer-ai-mongo-documents/${filename}`;
       
       console.log(`🔍 Starting migration analysis for: ${sourceFolder}`);
       
@@ -1957,7 +1998,12 @@ export class CLI {
       // Create documentation
       const actualOutputPath = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
       
-      console.log(`✅ Migration analysis complete! Documentation saved to: ${actualOutputPath}`);
+      // Also write to current project directory
+      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, actualOutputPath);
+      
+      console.log(`✅ Migration analysis complete! Documentation saved to both locations:`);
+      console.log(`   📍 Central: ${centralPath}`);
+      console.log(`   📍 Project: ${projectPath}`);
       
     } catch (error) {
       console.error('❌ Migration analysis failed:', error);
@@ -2002,7 +2048,8 @@ export class CLI {
   private async handleGenerateMigrationPlan(options: any): Promise<void> {
     try {
       const sourceFolder = options.source || 'source-code-1';
-      const outputPath = options.output || `/Users/prateek/Desktop/peer-ai-mongo-documents/${sourceFolder}-migration-plan.md`;
+      const filename = `${sourceFolder}-migration-plan.md`;
+      const outputPath = options.output || `/Users/prateek/Desktop/peer-ai-mongo-documents/${filename}`;
       
       console.log(`📋 Generating migration plan for: ${sourceFolder}`);
       
@@ -2019,7 +2066,12 @@ export class CLI {
       // Create documentation
       const actualOutputPath = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
       
-      console.log(`✅ Migration plan generated! Documentation saved to: ${actualOutputPath}`);
+      // Also write to current project directory
+      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, actualOutputPath);
+      
+      console.log(`✅ Migration plan generated! Documentation saved to both locations:`);
+      console.log(`   📍 Central: ${centralPath}`);
+      console.log(`   📍 Project: ${projectPath}`);
       
     } catch (error) {
       console.error('❌ Migration plan generation failed:', error);
@@ -2052,6 +2104,14 @@ export class CLI {
     console.log(chalk.gray('  • "Show postgres database structure"'));
     console.log(chalk.gray('  • "Give me the corresponding MongoDB schema"'));
     console.log(chalk.gray('  • "Convert postgres to MongoDB schema"'));
+    
+    console.log(chalk.white('\nRationale & Design Decisions:'));
+    console.log(chalk.gray('  • "Why did you embed these fields in MongoDB?"'));
+    console.log(chalk.gray('  • "Explain the rationale behind grouping these tables"'));
+    console.log(chalk.gray('  • "Why was this transformation chosen?"'));
+    console.log(chalk.gray('  • "What is the reasoning behind this migration approach?"'));
+    console.log(chalk.gray('  • "Why did you convert this table to a collection?"'));
+    console.log(chalk.gray('  • "Explain the design decision for this schema change"'));
     
     console.log(chalk.white('\nMongoDB:'));
     console.log(chalk.gray('  • "Update language collection set name to Hindi where name is English"'));
@@ -2643,7 +2703,9 @@ export class CLI {
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      terminal: false // Disable terminal mode to prevent input buffering issues
+      terminal: true, // Enable terminal mode for better stability
+      historySize: 100,
+      removeHistoryDuplicates: true
     });
 
     // Handle graceful shutdown
@@ -2661,6 +2723,18 @@ export class CLI {
         process.exit(1);
       }
     };
+
+    // Handle readline errors
+    rl.on('error', (error) => {
+      console.error(chalk.red('⚠️ Readline interface failed, switching to fallback input...'));
+      console.error(chalk.gray(`Error: ${error.message}`));
+    });
+
+    // Handle SIGINT (Ctrl+C)
+    process.on('SIGINT', async () => {
+      console.log(chalk.yellow('\n\n🛑 Interrupted by user. Cleaning up...'));
+      await cleanup();
+    });
 
     // Setup force exit handlers
     this.setupForceExitHandlers(cleanup);
@@ -2837,15 +2911,21 @@ export class CLI {
       const plan = await migrationService.generateMigrationPlan(analysis);
       
       // Create documentation
-      const outputPath = `/Users/prateek/Desktop/peer-ai-mongo-documents/${sourceFolder}-analysis.md`;
+      const filename = `${sourceFolder}-analysis.md`;
+      const outputPath = `/Users/prateek/Desktop/peer-ai-mongo-documents/${filename}`;
       const actualOutputPath = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
+      
+      // Also write to current project directory
+      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, actualOutputPath);
       
       console.log(`✅ Migration analysis complete!`);
       console.log(`📊 Summary:`);
       console.log(`   - Project: ${analysis.projectName}`);
       console.log(`   - Total Files: ${analysis.totalFiles}`);
       console.log(`   - Migration Complexity: ${analysis.migrationComplexity}`);
-      console.log(`📝 Documentation saved to: ${actualOutputPath}`);
+      console.log(`📝 Documentation saved to both locations:`);
+      console.log(`   📍 Central: ${centralPath}`);
+      console.log(`   📍 Project: ${projectPath}`);
       
     } catch (error) {
       console.error('❌ Migration analysis failed:', error);
@@ -2948,14 +3028,20 @@ export class CLI {
       const plan = await migrationService.generateMigrationPlan(analysis);
       
       // Create documentation
-      const outputPath = `/Users/prateek/Desktop/peer-ai-mongo-documents/${sourceFolder}-migration-plan.md`;
+      const filename = `${sourceFolder}-migration-plan.md`;
+      const outputPath = `/Users/prateek/Desktop/peer-ai-mongo-documents/${filename}`;
       const actualOutputPath = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
+      
+      // Also write to current project directory
+      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, actualOutputPath);
       
       console.log(`✅ Migration plan generated!`);
       console.log(`📊 Plan Summary:`);
       console.log(`   - Total Phases: ${plan.phases.length}`);
       console.log(`   - Risk Level: ${plan.summary.riskLevel}`);
-      console.log(`📝 Documentation saved to: ${actualOutputPath}`);
+      console.log(`📝 Documentation saved to both locations:`);
+      console.log(`   📍 Central: ${centralPath}`);
+      console.log(`   📍 Project: ${projectPath}`);
       
     } catch (error) {
       console.error('❌ Migration plan generation failed:', error);

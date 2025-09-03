@@ -4,6 +4,7 @@ import { ComprehensivePostgreSQLSchema, ViewSchema, FunctionSchema, TriggerSchem
 import { TableSchema, IndexSchema, ColumnSchema, ForeignKeySchema } from '../types/index.js';
 import { SemanticRelationship, DataFlowPattern, BusinessProcess, BusinessRule, ImpactMatrix } from '../types/index.js';
 import { ERDiagramGenerator } from './ERDiagramGenerator.js';
+import { DualLocationFileWriter } from '../utils/DualLocationFileWriter.js';
 
 export class MarkdownGenerator {
   private projectRoot: string;
@@ -23,15 +24,14 @@ export class MarkdownGenerator {
       
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const filename = `postgres-schema-${timestamp}.md`;
-      const filepath = path.join('/Users/prateek/Desktop/peer-ai-mongo-documents', filename);
       
       const markdown = this.buildMarkdownContent(schema);
       
-      // Write to file
-      fs.writeFileSync(filepath, markdown, 'utf8');
+      // Write to both central location and current project directory
+      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, markdown);
       
       console.log(`✅ Schema documentation generated: ${filename}`);
-      return filepath;
+      return centralPath; // Return central path as primary location
     } catch (error) {
       console.error('❌ Failed to generate schema documentation:', error);
       throw error;
@@ -795,18 +795,10 @@ ${schema.impactMatrix && schema.impactMatrix.length > 0 ? `- **Impact Matrix:** 
       // Create HTML viewer and get the file path
       const htmlContent = this.createEmbeddedHTMLViewer(basicDiagrams, schema);
       
-      // Save the HTML file and get the dynamic file path
+      // Save the HTML file to both locations
       const fileName = `er_diagram_${Date.now()}.html`;
-      const filePath = path.join('/Users/prateek/Desktop/peer-ai-mongo-documents', 'diagrams', fileName);
-      
-      // Ensure diagrams directory exists
-      const dir = path.dirname(filePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      
-      // Write the HTML file
-      fs.writeFileSync(filePath, htmlContent, 'utf8');
+      const { centralPath, projectPath } = DualLocationFileWriter.writeDiagramToBothLocations(fileName, htmlContent);
+      const filePath = centralPath; // Use central path for the link
       
       // Add the interactive link at the beginning
       content += `**📱 [🖱️ Click to View Interactive ER Diagram](file://${filePath})**\n\n`;
@@ -923,15 +915,8 @@ ${schema.impactMatrix && schema.impactMatrix.length > 0 ? `- **Impact Matrix:** 
           // Save the HTML file and provide a link
     try {
       const fileName = `er_diagram_${Date.now()}.html`;
-      const filePath = path.join('/Users/prateek/Desktop/peer-ai-mongo-documents', 'diagrams', fileName);
-      
-      // Ensure diagrams directory exists
-      const dir = path.dirname(filePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      
-      fs.writeFileSync(filePath, htmlContent, 'utf8');
+      const { centralPath, projectPath } = DualLocationFileWriter.writeDiagramToBothLocations(fileName, htmlContent);
+      const filePath = centralPath; // Use central path for the link
       
       content += `**📱 [🖱️ Click to View Interactive ER Diagram](file://${filePath})**\n\n`;
       content += `**💻 Or run this command to open directly:** \`open ${filePath}\`\n\n`;

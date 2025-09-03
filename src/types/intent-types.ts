@@ -75,6 +75,14 @@ export enum IntentType {
   FEATURE_EXPLANATION = 'feature_explanation',
   TUTORIAL_REQUEST = 'tutorial_request',
   
+  // Rationale Conversation
+  RATIONALE_QUERY = 'rationale_query',
+  DESIGN_DECISION_EXPLANATION = 'design_decision_explanation',
+  SCHEMA_TRANSFORMATION_RATIONALE = 'schema_transformation_rationale',
+  MIGRATION_RATIONALE = 'migration_rationale',
+  EMBEDDING_RATIONALE = 'embedding_rationale',
+  GROUPING_RATIONALE = 'grouping_rationale',
+  
   // Configuration
   CREDENTIAL_SETUP = 'credential_setup',
   CONFIGURATION_CHANGE = 'configuration_change',

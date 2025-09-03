@@ -288,7 +288,15 @@ export class IntentMappingService {
       
       // Help and Guidance
       'help_request': ['help', 'how to', 'what can', 'commands', 'guide'],
-      'system_health_check': ['health', 'status', 'working', 'alive', 'check']
+      'system_health_check': ['health', 'status', 'working', 'alive', 'check'],
+      
+      // Rationale Conversation - Higher priority patterns
+      'rationale_query': ['why', 'rationale', 'reason', 'explain', 'justify', 'decision', 'thinking', 'logic', 'how many', 'what tables', 'what fields', 'what collections', 'what relationships', 'how was', 'what is', 'what are'],
+      'design_decision_explanation': ['why did you', 'why was', 'why is', 'explain the decision', 'rationale behind', 'why did the system'],
+      'schema_transformation_rationale': ['why transform', 'why convert', 'why change', 'transformation rationale', 'conversion reason', 'why convert to'],
+      'migration_rationale': ['migration reason', 'why migrate', 'migration decision', 'why this approach', 'migration logic', 'migration strategy'],
+      'embedding_rationale': ['why embed', 'why embedded', 'embedding reason', 'why not separate', 'embedded document', 'why embed fields', 'why embedded fields'],
+      'grouping_rationale': ['why group', 'why together', 'grouping reason', 'why combine', 'why merge', 'why group tables']
     };
   }
 
@@ -309,6 +317,19 @@ export class IntentMappingService {
     // Boost score for multiple matches
     if (matches > 1) {
       score *= 1.2;
+    }
+    
+    // Special boost for rationale queries
+    const rationaleKeywords = ['why', 'how', 'what', 'when', 'where', 'explain', 'rationale', 'reason'];
+    const hasRationaleKeyword = rationaleKeywords.some(keyword => input.includes(keyword));
+    
+    if (hasRationaleKeyword && patterns.some(p => p.includes('rationale') || p.includes('why'))) {
+      score *= 2.0; // Strong boost for rationale queries
+    }
+    
+    // Additional boost for queries starting with "why"
+    if (input.toLowerCase().startsWith('why') && patterns.some(p => p.includes('why'))) {
+      score *= 1.5;
     }
     
     return Math.min(score, 1.0);
