@@ -12,6 +12,7 @@ import { MigrationAnalysisService } from './MigrationAnalysisService.js';
 import { DualLocationFileWriter } from '../utils/DualLocationFileWriter.js';
 import chalk from 'chalk';
 import path from 'path';
+import fs from 'fs';
 
 export class GitHubAnalysisService {
   private urlParser: GitHubUrlParser;
@@ -185,17 +186,23 @@ export class GitHubAnalysisService {
       // Generate documentation with dual location writing
       const filename = `${path.basename(localPath)}-analysis.md`;
       const outputPath = options.outputPath || `/Users/prateek/Desktop/peer-ai-mongo-documents/${filename}`;
-      const documentation = await this.migrationService.createMigrationDocumentation(analysis, plan, outputPath);
+      const documentationPath = await this.migrationService.createMigrationDocumentation(analysis, plan, outputPath);
       
-      // Also write to current project directory
-      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, documentation);
+      // Also write to current project directory for convenience
+      const projectPath = path.join(process.cwd(), filename);
+      const documentationContent = fs.readFileSync(documentationPath, 'utf8');
+      fs.writeFileSync(projectPath, documentationContent, 'utf8');
+      
+      console.log(`📁 File written to both locations:`);
+      console.log(`   📍 Central: ${documentationPath}`);
+      console.log(`   📍 Project: ${projectPath}`);
       
       console.log(chalk.green('✅ Migration analysis completed'));
       
       return {
         analysis,
         plan,
-        documentation
+        documentation: documentationPath
       };
       
     } catch (error) {

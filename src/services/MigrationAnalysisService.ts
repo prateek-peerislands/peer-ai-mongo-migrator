@@ -110,10 +110,19 @@ export class MigrationAnalysisService {
       
       console.log(`📝 Creating migration documentation at: ${versionedOutputPath}`);
       
-      await this.docGenerator.generateDocumentation(analysis, plan, versionedOutputPath);
+      // Generate the markdown content
+      const markdownContent = await this.docGenerator.generateMarkdownContent(analysis, plan);
+      
+      // Write the file directly
+      const outputDir = path.dirname(versionedOutputPath);
+      if (!fs.existsSync(outputDir)) {
+        await fs.promises.mkdir(outputDir, { recursive: true });
+      }
+      await fs.promises.writeFile(versionedOutputPath, markdownContent, 'utf-8');
       
       console.log(`✅ Migration documentation created successfully at: ${versionedOutputPath}`);
       
+      // Return the file path, not the content
       return versionedOutputPath;
       
     } catch (error) {

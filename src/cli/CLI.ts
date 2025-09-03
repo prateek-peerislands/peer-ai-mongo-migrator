@@ -1996,10 +1996,10 @@ export class CLI {
       const plan = await migrationService.generateMigrationPlan(analysis);
       
       // Create documentation
-      const actualOutputPath = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
+      const documentationContent = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
       
       // Also write to current project directory
-      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, actualOutputPath);
+      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, documentationContent);
       
       console.log(`✅ Migration analysis complete! Documentation saved to both locations:`);
       console.log(`   📍 Central: ${centralPath}`);
@@ -2064,10 +2064,10 @@ export class CLI {
       const plan = await migrationService.generateMigrationPlan(analysis);
       
       // Create documentation
-      const actualOutputPath = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
+      const documentationContent = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
       
       // Also write to current project directory
-      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, actualOutputPath);
+      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, documentationContent);
       
       console.log(`✅ Migration plan generated! Documentation saved to both locations:`);
       console.log(`   📍 Central: ${centralPath}`);
@@ -2913,10 +2913,10 @@ export class CLI {
       // Create documentation
       const filename = `${sourceFolder}-analysis.md`;
       const outputPath = `/Users/prateek/Desktop/peer-ai-mongo-documents/${filename}`;
-      const actualOutputPath = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
+      const documentationContent = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
       
       // Also write to current project directory
-      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, actualOutputPath);
+      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, documentationContent);
       
       console.log(`✅ Migration analysis complete!`);
       console.log(`📊 Summary:`);
@@ -3030,10 +3030,10 @@ export class CLI {
       // Create documentation
       const filename = `${sourceFolder}-migration-plan.md`;
       const outputPath = `/Users/prateek/Desktop/peer-ai-mongo-documents/${filename}`;
-      const actualOutputPath = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
+      const documentationContent = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
       
       // Also write to current project directory
-      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, actualOutputPath);
+      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, documentationContent);
       
       console.log(`✅ Migration plan generated!`);
       console.log(`📊 Plan Summary:`);

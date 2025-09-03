@@ -477,6 +477,6 @@ ${schema.indexes.map(index => `
     // Write to both central location and current project directory
     const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, content);
     console.log(`✅ ER diagram documentation generated: ${filename}`);
-    return centralPath; // Return central path as primary location
+    return content; // Return the markdown content, not the file path
   }
 }

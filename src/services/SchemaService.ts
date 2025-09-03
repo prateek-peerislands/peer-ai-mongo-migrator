@@ -2428,10 +2428,10 @@ export class SchemaService {
       console.log('📚 Generating comprehensive ER diagram documentation...');
       
       const schema = await this.getComprehensivePostgreSQLSchema();
-      const documentationPath = await this.erDiagramGenerator.generateERDocumentation(schema);
+      const documentationContent = await this.erDiagramGenerator.generateERDocumentation(schema);
       
       console.log('✅ ER diagram documentation generated successfully');
-      return documentationPath;
+      return documentationContent;
       
     } catch (error) {
       console.error('❌ Failed to generate ER diagram documentation:', error);

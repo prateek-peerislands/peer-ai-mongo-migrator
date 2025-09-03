@@ -43,7 +43,7 @@ export class DocumentationGenerator {
   /**
    * Generate the complete markdown content
    */
-  private async generateMarkdownContent(analysis: SourceCodeAnalysis, plan: MigrationPlan): Promise<string> {
+  async generateMarkdownContent(analysis: SourceCodeAnalysis, plan: MigrationPlan): Promise<string> {
     const content = [
       this.generateHeader(analysis),
       await this.generateInteractiveERDiagramViewer(analysis, plan),
