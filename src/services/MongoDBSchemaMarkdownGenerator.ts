@@ -6,14 +6,17 @@ import {
   CompatibilityReport 
 } from './MongoDBSchemaGenerator.js';
 import { ConsistencyService } from './ConsistencyService.js';
+import { UnifiedERDiagramGenerator } from './UnifiedERDiagramGenerator.js';
 
 export class MongoDBSchemaMarkdownGenerator {
   private projectRoot: string;
   private consistencyService: ConsistencyService;
+  private erDiagramGenerator: UnifiedERDiagramGenerator;
 
   constructor() {
     this.projectRoot = process.cwd();
     this.consistencyService = new ConsistencyService();
+    this.erDiagramGenerator = new UnifiedERDiagramGenerator();
   }
 
   /**
@@ -27,9 +30,9 @@ export class MongoDBSchemaMarkdownGenerator {
       
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const filename = `mongodb-schema-${timestamp}.md`;
-      const filepath = path.join(this.projectRoot, filename);
+      const filepath = path.join('/Users/prateek/Desktop/peer-ai-mongo-documents', filename);
       
-      const markdown = this.buildMarkdownContent(conversionResult);
+      const markdown = await this.buildMarkdownContent(conversionResult);
       
       // Write to file
       fs.writeFileSync(filepath, markdown, 'utf8');
@@ -45,11 +48,14 @@ export class MongoDBSchemaMarkdownGenerator {
   /**
    * Build the complete Markdown content
    */
-  private buildMarkdownContent(conversionResult: SchemaConversionResult): string {
+  private async buildMarkdownContent(conversionResult: SchemaConversionResult): Promise<string> {
     let content = '';
 
     // Header
     content += this.generateHeader(conversionResult);
+    
+    // Interactive ER Diagram Viewer (moved to the beginning)
+    content += await this.generateInteractiveERDiagramViewer(conversionResult);
     
     // Table of Contents
     content += this.generateTableOfContents(conversionResult);
@@ -72,10 +78,16 @@ export class MongoDBSchemaMarkdownGenerator {
     // Performance Considerations
     content += this.generatePerformanceSection(conversionResult.compatibilityReport);
     
+    // NEW: Metadata Analysis Section (MongoDB equivalent)
+    content += this.generateMongoDBMetadataAnalysisSection(conversionResult);
+    
     // NEW: Intelligent MongoDB Design Sections
     content += this.generateIntelligentDesignSection(conversionResult);
     content += this.generateEmbeddedDocumentStrategySection(conversionResult);
     content += this.generateDenormalizationStrategySection(conversionResult);
+    
+    // Detailed Collection Analysis
+    content += this.generateDetailedCollectionAnalysis(conversionResult.mongodbSchema);
     
     // Recommendations and Warnings
     content += this.generateRecommendationsSection(conversionResult);
@@ -90,6 +102,216 @@ export class MongoDBSchemaMarkdownGenerator {
     content += this.generateFooter();
 
     return content;
+  }
+
+  /**
+   * Generate interactive ER diagram viewer at the beginning of the document
+   */
+  private async generateInteractiveERDiagramViewer(conversionResult: SchemaConversionResult): Promise<string> {
+    let content = '## 🌐 Interactive MongoDB ER Diagram Viewer\n\n';
+    content += '> **🎯 Click the button below to open the interactive MongoDB ER diagram in your browser**\n\n';
+    
+    try {
+      // Generate MongoDB ER diagram
+      const erResult = await this.erDiagramGenerator.generateMongoDBERDiagram(
+        conversionResult.mongodbSchema,
+        {
+          format: 'mermaid',
+          includeIndexes: true,
+          includeConstraints: true,
+          includeDataTypes: true,
+          includeCardinality: true,
+          includeDescriptions: false,
+          showEmbeddedDocuments: true,
+          outputPath: undefined // We'll handle the file path manually
+        }
+      );
+
+      if (erResult.success && erResult.content) {
+        // Create HTML viewer and get the file path
+        const htmlContent = this.createEmbeddedHTMLViewer(erResult.content, conversionResult);
+        
+        // Save the HTML file and get the dynamic file path
+        const fileName = `mongodb_er_diagram_${Date.now()}.html`;
+        const filePath = path.join('/Users/prateek/Desktop/peer-ai-mongo-documents', 'diagrams', fileName);
+        
+        // Ensure diagrams directory exists
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        // Write the HTML file
+        fs.writeFileSync(filePath, htmlContent, 'utf8');
+        
+        // Add the interactive link at the beginning
+        content += `**📱 [🖱️ Click to View Interactive MongoDB ER Diagram](file://${filePath})**\n\n`;
+        content += `**💻 Or run this command to open directly:** \`open ${filePath}\`\n\n`;
+        content += '---\n\n';
+        
+      } else {
+        throw new Error(erResult.error || 'Failed to generate ER diagram');
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to generate interactive MongoDB ER diagram viewer:', error);
+      content += '> **⚠️ Could not generate interactive MongoDB ER diagram viewer** - Please use the `er-diagram` command instead.\n\n';
+      content += '---\n\n';
+    }
+    
+    return content;
+  }
+
+  /**
+   * Create embedded HTML viewer for MongoDB ER diagrams
+   */
+  private createEmbeddedHTMLViewer(mermaidCode: string, conversionResult: SchemaConversionResult): string {
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MongoDB ER Diagram - ${conversionResult.mongodbSchema.length} Collections</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .header p {
+            color: #6c757d;
+            margin: 10px 0 0 0;
+            font-size: 1.1em;
+        }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .stat {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            min-width: 120px;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        .diagram-container {
+            margin: 30px 0;
+            text-align: center;
+        }
+        .mermaid {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .info h3 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+        .info p {
+            margin: 0;
+            color: #424242;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍃 MongoDB ER Diagram</h1>
+            <p>Interactive Entity-Relationship Diagram for MongoDB Collections</p>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number">${conversionResult.mongodbSchema.length}</div>
+                    <div class="stat-label">Collections</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info">
+            <h3>📊 MongoDB Collection Strategy</h3>
+            <p>This diagram shows the intelligent MongoDB collection design with embedded documents and references. Collections are optimized for MongoDB's document model rather than a 1:1 mapping from PostgreSQL tables.</p>
+            <p><strong>Key Features:</strong></p>
+            <ul>
+                <li><strong>Embedded Documents:</strong> Related data is embedded within parent documents for better performance</li>
+                <li><strong>References:</strong> Large or frequently changing data uses references to separate collections</li>
+                <li><strong>Field Types:</strong> MongoDB-specific data types optimized for document storage</li>
+                <li><strong>Indexes:</strong> Strategic indexing for query performance</li>
+            </ul>
+        </div>
+        
+        <div class="diagram-container">
+            <div class="mermaid">
+${mermaidCode.replace('```mermaid\n', '').replace('\n```', '')}
+            </div>
+        </div>
+        
+        <div class="info">
+            <h3>🔍 How to Use This Diagram</h3>
+            <p><strong>Zoom:</strong> Use mouse wheel or pinch gestures</p>
+            <p><strong>Pan:</strong> Click and drag to move around</p>
+            <p><strong>Download:</strong> Right-click on the diagram to save as image</p>
+            <p><strong>Full Screen:</strong> Click on the diagram to expand</p>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true
+            },
+            er: {
+                useMaxWidth: true
+            }
+        });
+    </script>
+</body>
+</html>`;
+
+    return html;
   }
 
   /**
@@ -621,6 +843,100 @@ This MongoDB schema is designed for ${this.inferDatabasePurpose(mongodbSchema)}.
   }
 
   /**
+   * Generate detailed collection analysis section
+   */
+  private generateDetailedCollectionAnalysis(collections: MongoDBCollectionSchema[]): string {
+    if (collections.length === 0) return '';
+
+    let content = '## 📋 Detailed Collection Analysis\n\n';
+    content += '> **🔍 In-depth analysis of each MongoDB collection with field details, embedded documents, and relationships**\n\n';
+
+    collections.forEach((collection, index) => {
+      content += `### ${index + 1}. ${collection.name}\n\n`;
+      
+      // Collection overview
+      content += `**Description:** ${collection.description}\n\n`;
+      
+      // Field analysis
+      content += `#### 📊 Fields (${collection.fields.length})\n\n`;
+      content += '| Field Name | Type | Required | Unique | Indexed | Description |\n';
+      content += '|------------|------|----------|--------|---------|-------------|\n';
+      
+      collection.fields.forEach(field => {
+        const required = field.required ? '✅' : '❌';
+        const unique = '❌'; // MongoDB fields don't have unique property at field level
+        const indexed = '❌'; // MongoDB fields don't have indexed property at field level
+        const description = field.description || '-';
+        
+        content += `| \`${field.name}\` | \`${field.type}\` | ${required} | ${unique} | ${indexed} | ${description} |\n`;
+      });
+      
+      content += '\n';
+
+      // Embedded documents analysis
+      if (collection.embeddedDocuments && collection.embeddedDocuments.length > 0) {
+        content += `#### 🔗 Embedded Documents (${collection.embeddedDocuments.length})\n\n`;
+        
+        collection.embeddedDocuments.forEach(embedded => {
+          content += `**${embedded.name}**\n`;
+          content += `- **Source Table:** \`${embedded.sourceTable}\`\n`;
+          content += `- **Description:** ${embedded.description}\n`;
+          
+          if (embedded.fields && embedded.fields.length > 0) {
+            content += `- **Fields:** \`${embedded.fields.join('`, `')}\`\n`;
+          }
+          content += '\n';
+        });
+      }
+
+      // References analysis
+      if (collection.references && collection.references.length > 0) {
+        content += `#### 🔗 References (${collection.references.length})\n\n`;
+        
+        collection.references.forEach(ref => {
+          content += `**${ref.field}** → **${ref.collection}**\n`;
+          content += `- **Description:** ${ref.description}\n`;
+          content += `- **Source Foreign Key:** \`${ref.sourceForeignKey}\`\n\n`;
+        });
+      }
+
+      // Indexes analysis
+      if (collection.indexes && collection.indexes.length > 0) {
+        content += `#### 📈 Indexes (${collection.indexes.length})\n\n`;
+        
+        collection.indexes.forEach(index => {
+          content += `**${index.name}**\n`;
+          const fieldNames = Object.keys(index.fields);
+          content += `- **Fields:** \`${fieldNames.join('`, `')}\`\n`;
+          content += `- **Unique:** ${index.unique ? '✅' : '❌'}\n`;
+          content += `- **Sparse:** ${index.sparse ? '✅' : '❌'}\n\n`;
+        });
+      }
+
+      // Sample document
+      if (collection.sampleDocument) {
+        content += `#### 📄 Sample Document Structure\n\n`;
+        content += '```json\n';
+        content += JSON.stringify(collection.sampleDocument, null, 2);
+        content += '\n```\n\n';
+      }
+
+      // Migration notes
+      if (collection.migrationNotes && collection.migrationNotes.length > 0) {
+        content += `#### 📝 Migration Notes\n\n`;
+        collection.migrationNotes.forEach(note => {
+          content += `- ${note}\n`;
+        });
+        content += '\n';
+      }
+
+      content += '---\n\n';
+    });
+
+    return content;
+  }
+
+  /**
    * Generate footer
    */
   private generateFooter(): string {
@@ -903,5 +1219,205 @@ This MongoDB schema documentation was automatically generated by the PeerAI Mong
     
     content += '\n';
     return content;
+  }
+
+
+
+  /**
+   * NEW: Generate MongoDB Metadata Analysis Section
+   */
+  private generateMongoDBMetadataAnalysisSection(conversionResult: SchemaConversionResult): string {
+    let content = '\n## 📊 Metadata Analysis (MongoDB Migration)\n\n';
+    content += 'This section provides comprehensive analysis of how PostgreSQL metadata and statistics should be handled in MongoDB, including performance considerations, storage optimization, and monitoring strategies.\n\n';
+
+    // Database Size Analysis
+    const totalTables = conversionResult.compatibilityReport?.tables?.length || 0;
+    const totalCollections = conversionResult.mongodbSchema?.collections?.length || 0;
+    
+    content += `### 🗄️ Database Migration Overview\n\n`;
+    content += `- **PostgreSQL Tables:** ${totalTables}\n`;
+    content += `- **MongoDB Collections:** ${totalCollections}\n`;
+    content += `- **Migration Complexity:** ${this.assessMigrationComplexity(conversionResult)}\n\n`;
+
+    // Collection Statistics
+    if (conversionResult.mongodbSchema?.collections) {
+      content += `### 📋 Collection Statistics\n\n`;
+      content += `| Collection Name | Estimated Documents | Storage Strategy | Indexes | Performance Level |\n`;
+      content += `|-----------------|-------------------|------------------|---------|------------------|\n`;
+      
+      conversionResult.mongodbSchema.collections.forEach((collection: any) => {
+        const docCount = this.estimateDocumentCount(collection);
+        const storageStrategy = this.determineStorageStrategy(collection);
+        const indexCount = collection.indexes?.length || 0;
+        const performanceLevel = this.assessPerformanceLevel(collection);
+        
+        content += `| ${collection.name} | ${docCount.toLocaleString()} | ${storageStrategy} | ${indexCount} | ${performanceLevel} |\n`;
+      });
+      content += `\n`;
+    }
+
+    // Performance Considerations
+    content += `### ⚡ Performance Considerations\n\n`;
+    content += `**Query Performance:**\n`;
+    content += `- Design proper indexes for common query patterns\n`;
+    content += `- Use compound indexes for multi-field queries\n`;
+    content += `- Consider partial indexes for filtered queries\n`;
+    content += `- Monitor query performance with MongoDB Profiler\n\n`;
+
+    content += `**Storage Optimization:**\n`;
+    content += `- Use appropriate data types (ObjectId, Date, etc.)\n`;
+    content += `- Implement data compression for large documents\n`;
+    content += `- Consider sharding for large collections\n`;
+    content += `- Use GridFS for large binary data\n\n`;
+
+    content += `**Memory Management:**\n`;
+    content += `- Configure appropriate cache size\n`;
+    content += `- Monitor memory usage and page faults\n`;
+    content += `- Use wiredTiger storage engine for better compression\n`;
+    content += `- Implement proper connection pooling\n\n`;
+
+    // Monitoring and Maintenance
+    content += `### 🔍 Monitoring and Maintenance\n\n`;
+    content += `**Key Metrics to Monitor:**\n`;
+    content += `- Query execution time and frequency\n`;
+    content += `- Index usage and efficiency\n`;
+    content += `- Memory usage and cache hit ratio\n`;
+    content += `- Disk I/O and storage utilization\n`;
+    content += `- Connection count and pool utilization\n\n`;
+
+    content += `**Maintenance Tasks:**\n`;
+    content += `- Regular index optimization and cleanup\n`;
+    content += `- Database statistics updates\n`;
+    content += `- Log rotation and cleanup\n`;
+    content += `- Backup and recovery testing\n`;
+    content += `- Performance tuning based on usage patterns\n\n`;
+
+    // Data Quality and Consistency
+    content += `### 🎯 Data Quality and Consistency\n\n`;
+    content += `**Data Validation:**\n`;
+    content += `- Implement MongoDB schema validation\n`;
+    content += `- Use application-level validation for complex rules\n`;
+    content += `- Implement data integrity checks\n`;
+    content += `- Monitor data quality metrics\n\n`;
+
+    content += `**Consistency Strategies:**\n`;
+    content += `- Use MongoDB transactions for ACID compliance\n`;
+    content += `- Implement eventual consistency where appropriate\n`;
+    content += `- Use change streams for real-time synchronization\n`;
+    content += `- Implement proper error handling and retry logic\n\n`;
+
+    // Security Considerations
+    content += `### 🔒 Security Considerations\n\n`;
+    content += `**Access Control:**\n`;
+    content += `- Implement role-based access control (RBAC)\n`;
+    content += `- Use MongoDB's built-in authentication\n`;
+    content += `- Implement network security and encryption\n`;
+    content += `- Regular security audits and updates\n\n`;
+
+    content += `**Data Protection:**\n`;
+    content += `- Encrypt sensitive data at rest and in transit\n`;
+    content += `- Implement proper backup and recovery procedures\n`;
+    content += `- Use MongoDB's field-level encryption for sensitive fields\n`;
+    content += `- Implement audit logging for compliance\n\n`;
+
+    // Migration Recommendations
+    content += `### 💡 Migration Recommendations\n\n`;
+    content += `**Phase 1: Preparation**\n`;
+    content += `- Analyze current PostgreSQL usage patterns\n`;
+    content += `- Design MongoDB schema and indexes\n`;
+    content += `- Set up MongoDB cluster and monitoring\n`;
+    content += `- Implement data migration scripts\n\n`;
+
+    content += `**Phase 2: Migration**\n`;
+    content += `- Migrate data in batches\n`;
+    content += `- Implement application changes\n`;
+    content += `- Test functionality and performance\n`;
+    content += `- Validate data integrity\n\n`;
+
+    content += `**Phase 3: Optimization**\n`;
+    content += `- Monitor performance and optimize queries\n`;
+    content += `- Tune indexes and configuration\n`;
+    content += `- Implement proper monitoring and alerting\n`;
+    content += `- Document operational procedures\n\n`;
+
+    return content;
+  }
+
+  // Helper methods for MongoDB metadata analysis
+  private assessMigrationComplexity(conversionResult: SchemaConversionResult): string {
+    const tables = conversionResult.compatibilityReport?.tables || [];
+    const functions = conversionResult.compatibilityReport?.functions || [];
+    const triggers = conversionResult.compatibilityReport?.triggers || [];
+    
+    let complexityScore = 0;
+    
+    // Table complexity
+    if (tables.length > 50) complexityScore += 3;
+    else if (tables.length > 20) complexityScore += 2;
+    else if (tables.length > 10) complexityScore += 1;
+    
+    // Function complexity
+    if (functions.length > 20) complexityScore += 2;
+    else if (functions.length > 10) complexityScore += 1;
+    
+    // Trigger complexity
+    if (triggers.length > 10) complexityScore += 2;
+    else if (triggers.length > 5) complexityScore += 1;
+    
+    if (complexityScore >= 6) return 'HIGH';
+    if (complexityScore >= 3) return 'MEDIUM';
+    return 'LOW';
+  }
+
+  private estimateDocumentCount(collection: any): number {
+    // This is a rough estimate based on collection characteristics
+    // In a real implementation, you'd analyze the actual data
+    const fields = collection.fields?.length || 0;
+    const relationships = collection.relationships?.length || 0;
+    
+    // Base estimate: 1000 documents per field, adjusted for relationships
+    let estimate = fields * 1000;
+    
+    // Adjust for relationships (more relationships = more complex data)
+    if (relationships > 5) estimate *= 2;
+    else if (relationships > 2) estimate *= 1.5;
+    
+    return Math.max(estimate, 100); // Minimum 100 documents
+  }
+
+  private determineStorageStrategy(collection: any): string {
+    const fields = collection.fields?.length || 0;
+    const relationships = collection.relationships?.length || 0;
+    
+    if (fields > 20 || relationships > 5) {
+      return 'SHARDED';
+    } else if (fields > 10 || relationships > 2) {
+      return 'INDEXED';
+    } else {
+      return 'STANDARD';
+    }
+  }
+
+  private assessPerformanceLevel(collection: any): string {
+    const fields = collection.fields?.length || 0;
+    const relationships = collection.relationships?.length || 0;
+    const indexes = collection.indexes?.length || 0;
+    
+    let score = 0;
+    
+    // More fields = more complex queries
+    if (fields > 15) score += 2;
+    else if (fields > 8) score += 1;
+    
+    // More relationships = more JOINs
+    if (relationships > 3) score += 2;
+    else if (relationships > 1) score += 1;
+    
+    // Fewer indexes = potential performance issues
+    if (indexes < 2) score += 1;
+    
+    if (score >= 4) return 'HIGH';
+    if (score >= 2) return 'MEDIUM';
+    return 'LOW';
   }
 }

@@ -372,7 +372,7 @@ export class ERDiagramGenerator {
   async generateERDocumentation(schema: ComprehensivePostgreSQLSchema): Promise<string> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const filename = `er-diagram-documentation-${timestamp}.md`;
-    const filepath = path.join(this.projectRoot, filename);
+    const filepath = path.join('/Users/prateek/Desktop/peer-ai-mongo-documents', filename);
     
     let content = `# Entity-Relationship Diagram Documentation
 

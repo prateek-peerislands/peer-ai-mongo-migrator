@@ -1,4 +1,4 @@
-# 🧠 PeerAI MongoMigrator - Intelligent Database Migration & Analysis Agent
+# 🧠 PeerAI MongoMigrator - Intelligent Database Migration Agent
 
 > **The world's first LLM-powered database migration agent with semantic intent understanding**
 
@@ -10,7 +10,7 @@
 
 ## 🚀 What Makes This Special?
 
-**PeerAI MongoMigrator** is not just another database migration tool. It's an **intelligent agent** that understands your intent through advanced LLM-based semantic analysis, making database operations as natural as having a conversation with a database expert.
+**PeerAI MongoMigrator** is an intelligent agent that understands your intent through advanced LLM-based semantic analysis, making database operations as natural as having a conversation with a database expert.
 
 ### 🧠 **LLM-Powered Intent Understanding**
 - **Semantic Intent Recognition**: Understands what you want even without exact keywords
@@ -38,6 +38,8 @@ Instead of complex commands, just tell the agent what you want:
 - **ER Diagram Creation** with Mermaid visualization
 - **Business Process Extraction** from database structure
 - **Migration Impact Analysis** with risk assessment
+- **Stored Procedures Analysis** with migration strategies
+- **Metadata Analysis** with performance insights
 
 ### 🔍 **Advanced Code Analysis**
 - **Local Code Analysis** - Analyze your current directory
@@ -70,7 +72,7 @@ Instead of complex commands, just tell the agent what you want:
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd cursor-database
+cd peer-ai-mongo-migrator-v11
 
 # Install dependencies
 npm install
@@ -187,7 +189,10 @@ src/
 │   ├── SchemaService.ts         # Schema analysis
 │   ├── ERDiagramGenerator.ts    # Diagram generation
 │   ├── MigrationService.ts      # Migration planning
-│   └── GitHubAnalysisService.ts # GitHub integration
+│   ├── GitHubAnalysisService.ts # GitHub integration
+│   ├── MarkdownGenerator.ts     # PostgreSQL documentation
+│   ├── MongoDBSchemaMarkdownGenerator.ts # MongoDB documentation
+│   └── DocumentationGenerator.ts # Migration analysis documentation
 ├── config/                 # Configuration management
 │   ├── llm-config.ts      # LLM configuration
 │   └── interactive-setup.ts # Interactive setup
@@ -250,23 +255,6 @@ npm test
 # Build for production
 npm run build
 ```
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **Azure OpenAI** for providing the intelligent LLM capabilities
-- **PostgreSQL** and **MongoDB** communities for excellent database support
-- **MCP (Model Context Protocol)** for enabling seamless AI integration
-- **TypeScript** for type safety and developer experience
-
-## 📞 Support
-
-- **Documentation**: Check the `/docs` folder for detailed guides
-- **Issues**: Report bugs and request features on GitHub Issues
-- **Discussions**: Join our community discussions for help and ideas
 
 ---
 

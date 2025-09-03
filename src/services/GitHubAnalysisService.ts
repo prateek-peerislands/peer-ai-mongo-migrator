@@ -182,7 +182,7 @@ export class GitHubAnalysisService {
       const plan = await this.migrationService.generateMigrationPlan(analysis);
       
       // Generate documentation with default output path
-      const outputPath = options.outputPath || `./${path.basename(localPath)}-analysis.md`;
+      const outputPath = options.outputPath || `/Users/prateek/Desktop/peer-ai-mongo-documents/${path.basename(localPath)}-analysis.md`;
       const documentation = await this.migrationService.createMigrationDocumentation(analysis, plan, outputPath);
       
       console.log(chalk.green('✅ Migration analysis completed'));

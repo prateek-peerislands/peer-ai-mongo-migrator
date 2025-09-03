@@ -138,7 +138,7 @@ export class MigrationAnalysisService {
       
       // Generate new filename
       const versionedFilename = `${baseName}-v${nextVersion}.md`;
-      const fullPath = path.join(dir, versionedFilename);
+      const fullPath = path.join('/Users/prateek/Desktop/peer-ai-mongo-documents', versionedFilename);
       
       console.log(`📋 Version ${nextVersion} detected, creating: ${versionedFilename}`);
       
@@ -156,7 +156,7 @@ export class MigrationAnalysisService {
    */
   private async findExistingAnalysisFiles(dir: string, baseName: string): Promise<string[]> {
     try {
-      const files = await fs.promises.readdir(dir);
+      const files = await fs.promises.readdir('/Users/prateek/Desktop/peer-ai-mongo-documents');
       
       // Filter for analysis files matching the pattern
       const analysisFiles = files.filter(file => {

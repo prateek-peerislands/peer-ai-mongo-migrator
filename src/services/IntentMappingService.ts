@@ -124,24 +124,35 @@ export class IntentMappingService {
         }
       } else {
         // Low confidence, try fallback
-        if (this.config.fallbackEnabled) {
-          if (this.config.debugMode) {
-            console.log(chalk.yellow(`⚠️ Low LLM confidence (${Math.round(result.primaryIntent.confidence * 100)}%), trying fallback`));
-          }
-          result = await this.classifyWithFallback(userInput, fullContext);
+        // COMMENTED OUT FOR TESTING - DISABLED FALLBACK
+        // if (this.config.fallbackEnabled) {
+        //   if (this.config.debugMode) {
+        //     console.log(chalk.yellow(`⚠️ Low LLM confidence (${Math.round(result.primaryIntent.confidence * 100)}%), trying fallback`));
+        //   }
+        //   result = await this.classifyWithFallback(userInput, fullContext);
+        // }
+        if (this.config.debugMode) {
+          console.log(chalk.yellow(`⚠️ Low LLM confidence (${Math.round(result.primaryIntent.confidence * 100)}%) - FALLBACK DISABLED FOR TESTING`));
         }
       }
     } catch (error) {
       console.error('❌ LLM classification failed:', error);
       
-      if (this.config.fallbackEnabled) {
-        if (this.config.debugMode) {
-          console.log(chalk.yellow('🔄 Falling back to keyword matching'));
-        }
-        result = await this.classifyWithFallback(userInput, fullContext);
-      } else {
-        throw error;
+      // COMMENTED OUT FOR TESTING - DISABLED FALLBACK
+      // if (this.config.fallbackEnabled) {
+      //   if (this.config.debugMode) {
+      //     console.log(chalk.yellow('🔄 Falling back to keyword matching'));
+      //   }
+      //   result = await this.classifyWithFallback(userInput, fullContext);
+      // } else {
+      //   throw error;
+      // }
+      
+      // FOR TESTING: Throw error instead of using fallback
+      if (this.config.debugMode) {
+        console.log(chalk.red('🚫 FALLBACK DISABLED FOR TESTING - Throwing error instead'));
       }
+      throw error;
     }
 
     // Update conversation history

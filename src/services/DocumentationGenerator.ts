@@ -1,8 +1,14 @@
 import { SourceCodeAnalysis, MigrationPlan } from '../types/migration-types.js';
+import { UnifiedERDiagramGenerator } from './UnifiedERDiagramGenerator.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
 export class DocumentationGenerator {
+  private erDiagramGenerator: UnifiedERDiagramGenerator;
+
+  constructor() {
+    this.erDiagramGenerator = new UnifiedERDiagramGenerator();
+  }
   
   /**
    * Generate comprehensive migration documentation
@@ -15,7 +21,7 @@ export class DocumentationGenerator {
     try {
       console.log(`📝 Creating migration documentation at: ${outputPath}`);
       
-      const markdown = this.generateMarkdownContent(analysis, plan);
+      const markdown = await this.generateMarkdownContent(analysis, plan);
       
       // Ensure output directory exists
       const outputDir = path.dirname(outputPath);
@@ -37,9 +43,10 @@ export class DocumentationGenerator {
   /**
    * Generate the complete markdown content
    */
-  private generateMarkdownContent(analysis: SourceCodeAnalysis, plan: MigrationPlan): string {
+  private async generateMarkdownContent(analysis: SourceCodeAnalysis, plan: MigrationPlan): Promise<string> {
     const content = [
       this.generateHeader(analysis),
+      await this.generateInteractiveERDiagramViewer(analysis, plan),
       this.generateExecutiveSummary(plan, analysis),
       this.generateRealSourceCodeBenefits(analysis),
       this.generateSourceCodeAnalysisBenefits(analysis),
@@ -47,6 +54,8 @@ export class DocumentationGenerator {
       this.generateImpactAnalysisMatrix(plan, analysis),
       this.generateDetailedComponentAnalysis(analysis),
       this.generateFileInventory(analysis),
+      this.generateStoredProceduresAnalysisSection(analysis),
+      this.generateMetadataAnalysisSection(analysis),
       this.generateMigrationStrategy(plan),
       this.generateRiskAssessment(plan),
       this.generateSuccessMetrics(),
@@ -57,6 +66,221 @@ export class DocumentationGenerator {
     ];
     
     return content.join('\n\n');
+  }
+
+  /**
+   * Generate interactive ER diagram viewer at the beginning of the document
+   */
+  private async generateInteractiveERDiagramViewer(analysis: SourceCodeAnalysis, plan: MigrationPlan): Promise<string> {
+    let content = '## 🌐 Interactive Migration ER Diagram Viewer\n\n';
+    content += '> **🎯 Click the button below to open the interactive migration ER diagram in your browser**\n\n';
+    
+    try {
+      // Generate Migration ER diagram
+      const erResult = await this.erDiagramGenerator.generateMigrationERDiagram(
+        analysis,
+        plan,
+        {
+          format: 'mermaid',
+          includeIndexes: true,
+          includeConstraints: true,
+          includeDataTypes: true,
+          includeCardinality: true,
+          includeDescriptions: false,
+          showMigrationStrategy: true,
+          outputPath: undefined // We'll handle the file path manually
+        }
+      );
+
+      if (erResult.success && erResult.content) {
+        // Create HTML viewer and get the file path
+        const htmlContent = this.createEmbeddedHTMLViewer(erResult.content, analysis, plan);
+        
+        // Save the HTML file and get the dynamic file path
+        const fileName = `migration_er_diagram_${Date.now()}.html`;
+        const filePath = path.join('/Users/prateek/Desktop/peer-ai-mongo-documents', 'diagrams', fileName);
+        
+        // Ensure diagrams directory exists
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        // Write the HTML file
+        fs.writeFileSync(filePath, htmlContent, 'utf8');
+        
+        // Add the interactive link at the beginning
+        content += `**📱 [🖱️ Click to View Interactive Migration ER Diagram](file://${filePath})**\n\n`;
+        content += `**💻 Or run this command to open directly:** \`open ${filePath}\`\n\n`;
+        content += '---\n\n';
+        
+      } else {
+        throw new Error(erResult.error || 'Failed to generate ER diagram');
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to generate interactive migration ER diagram viewer:', error);
+      content += '> **⚠️ Could not generate interactive migration ER diagram viewer** - Please use the `er-diagram` command instead.\n\n';
+      content += '---\n\n';
+    }
+    
+    return content;
+  }
+
+  /**
+   * Create embedded HTML viewer for migration ER diagrams
+   */
+  private createEmbeddedHTMLViewer(mermaidCode: string, analysis: SourceCodeAnalysis, plan: MigrationPlan): string {
+    const totalCollections = plan.phases.reduce((sum, phase) => sum + ((phase as any).collections?.length || 0), 0);
+    const totalEntities = analysis.entities.length;
+    
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migration ER Diagram - ${totalCollections} Collections</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .header p {
+            color: #6c757d;
+            margin: 10px 0 0 0;
+            font-size: 1.1em;
+        }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .stat {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            min-width: 120px;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #ff6b35;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        .diagram-container {
+            margin: 30px 0;
+            text-align: center;
+        }
+        .mermaid {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .info {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .info h3 {
+            margin: 0 0 10px 0;
+            color: #856404;
+        }
+        .info p {
+            margin: 0;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Migration ER Diagram</h1>
+            <p>Interactive Entity-Relationship Diagram for Spring Boot to Node.js + MongoDB Migration</p>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number">${totalEntities}</div>
+                    <div class="stat-label">Spring Entities</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">${totalCollections}</div>
+                    <div class="stat-label">MongoDB Collections</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">${plan.phases.length}</div>
+                    <div class="stat-label">Migration Phases</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info">
+            <h3>🔄 Migration Strategy Overview</h3>
+            <p>This diagram shows the migration from Spring Boot JPA entities to MongoDB collections. Each collection represents the target MongoDB structure with migration strategies (standalone, embedded, referenced) and dependencies.</p>
+        </div>
+        
+        <div class="diagram-container">
+            <div class="mermaid">
+${mermaidCode.replace('```mermaid\n', '').replace('\n```', '')}
+            </div>
+        </div>
+        
+        <div class="info">
+            <h3>🔍 How to Use This Diagram</h3>
+            <p><strong>Migration Phases:</strong> Collections are organized by migration phases</p>
+            <p><strong>Dependencies:</strong> Arrows show migration dependencies between collections</p>
+            <p><strong>Strategies:</strong> Each collection shows its migration strategy</p>
+            <p><strong>Zoom:</strong> Use mouse wheel or pinch gestures to explore</p>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true
+            },
+            er: {
+                useMaxWidth: true
+            }
+        });
+    </script>
+</body>
+</html>`;
+
+    return html;
   }
 
   /**
@@ -162,9 +386,9 @@ The migration from Spring Boot to Node.js represents a **${analysis.migrationCom
 ### **Project-Specific Migration Summary**
 | Metric | Value |
 |--------|-------|
-| **Total Effort** | ${plan.summary.totalEffort} hours |
+
 | **Complexity** | ${plan.summary.complexity} |
-| **Estimated Duration** | ${plan.summary.estimatedDuration} |
+
 | **Risk Level** | ${plan.summary.riskLevel} |
 | **Business Impact** | ${plan.summary.businessImpact} |
 
@@ -382,10 +606,7 @@ ${this.generateBeforeExample(analysis)}
 #### **After (MongoDB Document)**:
 ${this.generateAfterExample(analysis)}
 
-### **Total Effort Reduction**
-- **Current Total Effort**: ${this.calculateTotalCurrentEffort(analysis)} hours
-- **Estimated New Effort**: ${this.calculateEstimatedNewEffort(analysis)} hours
-- **Total Savings**: ${this.calculateTotalEffortSavings(analysis)} hours (${this.calculateTotalEffortSavingsPercentage(analysis)}% reduction)
+
 
 ### **Development Time Savings**
 - **Entity Creation**: ${this.calculateEntityTimeSavings(analysis)}% faster (no JPA annotations, relationships, or table mappings)
@@ -1181,21 +1402,21 @@ ${this.generateLowImpactFilesTable(analysis)}
 
 ### **Configuration Files**
 
-| File Path | Current Purpose | Migration Effort | Dependencies |
-|-----------|----------------|------------------|--------------|
-| \`pom.xml\` | Maven dependencies | 2 hours | None |
-| \`application.properties\` | Spring Boot config | 4 hours | None |
-| \`package.json\` | Node.js dependencies | 2 hours | None |
-| \`.env\` | Environment variables | 1 hour | None |
+| File Path | Current Purpose | Dependencies |
+|-----------|----------------|--------------|
+| \`pom.xml\` | Maven dependencies | None |
+| \`application.properties\` | Spring Boot config | None |
+| \`package.json\` | Node.js dependencies | None |
+| \`.env\` | Environment variables | None |
 
 ### **New Files to Create**
 
-| File Path | Purpose | Effort | Dependencies |
-|-----------|---------|--------|--------------|
-| \`server.js\` | Main application entry point | 4 hours | None |
-| \`config/database.js\` | MongoDB connection configuration | 2 hours | None |
-| \`models/*.js\` | MongoDB schema definitions | ${analysis.entities.length * 2} hours | Data model |
-| \`routes/*.js\` | Express.js route handlers | ${analysis.controllers.length * 1.5} hours | Controllers |
+| File Path | Purpose | Dependencies |
+|-----------|---------|--------------|
+| \`server.js\` | Main application entry point | None |
+| \`config/database.js\` | MongoDB connection configuration | None |
+| \`models/*.js\` | MongoDB schema definitions | Data model |
+| \`routes/*.js\` | Express.js route handlers | Controllers |
 
 ### **🔄 Spring Boot → Node.js Transformation with Embedded Documents**
 
@@ -1327,9 +1548,9 @@ ${this.generateControllerTransformationTable(analysis)}
 5. **🔄 Updates**: Atomic updates to main entities and related data
 6. **📊 Consistency**: No more data inconsistency between related tables
 
-  | \`services/*.js\` | Node.js service classes | ${analysis.services.length * 2} hours | Services |
-  | \`middleware/*.js\` | Express.js middleware | 8 hours | None |
-| \`tests/*.js\` | Test files | 16 hours | All components |`;
+  | \`services/*.js\` | Node.js service classes | Services |
+| \`middleware/*.js\` | Express.js middleware | None |
+| \`tests/*.js\` | Test files | All components |`;
   }
 
   /**
@@ -1350,8 +1571,8 @@ The migration will follow a **phased approach** to minimize risk and ensure busi
 
 ${plan.phases.map((phase, index) => `
 #### **Phase ${index + 1}: ${phase.name}**
-- **Duration**: ${phase.duration}
-- **Effort**: ${phase.effort} hours
+
+
 - **Dependencies**: ${phase.dependencies.length > 0 ? phase.dependencies.join(', ') : 'None'}
 - **Deliverables**:
 ${phase.deliverables.map(d => `  - ${d}`).join('\n')}
@@ -1463,7 +1684,7 @@ ${plan.riskAssessment.mitigationStrategies.map(strategy => `- ${strategy}`).join
 - **Phase Completion**: All phases completed within estimated timeline
 - **Milestone Achievement**: 100% milestone completion rate
 - **Buffer Utilization**: <50% of allocated buffer time used
-- **Rollback Time**: <4 hours if rollback is required
+
 
 ### **Team Metrics**
 - **Knowledge Transfer**: 100% team proficiency in new technologies
@@ -1856,7 +2077,7 @@ The migration from Spring Boot + PostgreSQL to Node.js + MongoDB represents a **
 6. **Performance Validation**: Ensure new architecture meets performance targets
 
 ### **Estimated Timeline**
-The estimated **${plan.summary.estimatedDuration}** timeline and **${plan.summary.totalEffort} development hours** should be considered as minimum requirements, with additional buffer time recommended for unexpected challenges and thorough testing.
+The migration should be planned with additional buffer time recommended for unexpected challenges and thorough testing.
 
 ### **Next Steps**
 1. **Team Training**: Begin Node.js and MongoDB training
@@ -1893,44 +2114,44 @@ The estimated **${plan.summary.estimatedDuration}** timeline and **${plan.summar
     const rows = analysis.entities.map(entity => {
       const relationshipCount = entity.relationships.length;
       const fieldCount = entity.fields.length;
-      return `| **${entity.fileName}** | ${entity.complexity} | ${fieldCount} fields, ${relationshipCount} relationships | ${entity.estimatedEffort} hours | ${entity.migrationNotes.join(', ')} |`;
+      return `| **${entity.fileName}** | ${entity.complexity} | ${fieldCount} fields, ${relationshipCount} relationships | ${entity.migrationNotes.join(', ')} |`;
     });
     
-    return `| Entity | Complexity | Characteristics | Effort | Migration Notes |
-|--------|------------|----------------|--------|----------------|
+    return `| Entity | Complexity | Characteristics | Migration Notes |
+|--------|------------|----------------|----------------|
 ${rows.join('\n')}`;
   }
 
   private generateRepositoryAnalysisTable(analysis: SourceCodeAnalysis): string {
     const rows = analysis.repositories.map(repo => {
       const methodCount = repo.methods.length;
-      return `| **${repo.fileName}** | ${repo.complexity} | ${methodCount} methods | ${repo.estimatedEffort} hours | ${repo.migrationNotes.join(', ')} |`;
+      return `| **${repo.fileName}** | ${repo.complexity} | ${methodCount} methods | ${repo.migrationNotes.join(', ')} |`;
     });
     
-    return `| Repository | Complexity | Characteristics | Effort | Migration Notes |
-|------------|------------|----------------|--------|----------------|
+    return `| Repository | Complexity | Characteristics | Migration Notes |
+|------------|------------|----------------|----------------|
 ${rows.join('\n')}`;
   }
 
   private generateServiceAnalysisTable(analysis: SourceCodeAnalysis): string {
     const rows = analysis.services.map(service => {
       const methodCount = service.methods.length;
-      return `| **${service.fileName}** | ${service.complexity} | ${methodCount} methods | ${service.estimatedEffort} hours | ${service.migrationNotes.join(', ')} |`;
+      return `| **${service.fileName}** | ${service.complexity} | ${methodCount} methods | ${service.migrationNotes.join(', ')} |`;
     });
     
-    return `| Service | Complexity | Characteristics | Effort | Migration Notes |
-|---------|------------|----------------|--------|----------------|
+    return `| Service | Complexity | Characteristics | Migration Notes |
+|---------|------------|----------------|----------------|
 ${rows.join('\n')}`;
   }
 
   private generateControllerAnalysisTable(analysis: SourceCodeAnalysis): string {
     const rows = analysis.controllers.map(controller => {
       const methodCount = controller.methods.length;
-      return `| **${controller.fileName}** | ${controller.complexity} | ${methodCount} methods | ${controller.estimatedEffort} hours | ${controller.migrationNotes.join(', ')} |`;
+      return `| **${controller.fileName}** | ${controller.complexity} | ${methodCount} methods | ${controller.migrationNotes.join(', ')} |`;
     });
     
-    return `| Controller | Complexity | Characteristics | Effort | Migration Notes |
-|------------|------------|----------------|--------|----------------|
+    return `| Controller | Complexity | Characteristics | Migration Notes |
+|------------|------------|----------------|----------------|
 ${rows.join('\n')}`;
   }
 
@@ -1942,7 +2163,7 @@ ${rows.join('\n')}`;
     ];
     
     const rows = highImpactFiles.map(file => {
-      return `| \`${file.filePath}\` | ${file.fileType.toLowerCase()} | ${file.estimatedEffort} hours | ${file.dependencies.join(', ') || 'None'} |`;
+      return `| \`${file.filePath}\` | ${file.fileType.toLowerCase()} | ${file.dependencies.join(', ') || 'None'} |`;
     });
     
     return rows.length > 0 ? rows.join('\n') : '| No high-impact files found | | | |';
@@ -1957,7 +2178,7 @@ ${rows.join('\n')}`;
     ];
     
     const rows = mediumImpactFiles.map(file => {
-      return `| \`${file.filePath}\` | ${file.fileType.toLowerCase()} | ${file.estimatedEffort} hours | ${file.dependencies.join(', ') || 'None'} |`;
+      return `| \`${file.filePath}\` | ${file.fileType.toLowerCase()} | ${file.dependencies.join(', ') || 'None'} |`;
     });
     
     return rows.length > 0 ? rows.join('\n') : '| No medium-impact files found | | | |';
@@ -1972,7 +2193,7 @@ ${rows.join('\n')}`;
     ];
     
     const rows = lowImpactFiles.map(file => {
-      return `| \`${file.filePath}\` | ${file.fileType.toLowerCase()} | ${file.estimatedEffort} hours | ${file.dependencies.join(', ') || 'None'} |`;
+      return `| \`${file.filePath}\` | ${file.fileType.toLowerCase()} | ${file.dependencies.join(', ') || 'None'} |`;
     });
     
     return rows.length > 0 ? rows.join('\n') : '| No low-impact files found | | | |';
@@ -2687,5 +2908,254 @@ ${transformations.join('\n')}`;
     return `| **Spring Boot Endpoint** | **Node.js Endpoint** | **Why Simplified** |
 |-------------------------|---------------------|-------------------|
 ${transformations.join('\n')}`;
+  }
+
+  /**
+   * NEW: Generate Stored Procedures Analysis Section for Migration Analysis
+   */
+  private generateStoredProceduresAnalysisSection(analysis: SourceCodeAnalysis): string {
+    let content = '\n## 🔧 Stored Procedures Analysis (Migration Focus)\n\n';
+    content += 'This section analyzes how stored procedures and business logic from the current system should be migrated to MongoDB, including aggregation pipelines, application logic, and business rule implementations.\n\n';
+
+    // Analyze services and repositories for business logic
+    const services = analysis.services || [];
+    const repositories = analysis.repositories || [];
+
+    if (services.length === 0 && repositories.length === 0) {
+      content += 'No business logic components found in the current system.\n\n';
+      return content;
+    }
+
+    // Services Analysis (Business Logic)
+    if (services.length > 0) {
+      content += `### 📋 Business Logic Services Analysis (${services.length} found)\n\n`;
+      
+      services.forEach((service, index) => {
+        content += `#### ${index + 1}. ${service.fileName}\n\n`;
+        content += `**Complexity:** ${service.complexity}\n`;
+        content += `**Methods:** ${service.methods.length}\n`;
+        content += `**Dependencies:** ${service.dependencies.length}\n\n`;
+
+        if (service.migrationNotes && service.migrationNotes.length > 0) {
+          content += `**Migration Notes:**\n`;
+          service.migrationNotes.forEach(note => {
+            content += `- ${note}\n`;
+          });
+          content += `\n`;
+        }
+
+        // MongoDB Migration Strategy
+        content += `**MongoDB Migration Strategy:**\n`;
+        content += `- **Application Services:** Convert to Node.js service classes\n`;
+        content += `- **Business Logic:** Implement in application layer with proper error handling\n`;
+        content += `- **Data Processing:** Use MongoDB aggregation pipelines for complex operations\n`;
+        content += `- **Validation:** Implement schema validation and business rule enforcement\n\n`;
+
+        content += `**Implementation Approach:**\n`;
+        content += `1. Analyze service methods and business logic\n`;
+        content += `2. Identify data access patterns and dependencies\n`;
+        content += `3. Design equivalent MongoDB operations\n`;
+        content += `4. Implement in Node.js with proper error handling\n`;
+        content += `5. Add unit tests for business logic validation\n\n`;
+
+        if (index < services.length - 1) {
+          content += `---\n\n`;
+        }
+      });
+    }
+
+    // Repositories Analysis (Data Access Logic)
+    if (repositories.length > 0) {
+      content += `### 🗄️ Data Access Layer Analysis (${repositories.length} found)\n\n`;
+      
+      repositories.forEach((repo, index) => {
+        content += `#### ${index + 1}. ${repo.fileName}\n\n`;
+        content += `**Complexity:** ${repo.complexity}\n`;
+        content += `**Methods:** ${repo.methods.length}\n`;
+        content += `**Dependencies:** ${repo.dependencies.length}\n\n`;
+
+        if (repo.migrationNotes && repo.migrationNotes.length > 0) {
+          content += `**Migration Notes:**\n`;
+          repo.migrationNotes.forEach(note => {
+            content += `- ${note}\n`;
+          });
+          content += `\n`;
+        }
+
+        // MongoDB Migration Strategy
+        content += `**MongoDB Migration Strategy:**\n`;
+        content += `- **Data Access:** Replace JPA repositories with MongoDB operations\n`;
+        content += `- **Queries:** Convert JPQL to MongoDB query syntax\n`;
+        content += `- **Aggregations:** Use MongoDB aggregation framework for complex queries\n`;
+        content += `- **Transactions:** Implement MongoDB transactions for data consistency\n\n`;
+
+        content += `**Implementation Approach:**\n`;
+        content += `1. Identify repository methods and query patterns\n`;
+        content += `2. Convert JPQL queries to MongoDB syntax\n`;
+        content += `3. Implement aggregation pipelines for complex operations\n`;
+        content += `4. Add proper error handling and validation\n`;
+        content += `5. Test data access patterns thoroughly\n\n`;
+
+        if (index < repositories.length - 1) {
+          content += `---\n\n`;
+        }
+      });
+    }
+
+    // General Migration Recommendations
+    content += `### 💡 Business Logic Migration Recommendations\n\n`;
+    content += `**For Simple Business Logic:**\n`;
+    content += `- Convert to Node.js service methods\n`;
+    content += `- Use MongoDB operations for data access\n`;
+    content += `- Implement proper error handling and logging\n\n`;
+
+    content += `**For Complex Business Logic:**\n`;
+    content += `- Break down into smaller, focused services\n`;
+    content += `- Use dependency injection for testability\n`;
+    content += `- Implement proper validation and business rules\n`;
+    content += `- Consider using design patterns (Strategy, Command, etc.)\n\n`;
+
+    content += `**For Data Processing:**\n`;
+    content += `- Use MongoDB aggregation pipelines\n`;
+    content += `- Implement batch processing for large datasets\n`;
+    content += `- Add proper indexing for performance\n`;
+    content += `- Consider using MongoDB Change Streams for real-time processing\n\n`;
+
+    content += `**For Validation and Business Rules:**\n`;
+    content += `- Use MongoDB schema validation\n`;
+    content += `- Implement application-level validation\n`;
+    content += `- Add proper error handling and user feedback\n`;
+    content += `- Use MongoDB transactions for data consistency\n\n`;
+
+    return content;
+  }
+
+  /**
+   * NEW: Generate Metadata Analysis Section for Migration Analysis
+   */
+  private generateMetadataAnalysisSection(analysis: SourceCodeAnalysis): string {
+    let content = '\n## 📊 Metadata Analysis (Migration Focus)\n\n';
+    content += 'This section provides comprehensive analysis of the current system metadata and how it should be handled in the MongoDB migration, including performance considerations, data patterns, and optimization strategies.\n\n';
+
+    // System Overview
+    const totalFiles = analysis.totalFiles;
+    const totalEntities = analysis.entities.length;
+    const totalServices = analysis.services.length;
+    const totalRepositories = analysis.repositories.length;
+    const totalControllers = analysis.controllers.length;
+    
+    content += `### 🗄️ System Overview\n\n`;
+    content += `- **Total Files:** ${totalFiles}\n`;
+    content += `- **Entities:** ${totalEntities}\n`;
+    content += `- **Services:** ${totalServices}\n`;
+    content += `- **Repositories:** ${totalRepositories}\n`;
+    content += `- **Controllers:** ${totalControllers}\n`;
+    content += `- **Migration Complexity:** ${analysis.migrationComplexity}\n\n`;
+
+    // Component Statistics
+    content += `### 📋 Component Statistics\n\n`;
+    content += `| Component Type | Count | Complexity Distribution | Migration Notes |\n`;
+    content += `|----------------|-------|------------------------|-----------------|\n`;
+    
+    // Entities
+    const entityComplexity = this.getComplexityDistribution(analysis.entities);
+    content += `| Entities | ${totalEntities} | ${entityComplexity} | Data model transformation |\n`;
+    
+    // Services
+    const serviceComplexity = this.getComplexityDistribution(analysis.services);
+    content += `| Services | ${totalServices} | ${serviceComplexity} | Business logic migration |\n`;
+    
+    // Repositories
+    const repoComplexity = this.getComplexityDistribution(analysis.repositories);
+    content += `| Repositories | ${totalRepositories} | ${repoComplexity} | Data access layer conversion |\n`;
+    
+    // Controllers
+    const controllerComplexity = this.getComplexityDistribution(analysis.controllers);
+    content += `| Controllers | ${totalControllers} | ${controllerComplexity} | API layer transformation |\n`;
+    
+    content += `\n`;
+
+    // Data Patterns Analysis
+    content += `### 🔍 Data Patterns Analysis\n\n`;
+    content += `**Entity Relationships:**\n`;
+    const totalRelationships = analysis.entities.reduce((sum, entity) => sum + entity.relationships.length, 0);
+    content += `- Total relationships: ${totalRelationships}\n`;
+    content += `- Average relationships per entity: ${totalEntities > 0 ? (totalRelationships / totalEntities).toFixed(1) : 0}\n`;
+    content += `- Complex entities (>3 relationships): ${analysis.entities.filter(e => e.relationships.length > 3).length}\n\n`;
+
+    content += `**Method Complexity:**\n`;
+    const totalMethods = analysis.services.reduce((sum, service) => sum + service.methods.length, 0) +
+                        analysis.repositories.reduce((sum, repo) => sum + repo.methods.length, 0) +
+                        analysis.controllers.reduce((sum, controller) => sum + controller.methods.length, 0);
+    content += `- Total methods: ${totalMethods}\n`;
+    content += `- Average methods per component: ${(totalServices + totalRepositories + totalControllers) > 0 ? (totalMethods / (totalServices + totalRepositories + totalControllers)).toFixed(1) : 0}\n\n`;
+
+    // Migration Complexity Analysis
+    content += `### ⚡ Migration Complexity Analysis\n\n`;
+    content += `**High Complexity Components:**\n`;
+    const highComplexityComponents = [
+      ...analysis.entities.filter(e => e.complexity === 'HIGH' || e.complexity === 'CRITICAL'),
+      ...analysis.services.filter(s => s.complexity === 'HIGH' || s.complexity === 'CRITICAL'),
+      ...analysis.repositories.filter(r => r.complexity === 'HIGH' || r.complexity === 'CRITICAL'),
+      ...analysis.controllers.filter(c => c.complexity === 'HIGH' || c.complexity === 'CRITICAL')
+    ];
+    
+    if (highComplexityComponents.length > 0) {
+      content += `- **Count:** ${highComplexityComponents.length} components\n`;
+      content += `- **Focus Areas:** These components require special attention during migration\n`;
+      content += `- **Recommendation:** Break down into smaller, manageable pieces\n\n`;
+    } else {
+      content += `- **Count:** 0 components\n`;
+      content += `- **Status:** All components are manageable complexity\n\n`;
+    }
+
+    // Performance Considerations
+    content += `### 🚀 Performance Considerations\n\n`;
+    content += `**Data Access Patterns:**\n`;
+    content += `- **Repository Methods:** ${analysis.repositories.reduce((sum, repo) => sum + repo.methods.length, 0)} data access methods to convert\n`;
+    content += `- **Service Methods:** ${analysis.services.reduce((sum, service) => sum + service.methods.length, 0)} business logic methods to migrate\n`;
+    content += `- **Controller Endpoints:** ${analysis.controllers.reduce((sum, controller) => sum + controller.methods.length, 0)} API endpoints to transform\n\n`;
+
+    content += `**MongoDB Optimization Opportunities:**\n`;
+    content += `- Use embedded documents for related data\n`;
+    content += `- Implement proper indexing strategies\n`;
+    content += `- Use aggregation pipelines for complex queries\n`;
+    content += `- Consider sharding for large datasets\n\n`;
+
+    // Migration Recommendations
+    content += `### 💡 Migration Recommendations\n\n`;
+    content += `**Phase 1: Data Model Design**\n`;
+    content += `- Analyze entity relationships and design MongoDB schema\n`;
+    content += `- Identify embedded vs referenced document strategies\n`;
+    content += `- Plan indexing strategy for performance\n\n`;
+
+    content += `**Phase 2: Business Logic Migration**\n`;
+    content += `- Convert services to Node.js business logic\n`;
+    content += `- Implement proper error handling and validation\n`;
+    content += `- Add unit tests for business rules\n\n`;
+
+    content += `**Phase 3: Data Access Migration**\n`;
+    content += `- Convert repositories to MongoDB operations\n`;
+    content += `- Implement aggregation pipelines for complex queries\n`;
+    content += `- Add proper transaction handling\n\n`;
+
+    content += `**Phase 4: API Migration**\n`;
+    content += `- Convert controllers to Express.js routes\n`;
+    content += `- Implement proper request/response handling\n`;
+    content += `- Add API documentation and testing\n\n`;
+
+    return content;
+  }
+
+  // Helper method for complexity distribution
+  private getComplexityDistribution(components: any[]): string {
+    const distribution = components.reduce((acc, comp) => {
+      acc[comp.complexity] = (acc[comp.complexity] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(distribution)
+      .map(([complexity, count]) => `${complexity}: ${count}`)
+      .join(', ');
   }
 }

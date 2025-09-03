@@ -234,7 +234,7 @@ export class CLI {
       // Initialize Intent Mapping Service
       const intentConfig: IntentMappingConfig = {
         llmConfig,
-        fallbackEnabled: true,
+        fallbackEnabled: false, // DISABLED FOR TESTING - Pure LLM only
         confidenceThreshold: 0.7,
         maxRetries: 3,
         cacheEnabled: true,
@@ -1178,8 +1178,14 @@ export class CLI {
       
     } catch (error) {
       console.error(chalk.red('❌ LLM intent mapping failed:'), error);
-      console.log(chalk.yellow('🔄 Falling back to keyword matching...'));
-      await this.handleWithFallbackIntentMapping(input, rl);
+      // COMMENTED OUT FOR TESTING - DISABLED FALLBACK
+      // console.log(chalk.yellow('🔄 Falling back to keyword matching...'));
+      // await this.handleWithFallbackIntentMapping(input, rl);
+      
+      // FOR TESTING: Show error instead of using fallback
+      console.log(chalk.red('🚫 FALLBACK DISABLED FOR TESTING - Cannot process request without LLM'));
+      console.log(chalk.gray('   Please ensure Azure OpenAI configuration is properly set up.'));
+      rl.prompt();
     }
   }
 
@@ -1934,7 +1940,7 @@ export class CLI {
   private async handleMigrationAnalysis(options: any): Promise<void> {
     try {
       const sourceFolder = options.source || 'source-code-1';
-      const outputPath = options.output || `./${sourceFolder}/${sourceFolder}-analysis.md`;
+      const outputPath = options.output || `/Users/prateek/Desktop/peer-ai-mongo-documents/${sourceFolder}-analysis.md`;
       
       console.log(`🔍 Starting migration analysis for: ${sourceFolder}`);
       
@@ -1996,7 +2002,7 @@ export class CLI {
   private async handleGenerateMigrationPlan(options: any): Promise<void> {
     try {
       const sourceFolder = options.source || 'source-code-1';
-      const outputPath = options.output || `./${sourceFolder}/${sourceFolder}-migration-plan.md`;
+      const outputPath = options.output || `/Users/prateek/Desktop/peer-ai-mongo-documents/${sourceFolder}-migration-plan.md`;
       
       console.log(`📋 Generating migration plan for: ${sourceFolder}`);
       
@@ -2831,7 +2837,7 @@ export class CLI {
       const plan = await migrationService.generateMigrationPlan(analysis);
       
       // Create documentation
-      const outputPath = `./${sourceFolder}/${sourceFolder}-analysis.md`;
+      const outputPath = `/Users/prateek/Desktop/peer-ai-mongo-documents/${sourceFolder}-analysis.md`;
       const actualOutputPath = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
       
       console.log(`✅ Migration analysis complete!`);
@@ -2839,8 +2845,6 @@ export class CLI {
       console.log(`   - Project: ${analysis.projectName}`);
       console.log(`   - Total Files: ${analysis.totalFiles}`);
       console.log(`   - Migration Complexity: ${analysis.migrationComplexity}`);
-      console.log(`   - Estimated Effort: ${plan.summary.totalEffort} hours`);
-      console.log(`   - Timeline: ${plan.summary.estimatedDuration}`);
       console.log(`📝 Documentation saved to: ${actualOutputPath}`);
       
     } catch (error) {
@@ -2944,15 +2948,13 @@ export class CLI {
       const plan = await migrationService.generateMigrationPlan(analysis);
       
       // Create documentation
-      const outputPath = `./${sourceFolder}/${sourceFolder}-migration-plan.md`;
+      const outputPath = `/Users/prateek/Desktop/peer-ai-mongo-documents/${sourceFolder}-migration-plan.md`;
       const actualOutputPath = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
       
       console.log(`✅ Migration plan generated!`);
       console.log(`📊 Plan Summary:`);
       console.log(`   - Total Phases: ${plan.phases.length}`);
-      console.log(`   - Total Effort: ${plan.summary.totalEffort} hours`);
       console.log(`   - Risk Level: ${plan.summary.riskLevel}`);
-      console.log(`   - Timeline: ${plan.summary.estimatedDuration}`);
       console.log(`📝 Documentation saved to: ${actualOutputPath}`);
       
     } catch (error) {
