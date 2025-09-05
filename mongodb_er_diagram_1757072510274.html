@@ -1,0 +1,416 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MongoDB ER Diagram - 17 Collections</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .header p {
+            color: #6c757d;
+            margin: 10px 0 0 0;
+            font-size: 1.1em;
+        }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .stat {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            min-width: 120px;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        .diagram-container {
+            margin: 30px 0;
+            text-align: center;
+        }
+        .mermaid {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .info h3 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+        .info p {
+            margin: 0;
+            color: #424242;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍃 MongoDB ER Diagram</h1>
+            <p>Interactive Entity-Relationship Diagram for MongoDB Collections</p>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number">17</div>
+                    <div class="stat-label">Collections</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info">
+            <h3>📊 Intelligent MongoDB Collection Strategy</h3>
+            <p>This diagram shows the intelligent consolidation of 22 PostgreSQL tables into 17 optimized MongoDB collections. The design follows MongoDB best practices for document modeling.</p>
+            <p><strong>Consolidation Strategy:</strong></p>
+            <ul>
+                <li><strong>Films Collection:</strong> Embeds language, category, and actor information</li>
+                <li><strong>Customers Collection:</strong> Embeds address and city data</li>
+                <li><strong>Staff Collection:</strong> Embeds address and city information</li>
+                <li><strong>Addresses Collection:</strong> Embeds city and country data</li>
+                <li><strong>Stores Collection:</strong> Embeds address and city information</li>
+                <li><strong>Rentals Collection:</strong> Embeds inventory and store data</li>
+                <li><strong>Payments Collection:</strong> Embeds rental and inventory information</li>
+                <li><strong>Inventories Collection:</strong> Embeds store and address data</li>
+            </ul>
+            <p><strong>Benefits:</strong> Reduced complexity, improved query performance, and better data locality for MongoDB operations.</p>
+        </div>
+        
+        <div class="diagram-container">
+            <div class="mermaid">
+erDiagram
+
+    addresses {
+        string id PK "REQUIRED"
+        number address_id "REQUIRED"
+        string address "REQUIRED"
+        string address2
+        string district "REQUIRED"
+        string postal_code
+        string phone "REQUIRED"
+        string last_update "REQUIRED"
+        object store "EMBEDDED"
+        string store_store_id "EMBEDDED_FIELD"
+        string store_manager_staff_id "EMBEDDED_FIELD"
+        string store_address_id "EMBEDDED_FIELD"
+        string store_last_update "EMBEDDED_FIELD"
+        object city "EMBEDDED"
+        string city_city_id "EMBEDDED_FIELD"
+        string city_city "EMBEDDED_FIELD"
+        string city_country_id "EMBEDDED_FIELD"
+        string city_last_update "EMBEDDED_FIELD"
+    }
+
+    customers {
+        string id PK "REQUIRED"
+        number customer_id "REQUIRED"
+        number store_id "REQUIRED"
+        string first_name "REQUIRED"
+        string last_name "REQUIRED"
+        string email
+        boolean activebool "REQUIRED"
+        date create_date "REQUIRED"
+        string last_update
+        number active
+        object payment "EMBEDDED"
+        string payment_payment_id "EMBEDDED_FIELD"
+        string payment_customer_id "EMBEDDED_FIELD"
+        string payment_staff_id "EMBEDDED_FIELD"
+        string payment_rental_id "EMBEDDED_FIELD"
+        string payment_payment_date "EMBEDDED_FIELD"
+        object rental "EMBEDDED"
+        string rental_rental_id "EMBEDDED_FIELD"
+        string rental_rental_date "EMBEDDED_FIELD"
+        string rental_inventory_id "EMBEDDED_FIELD"
+        string rental_customer_id "EMBEDDED_FIELD"
+        string rental_return_date "EMBEDDED_FIELD"
+        string rental_staff_id "EMBEDDED_FIELD"
+        string rental_last_update "EMBEDDED_FIELD"
+        object address "EMBEDDED"
+        string address_address_id "EMBEDDED_FIELD"
+        string address_address "EMBEDDED_FIELD"
+        string address_address2 "EMBEDDED_FIELD"
+        string address_city_id "EMBEDDED_FIELD"
+        string address_last_update "EMBEDDED_FIELD"
+    }
+
+    customer_lists {
+        string id PK "REQUIRED"
+        number id
+        string name
+        string address
+        string phone
+        number sid
+    }
+
+    films {
+        string id PK "REQUIRED"
+        number film_id "REQUIRED"
+        string title "REQUIRED"
+        number rental_duration "REQUIRED"
+        number rental_rate "REQUIRED"
+        number length
+        number replacement_cost "REQUIRED"
+        string rating
+        string last_update "REQUIRED"
+        object film_actor "EMBEDDED"
+        string film_actor_actor_id "EMBEDDED_FIELD"
+        string film_actor_film_id "EMBEDDED_FIELD"
+        string film_actor_last_update "EMBEDDED_FIELD"
+        object film_category "EMBEDDED"
+        string film_category_film_id "EMBEDDED_FIELD"
+        string film_category_category_id "EMBEDDED_FIELD"
+        string film_category_last_update "EMBEDDED_FIELD"
+        object inventory "EMBEDDED"
+        string inventory_inventory_id "EMBEDDED_FIELD"
+        string inventory_film_id "EMBEDDED_FIELD"
+        string inventory_store_id "EMBEDDED_FIELD"
+        string inventory_last_update "EMBEDDED_FIELD"
+        object language "EMBEDDED"
+        string language_language_id "EMBEDDED_FIELD"
+        string language_name "EMBEDDED_FIELD"
+        string language_last_update "EMBEDDED_FIELD"
+    }
+
+    film_actors {
+        string id PK "REQUIRED"
+        number film_id "REQUIRED"
+        string last_update "REQUIRED"
+        object actor "EMBEDDED"
+        string actor_actor_id "EMBEDDED_FIELD"
+        string actor_first_name "EMBEDDED_FIELD"
+        string actor_last_name "EMBEDDED_FIELD"
+        string actor_last_update "EMBEDDED_FIELD"
+    }
+
+    film_categories {
+        string id PK "REQUIRED"
+        number film_id "REQUIRED"
+        string last_update "REQUIRED"
+        object category "EMBEDDED"
+        string category_category_id "EMBEDDED_FIELD"
+        string category_name "EMBEDDED_FIELD"
+        string category_last_update "EMBEDDED_FIELD"
+    }
+
+    film_lists {
+        string id PK "REQUIRED"
+        number fid
+        string title
+        number length
+        string rating
+    }
+
+    nicer_but_slower_film_lists {
+        string id PK "REQUIRED"
+        number fid
+        string title
+        number length
+        string rating
+    }
+
+    payments {
+        string id PK "REQUIRED"
+        number payment_id "REQUIRED"
+        number customer_id "REQUIRED"
+        number staff_id "REQUIRED"
+        number amount "REQUIRED"
+        string payment_date "REQUIRED"
+        object rental "EMBEDDED"
+        string rental_rental_id "EMBEDDED_FIELD"
+        string rental_rental_date "EMBEDDED_FIELD"
+        string rental_inventory_id "EMBEDDED_FIELD"
+        string rental_customer_id "EMBEDDED_FIELD"
+        string rental_return_date "EMBEDDED_FIELD"
+        string rental_staff_id "EMBEDDED_FIELD"
+        string rental_last_update "EMBEDDED_FIELD"
+    }
+
+    rentals {
+        string id PK "REQUIRED"
+        number rental_id "REQUIRED"
+        string rental_date "REQUIRED"
+        number customer_id "REQUIRED"
+        string return_date
+        number staff_id "REQUIRED"
+        string last_update "REQUIRED"
+        object payment "EMBEDDED"
+        string payment_payment_id "EMBEDDED_FIELD"
+        string payment_customer_id "EMBEDDED_FIELD"
+        string payment_staff_id "EMBEDDED_FIELD"
+        string payment_rental_id "EMBEDDED_FIELD"
+        string payment_payment_date "EMBEDDED_FIELD"
+        object inventory "EMBEDDED"
+        string inventory_inventory_id "EMBEDDED_FIELD"
+        string inventory_film_id "EMBEDDED_FIELD"
+        string inventory_store_id "EMBEDDED_FIELD"
+        string inventory_last_update "EMBEDDED_FIELD"
+    }
+
+    staffs {
+        string id PK "REQUIRED"
+        number staff_id "REQUIRED"
+        string first_name "REQUIRED"
+        string last_name "REQUIRED"
+        string email
+        boolean active "REQUIRED"
+        string username "REQUIRED"
+        string last_update "REQUIRED"
+        object payment "EMBEDDED"
+        string payment_payment_id "EMBEDDED_FIELD"
+        string payment_customer_id "EMBEDDED_FIELD"
+        string payment_staff_id "EMBEDDED_FIELD"
+        string payment_rental_id "EMBEDDED_FIELD"
+        string payment_payment_date "EMBEDDED_FIELD"
+        object rental "EMBEDDED"
+        string rental_rental_id "EMBEDDED_FIELD"
+        string rental_rental_date "EMBEDDED_FIELD"
+        string rental_inventory_id "EMBEDDED_FIELD"
+        string rental_customer_id "EMBEDDED_FIELD"
+        string rental_return_date "EMBEDDED_FIELD"
+        string rental_staff_id "EMBEDDED_FIELD"
+        string rental_last_update "EMBEDDED_FIELD"
+        object store "EMBEDDED"
+        string store_store_id "EMBEDDED_FIELD"
+        string store_manager_staff_id "EMBEDDED_FIELD"
+        string store_address_id "EMBEDDED_FIELD"
+        string store_last_update "EMBEDDED_FIELD"
+        object address "EMBEDDED"
+        string address_address_id "EMBEDDED_FIELD"
+        string address_address "EMBEDDED_FIELD"
+        string address_address2 "EMBEDDED_FIELD"
+        string address_city_id "EMBEDDED_FIELD"
+        string address_last_update "EMBEDDED_FIELD"
+    }
+
+    staff_lists {
+        string id PK "REQUIRED"
+        number id
+        string name
+        string address
+        string phone
+        number sid
+    }
+
+    stores {
+        string id PK "REQUIRED"
+        number store_id "REQUIRED"
+        number manager_staff_id "REQUIRED"
+        string last_update "REQUIRED"
+        object address "EMBEDDED"
+        string address_address_id "EMBEDDED_FIELD"
+        string address_address "EMBEDDED_FIELD"
+        string address_address2 "EMBEDDED_FIELD"
+        string address_city_id "EMBEDDED_FIELD"
+        string address_last_update "EMBEDDED_FIELD"
+    }
+
+    actor_infos {
+        string id PK "REQUIRED"
+        number actor_id
+        string first_name
+        string last_name
+    }
+
+    countries {
+        string id PK "REQUIRED"
+        number country_id "REQUIRED"
+        string last_update "REQUIRED"
+    }
+
+    sales_by_film_categories {
+        string id PK "REQUIRED"
+    }
+
+    sales_by_stores {
+        string id PK "REQUIRED"
+    }
+
+    addresses ||--|| store : "EMBEDS"
+    addresses ||--|| city : "EMBEDS"
+    customers ||--|| payment : "EMBEDS"
+    customers ||--|| rental : "EMBEDS"
+    customers ||--|| address : "EMBEDS"
+    films ||--|| film_actor : "EMBEDS"
+    films ||--|| film_category : "EMBEDS"
+    films ||--|| inventory : "EMBEDS"
+    films ||--|| language : "EMBEDS"
+    film_actors ||--|| actor : "EMBEDS"
+    film_categories ||--|| category : "EMBEDS"
+    payments ||--|| rental : "EMBEDS"
+    rentals ||--|| payment : "EMBEDS"
+    rentals ||--|| inventory : "EMBEDS"
+    staffs ||--|| payment : "EMBEDS"
+    staffs ||--|| rental : "EMBEDS"
+    staffs ||--|| store : "EMBEDS"
+    staffs ||--|| address : "EMBEDS"
+    stores ||--|| address : "EMBEDS"
+
+            </div>
+        </div>
+        
+        <div class="info">
+            <h3>🔍 How to Use This Diagram</h3>
+            <p><strong>Zoom:</strong> Use mouse wheel or pinch gestures</p>
+            <p><strong>Pan:</strong> Click and drag to move around</p>
+            <p><strong>Download:</strong> Right-click on the diagram to save as image</p>
+            <p><strong>Full Screen:</strong> Click on the diagram to expand</p>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true
+            },
+            er: {
+                useMaxWidth: true
+            }
+        });
+    </script>
+</body>
+</html>

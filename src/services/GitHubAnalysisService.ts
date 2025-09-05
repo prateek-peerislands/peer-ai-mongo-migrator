@@ -183,26 +183,38 @@ export class GitHubAnalysisService {
       // Generate migration plan
       const plan = await this.migrationService.generateMigrationPlan(analysis);
       
-      // Generate documentation with dual location writing
+      // Generate split documentation with dual location writing
       const filename = `${path.basename(localPath)}-analysis.md`;
       const outputPath = options.outputPath || `/Users/prateek/Desktop/peer-ai-mongo-documents/${filename}`;
-      const documentationPath = await this.migrationService.createMigrationDocumentation(analysis, plan, outputPath);
+      const { summaryPath, detailPath } = await this.migrationService.createSplitMigrationDocumentation(analysis, plan, outputPath);
       
       // Also write to current project directory for convenience
-      const projectPath = path.join(process.cwd(), filename);
-      const documentationContent = fs.readFileSync(documentationPath, 'utf8');
-      fs.writeFileSync(projectPath, documentationContent, 'utf8');
+      const summaryFilename = `${path.basename(localPath)}-summary.md`;
+      const detailFilename = `${path.basename(localPath)}-detail.md`;
       
-      console.log(`📁 File written to both locations:`);
-      console.log(`   📍 Central: ${documentationPath}`);
-      console.log(`   📍 Project: ${projectPath}`);
+      const summaryProjectPath = path.join(process.cwd(), summaryFilename);
+      const detailProjectPath = path.join(process.cwd(), detailFilename);
+      
+      const summaryContent = fs.readFileSync(summaryPath, 'utf8');
+      const detailContent = fs.readFileSync(detailPath, 'utf8');
+      
+      fs.writeFileSync(summaryProjectPath, summaryContent, 'utf8');
+      fs.writeFileSync(detailProjectPath, detailContent, 'utf8');
+      
+      console.log(`📁 Split files written to both locations:`);
+      console.log(`   📄 Summary:`);
+      console.log(`      📍 Central: ${summaryPath}`);
+      console.log(`      📍 Project: ${summaryProjectPath}`);
+      console.log(`   📄 Detail:`);
+      console.log(`      📍 Central: ${detailPath}`);
+      console.log(`      📍 Project: ${detailProjectPath}`);
       
       console.log(chalk.green('✅ Migration analysis completed'));
       
       return {
         analysis,
         plan,
-        documentation: documentationPath
+        documentation: { summaryPath, detailPath }
       };
       
     } catch (error) {

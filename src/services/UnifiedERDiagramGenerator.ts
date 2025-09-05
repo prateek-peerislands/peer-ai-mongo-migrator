@@ -358,13 +358,33 @@ export class UnifiedERDiagramGenerator {
     let content = '```mermaid\n';
     content += 'erDiagram\n\n';
 
-    // Add collections with detailed field information
+    // Add collections with intelligent consolidation
     collections.forEach(collection => {
       const sanitizedName = this.sanitizeMermaidName(collection.name);
       content += `    ${sanitizedName} {\n`;
       
-      // Add main fields with detailed information
-      collection.fields.forEach(field => {
+      // Add main fields (only essential ones to keep diagram clean)
+      const mainFields = collection.fields.filter(field => 
+        field.name === '_id' || 
+        field.name.includes('id') || 
+        field.name.includes('name') || 
+        field.name.includes('title') ||
+        field.name.includes('date') ||
+        field.name.includes('amount') ||
+        field.name.includes('rate') ||
+        field.name.includes('duration') ||
+        field.name.includes('length') ||
+        field.name.includes('cost') ||
+        field.name.includes('rating') ||
+        field.name.includes('active') ||
+        field.name.includes('email') ||
+        field.name.includes('phone') ||
+        field.name.includes('address') ||
+        field.name.includes('district') ||
+        field.name.includes('postal_code')
+      );
+
+      mainFields.forEach(field => {
         const sanitizedFieldName = this.sanitizeMermaidName(field.name);
         const sanitizedType = this.sanitizeMermaidType(field.type);
         let fieldLine = `        ${sanitizedType} ${sanitizedFieldName}`;
@@ -372,20 +392,32 @@ export class UnifiedERDiagramGenerator {
         // Add field annotations
         if (field.name === '_id') fieldLine += ' PK';
         if (field.required) fieldLine += ' "REQUIRED"';
-        // MongoDB fields don't have unique/indexed properties at field level
         
         content += fieldLine + '\n';
       });
 
-      // Add embedded documents with their fields if enabled
+      // Add embedded documents as clean objects
       if (options.showEmbeddedDocuments && collection.embeddedDocuments) {
         collection.embeddedDocuments.forEach(embedded => {
           const sanitizedEmbeddedName = this.sanitizeMermaidName(embedded.name);
           content += `        object ${sanitizedEmbeddedName} "EMBEDDED"\n`;
           
-          // Add embedded document fields
+          // Add only key embedded fields to keep diagram clean
           if (embedded.fields && embedded.fields.length > 0) {
-            embedded.fields.forEach(embeddedField => {
+            const keyEmbeddedFields = embedded.fields.filter(field => 
+              field.name.includes('id') || 
+              field.name.includes('name') || 
+              field.name.includes('title') ||
+              field.name.includes('date') ||
+              field.name.includes('address') ||
+              field.name.includes('city') ||
+              field.name.includes('country') ||
+              field.name.includes('language') ||
+              field.name.includes('category') ||
+              field.name.includes('actor')
+            );
+            
+            keyEmbeddedFields.forEach(embeddedField => {
               const sanitizedEmbeddedFieldName = this.sanitizeMermaidName(embeddedField.name);
               content += `        string ${sanitizedEmbeddedName}_${sanitizedEmbeddedFieldName} "EMBEDDED_FIELD"\n`;
             });

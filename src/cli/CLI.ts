@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import ora from 'ora';
+import fs from 'fs';
 import { MCPAgent } from '../core/MCPAgent.js';
 import { DatabaseConfig } from '../types/index.js';
 import readline from 'readline';
@@ -16,6 +17,7 @@ import { LLMConfigManager } from '../config/llm-config.js';
 import { IntentContext, IntentMappingResult } from '../types/intent-types.js';
 import { DualLocationFileWriter } from '../utils/DualLocationFileWriter.js';
 import { RationaleConversationService } from '../services/RationaleConversationService.js';
+import { EnhancedDocumentAwareAgent } from '../services/EnhancedDocumentAwareAgent.js';
 
 export class CLI {
   private agent!: MCPAgent;
@@ -24,6 +26,7 @@ export class CLI {
   private llmConfigManager: LLMConfigManager;
   private llmInitialized: boolean = false;
   private rationaleConversationService: RationaleConversationService;
+  private enhancedDocumentAwareAgent: EnhancedDocumentAwareAgent | null = null;
 
   constructor() {
     this.program = new Command();
@@ -197,6 +200,18 @@ export class CLI {
       .command('github')
       .description('Interactive GitHub repository analysis')
       .action(this.startGitHubInteractive.bind(this));
+
+    // Enhanced document-aware agent commands
+    this.program
+      .command('smart-query')
+      .description('Ask any question about your database with enhanced document awareness')
+      .argument('<question>', 'Your question about the database')
+      .action(this.handleSmartQueryCommand.bind(this));
+
+    this.program
+      .command('agent-status')
+      .description('Show enhanced agent status and suggestions')
+      .action(this.showAgentStatus.bind(this));
   }
 
   /**
@@ -206,6 +221,11 @@ export class CLI {
     try {
       this.agent = new MCPAgent(config);
       await this.agent.initialize();
+      
+      // Initialize Enhanced Document-Aware Agent
+      this.enhancedDocumentAwareAgent = new EnhancedDocumentAwareAgent(config);
+      await this.enhancedDocumentAwareAgent.initialize();
+      
     } catch (error) {
       console.error('Failed to initialize agent:', error);
       process.exit(1);
@@ -1131,7 +1151,7 @@ export class CLI {
     const polishedInput = this.polishCompleteInput(input);
     
     // Debug: Show what input is being processed
-    console.log(chalk.gray(`🔍 Processing input: "${input}"`));
+    // Processing input...
     if (polishedInput !== input) {
       console.log(chalk.blue(`🔧 Polished input: "${polishedInput}"`));
     }
@@ -1194,25 +1214,154 @@ export class CLI {
   }
 
   /**
-   * Handle rationale conversation queries
+   * Handle smart query command
    */
-  private async handleRationaleConversation(input: string, rl: readline.Interface): Promise<void> {
+  private async handleSmartQueryCommand(question: string): Promise<void> {
     try {
-      console.log(chalk.blue('🧠 Analyzing your question about the rationale...'));
+      if (!this.enhancedDocumentAwareAgent) {
+        console.log(chalk.red('❌ Enhanced Document-Aware Agent not initialized'));
+        return;
+      }
+
+      console.log(chalk.blue(`🤔 Processing: "${question}"`));
       
-      const response = await this.rationaleConversationService.handleRationaleQuery(input);
+      const response = await this.enhancedDocumentAwareAgent.handleSmartQuery(question);
       
-      console.log(chalk.green('\n💡 Rationale Explanation:'));
+      console.log(chalk.green('\n📝 Answer:'));
+      console.log(chalk.white(response.answer));
+      
+      if (response.suggestions.length > 0) {
+        console.log(chalk.blue('\n💡 Suggestions:'));
+        response.suggestions.forEach(suggestion => {
+          console.log(chalk.gray(`• ${suggestion}`));
+        });
+      }
+      
+      if (response.context.sourceFiles.length > 0) {
+        console.log(chalk.gray(`\n📁 Based on: ${response.context.sourceFiles.join(', ')}`));
+      }
+      
+      if (response.needsFiles) {
+        console.log(chalk.yellow('\n⚠️ Some analysis files are missing. Run the suggested commands to generate them.'));
+      }
+      
+    } catch (error) {
+      console.error(chalk.red('❌ Smart query failed:'), error);
+    }
+  }
+
+  /**
+   * Show enhanced agent status
+   */
+  private async showAgentStatus(): Promise<void> {
+    try {
+      if (!this.enhancedDocumentAwareAgent) {
+        console.log(chalk.red('❌ Enhanced Document-Aware Agent not initialized'));
+        return;
+      }
+
+      console.log(chalk.blue('🧠 Enhanced Document-Aware Agent Status\n'));
+      
+      const status = await this.enhancedDocumentAwareAgent.getDatabaseStatus();
+      
+      // Database connection status
+      console.log(chalk.green('📊 Database Connections:'));
+      console.log(`  PostgreSQL: ${status.postgresql.connected ? '✅ Connected' : '❌ Not connected'} (${status.postgresql.tableCount} tables)`);
+      console.log(`  MongoDB: ${status.mongodb.connected ? '✅ Connected' : '❌ Not connected'} (${status.mongodb.collectionCount} collections)`);
+      
+      // Analysis files status
+      console.log(chalk.green('\n📁 Analysis Files:'));
+      console.log(`  PostgreSQL Schema: ${status.analysisFiles.postgres ? '✅ Available' : '❌ Missing'} ${status.analysisFiles.postgres ? `(${status.analysisFiles.postgres})` : ''}`);
+      console.log(`  MongoDB Schema: ${status.analysisFiles.mongodb ? '✅ Available' : '❌ Missing'} ${status.analysisFiles.mongodb ? `(${status.analysisFiles.mongodb})` : ''}`);
+      console.log(`  Migration Analysis: ${status.analysisFiles.migration ? '✅ Available' : '❌ Missing'} ${status.analysisFiles.migration ? `(${status.analysisFiles.migration})` : ''}`);
+      
+      // Suggestions
+      const suggestions = await this.enhancedDocumentAwareAgent.suggestNextActions();
+      if (suggestions.length > 0) {
+        console.log(chalk.blue('\n💡 Suggested Next Actions:'));
+        suggestions.forEach(suggestion => {
+          console.log(chalk.gray(`• ${suggestion}`));
+        });
+      }
+      
+      console.log(chalk.gray('\n💬 You can ask questions like:'));
+      console.log(chalk.gray('  • "What tables are in my database?"'));
+      console.log(chalk.gray('  • "What\'s the relationship between users and orders?"'));
+      console.log(chalk.gray('  • "Why was this data embedded in MongoDB?"'));
+      console.log(chalk.gray('  • "What\'s the migration strategy for this table?"'));
+      
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to get agent status:'), error);
+    }
+  }
+
+  /**
+   * Handle comprehensive conversation using unified knowledge service
+   */
+  private async handleComprehensiveConversation(input: string, rl: readline.Interface): Promise<void> {
+    try {
+      console.log(chalk.blue('\n🧠 Processing your query with comprehensive knowledge...'));
+      
+      // Use the rationale conversation service with comprehensive query handling
+      const response = await this.rationaleConversationService.handleComprehensiveQuery(input);
+      
+      console.log(chalk.green('\n💡 Comprehensive Answer:'));
       console.log(chalk.white(response.answer));
       
       if (response.context.sourceFiles.length > 0) {
-        console.log(chalk.gray(`\n📁 Based on analysis from: ${response.context.sourceFiles.join(', ')}`));
+        console.log(chalk.gray(`\n📁 Knowledge Sources: ${response.context.sourceFiles.join(', ')}`));
+      }
+      
+      console.log(chalk.gray(`\n🎯 Analysis Type: ${response.context.analysisType}`));
+      
+    } catch (error) {
+      console.error(chalk.red('\n❌ Error processing comprehensive query:'), error);
+    }
+  }
+
+  /**
+   * Handle rationale conversation queries with enhanced document awareness
+   */
+  private async handleRationaleConversation(input: string, rl: readline.Interface): Promise<void> {
+    try {
+      console.log(chalk.blue('🧠 Processing smart query...'));
+      
+      if (this.enhancedDocumentAwareAgent) {
+        const response = await this.enhancedDocumentAwareAgent.handleSmartQuery(input);
+        
+        console.log(chalk.green('\n📝 Response:'));
+        console.log(chalk.white(response.answer));
+        
+        if (response.suggestions.length > 0) {
+          console.log(chalk.blue('\n💡 Suggestions:'));
+          response.suggestions.forEach(suggestion => {
+            console.log(chalk.gray(`• ${suggestion}`));
+          });
+        }
+        
+        if (response.context.sourceFiles.length > 0) {
+          console.log(chalk.gray(`\n📁 Based on analysis from: ${response.context.sourceFiles.join(', ')}`));
+        }
+        
+        if (response.needsFiles) {
+          console.log(chalk.yellow('\n⚠️ Some analysis files are missing. Run the suggested commands to generate them.'));
+        }
+      } else {
+        // Fallback to original rationale service
+        const response = await this.rationaleConversationService.handleRationaleQuery(input);
+        
+        console.log(chalk.green('\n💡 Rationale Explanation:'));
+        console.log(chalk.white(response.answer));
+        
+        if (response.context.sourceFiles.length > 0) {
+          console.log(chalk.gray(`\n📁 Based on analysis from: ${response.context.sourceFiles.join(', ')}`));
+        }
       }
       
       console.log(chalk.gray('\n💬 You can ask follow-up questions about specific design decisions, transformations, or migration choices.'));
       
     } catch (error) {
-      console.error(chalk.red('❌ Error processing rationale query:'), error);
+      console.error(chalk.red('❌ Error processing smart query:'), error);
       console.log(chalk.yellow('🔄 Please ensure you have generated the required analysis files first.'));
     } finally {
       rl.prompt();
@@ -1328,7 +1477,15 @@ export class CLI {
         case 'migration_rationale':
         case 'embedding_rationale':
         case 'grouping_rationale':
-          await this.handleRationaleConversation(input, rl);
+          await this.handleComprehensiveConversation(input, rl);
+          break;
+          
+        // MongoDB Documentation
+        case 'mongodb_documentation_query':
+        case 'mongodb_best_practices':
+        case 'mongodb_feature_explanation':
+        case 'mongodb_official_guidance':
+          await this.handleComprehensiveConversation(input, rl);
           break;
           
         // Complex Operations
@@ -1366,19 +1523,23 @@ export class CLI {
    */
   private async showBasicHelp(): Promise<void> {
     console.log(chalk.blue('\n💡 Here are some things I can help you with:\n'));
-    console.log(chalk.gray('📊 Database Operations:'));
-    console.log(chalk.gray('  • "show database status" - Check connection health'));
-    console.log(chalk.gray('  • "analyze postgres schema" - Comprehensive schema analysis'));
-    console.log(chalk.gray('  • "create er diagram" - Generate entity relationship diagram'));
+    console.log(chalk.gray('🧠 Smart Query Features:'));
+    console.log(chalk.gray('  • "analyze postgres schema" - Comprehensive schema analysis with ER diagrams'));
+    console.log(chalk.gray('  • "create er diagram" - Visual entity relationship diagrams'));
     console.log(chalk.gray('  • "generate mongo schema" - Convert PostgreSQL to MongoDB schema'));
-    console.log(chalk.gray('  • "plan migration" - Create migration strategy'));
+    console.log(chalk.gray('  • "plan migration strategy" - Intelligent migration planning'));
+    console.log(chalk.gray('  • "show database status" - Check connection health'));
     console.log(chalk.gray('  • "analyze github repo <url>" - Analyze repository for migration'));
-    console.log(chalk.gray('\n🔧 CRUD Operations:'));
+    console.log(chalk.gray('\n💾 Database Operations:'));
     console.log(chalk.gray('  • "fetch from users table" - Query PostgreSQL'));
-    console.log(chalk.gray('  • "insert into users table" - Insert into PostgreSQL'));
     console.log(chalk.gray('  • "find in users collection" - Query MongoDB'));
-    console.log(chalk.gray('  • "insert into users collection" - Insert into MongoDB'));
-    console.log(chalk.gray('\n❓ Need more help? Just ask!'));
+    console.log(chalk.gray('  • "what tables exist in postgres?" - List all tables'));
+    console.log(chalk.gray('  • "what collections exist in mongo?" - List all collections'));
+    console.log(chalk.gray('\n🤔 Design & Migration Questions:'));
+    console.log(chalk.gray('  • "Why did you choose this approach?" - Explain design decisions'));
+    console.log(chalk.gray('  • "What would this table look like in MongoDB?" - Show conversions'));
+    console.log(chalk.gray('  • "How should I optimize this query?" - Query optimization'));
+    console.log(chalk.gray('\n❓ Need more help? Type "help" for complete feature list!'));
   }
 
   /**
@@ -1841,9 +2002,7 @@ export class CLI {
    * Handle comprehensive schema analysis natural language requests
    */
   private async handleSchemaAnalysisNaturalLanguage(input: string, rl: readline.Interface): Promise<void> {
-        console.log(chalk.blue('🔍 Processing comprehensive PostgreSQL schema analysis request...'));
-        console.log(chalk.yellow('💡 This will analyze your entire PostgreSQL database and generate detailed documentation.'));
-        console.log(chalk.gray('⏳ Please wait, this may take a few moments...'));
+        // Processing comprehensive PostgreSQL schema analysis...
         
         try {
           const result = await this.agent.analyzePostgreSQLSchema();
@@ -1888,9 +2047,7 @@ export class CLI {
   private async handleMongoDBSchemaGenerationNaturalLanguage(input: string, rl: readline.Interface): Promise<void> {
     const lowerInput = input.toLowerCase();
     
-    console.log(chalk.blue('🔍 Processing MongoDB schema generation request...'));
-    console.log(chalk.yellow('💡 This will convert your PostgreSQL schema to MongoDB collections with detailed analysis.'));
-    console.log(chalk.gray('⏳ Please wait, this may take a few moments...'));
+    // Processing MongoDB schema generation...
     
     try {
       const result = await this.agent.generateMongoDBSchemaFromPostgreSQL();
@@ -1995,15 +2152,26 @@ export class CLI {
       // Generate migration plan
       const plan = await migrationService.generateMigrationPlan(analysis);
       
-      // Create documentation
-      const documentationContent = await migrationService.createMigrationDocumentation(analysis, plan, outputPath);
+      // Create split documentation
+      const { summaryPath, detailPath } = await migrationService.createSplitMigrationDocumentation(analysis, plan, outputPath);
       
       // Also write to current project directory
-      const { centralPath, projectPath } = DualLocationFileWriter.writeToBothLocations(filename, documentationContent);
+      const summaryFilename = `${sourceFolder}-summary.md`;
+      const detailFilename = `${sourceFolder}-detail.md`;
       
-      console.log(`✅ Migration analysis complete! Documentation saved to both locations:`);
-      console.log(`   📍 Central: ${centralPath}`);
-      console.log(`   📍 Project: ${projectPath}`);
+      const summaryContent = fs.readFileSync(summaryPath, 'utf8');
+      const detailContent = fs.readFileSync(detailPath, 'utf8');
+      
+      const { centralPath: summaryCentralPath, projectPath: summaryProjectPath } = DualLocationFileWriter.writeToBothLocations(summaryFilename, summaryContent);
+      const { centralPath: detailCentralPath, projectPath: detailProjectPath } = DualLocationFileWriter.writeToBothLocations(detailFilename, detailContent);
+      
+      console.log(`✅ Migration analysis complete! Split documentation saved to both locations:`);
+      console.log(`   📄 Summary:`);
+      console.log(`      📍 Central: ${summaryCentralPath}`);
+      console.log(`      📍 Project: ${summaryProjectPath}`);
+      console.log(`   📄 Detail:`);
+      console.log(`      📍 Central: ${detailCentralPath}`);
+      console.log(`      📍 Project: ${detailProjectPath}`);
       
     } catch (error) {
       console.error('❌ Migration analysis failed:', error);
@@ -2083,63 +2251,88 @@ export class CLI {
    * Show interactive help
    */
   private showInteractiveHelp(): void {
-    console.log(chalk.blue('\n🚀 PeerAI MongoMigrator - Interactive Mode'));
-    console.log(chalk.white('Type your requests in natural language or use commands. Type "help" for assistance.\n'));
+    console.log(chalk.blue('\n🚀 PeerAI MongoMigrator - Enhanced Document-Aware Agent'));
+    console.log(chalk.white('Ask any question about your database in natural language. The agent uses your schema analysis files as knowledge base.\n'));
     
-    console.log(chalk.yellow('📋 Available Commands:'));
-    console.log(chalk.gray('  • help     - Show this help message'));
-    console.log(chalk.gray('  • status   - Show database connection status'));
-    console.log(chalk.gray('  • health   - Perform manual health check'));
-    console.log(chalk.gray('  • exit     - Exit interactive mode\n'));
+    console.log(chalk.yellow('📋 Basic Commands:'));
+    console.log(chalk.gray('  • help          - Show this help message'));
+    console.log(chalk.gray('  • status        - Show database connection status'));
+    console.log(chalk.gray('  • health        - Perform manual health check'));
+    console.log(chalk.gray('  • agent-status  - Show enhanced agent status and suggestions'));
+    console.log(chalk.gray('  • exit          - Exit interactive mode\n'));
     
-    console.log(chalk.yellow('🗣️  Natural Language Commands That Work:'));
-    console.log(chalk.white('\nPostgreSQL:'));
-    console.log(chalk.gray('  • "Update language table set name to Hindi where name is English"'));
-    console.log(chalk.gray('  • "Delete from language table where name is English"'));
-    console.log(chalk.gray('  • "Fetch records from language table"'));
-    console.log(chalk.gray('  • "How many records are in language table"'));
-    console.log(chalk.gray('  • "Analyze the postgres schema" (comprehensive documentation)'));
-    console.log(chalk.gray('  • "Generate postgres schema documentation"'));
-    console.log(chalk.gray('  • "Document postgres database"'));
-    console.log(chalk.gray('  • "Show postgres database structure"'));
-    console.log(chalk.gray('  • "Give me the corresponding MongoDB schema"'));
-    console.log(chalk.gray('  • "Convert postgres to MongoDB schema"'));
+    console.log(chalk.yellow('🧠 Smart Query Features:'));
+    console.log(chalk.white('\n📊 Schema Analysis & Documentation:'));
+    console.log(chalk.gray('  • "Analyze the postgres schema" - Comprehensive schema analysis with ER diagrams'));
+    console.log(chalk.gray('  • "Generate postgres schema documentation" - Detailed markdown documentation'));
+    console.log(chalk.gray('  • "Create ER diagram" - Visual entity relationship diagrams'));
+    console.log(chalk.gray('  • "Show database structure" - Complete database overview'));
+    console.log(chalk.gray('  • "What tables exist in postgres?" - List all tables with details'));
+    console.log(chalk.gray('  • "What collections exist in mongo?" - List all collections with details'));
     
-    console.log(chalk.white('\nRationale & Design Decisions:'));
-    console.log(chalk.gray('  • "Why did you embed these fields in MongoDB?"'));
-    console.log(chalk.gray('  • "Explain the rationale behind grouping these tables"'));
-    console.log(chalk.gray('  • "Why was this transformation chosen?"'));
-    console.log(chalk.gray('  • "What is the reasoning behind this migration approach?"'));
-    console.log(chalk.gray('  • "Why did you convert this table to a collection?"'));
-    console.log(chalk.gray('  • "Explain the design decision for this schema change"'));
+    console.log(chalk.white('\n🔄 Migration & Transformation:'));
+    console.log(chalk.gray('  • "Convert postgres to MongoDB schema" - Intelligent schema conversion'));
+    console.log(chalk.gray('  • "Generate mongo schema" - Create MongoDB collections from PostgreSQL'));
+    console.log(chalk.gray('  • "Plan migration strategy" - Intelligent migration ordering'));
+    console.log(chalk.gray('  • "Analyze migration dependencies" - Migration planning with dependencies'));
+    console.log(chalk.gray('  • "What would this table look like in MongoDB?" - Specific table conversion'));
     
-    console.log(chalk.white('\nMongoDB:'));
-    console.log(chalk.gray('  • "Update language collection set name to Hindi where name is English"'));
-    console.log(chalk.gray('  • "Delete from language collection where name is Hindi"'));
-    console.log(chalk.gray('  • "Fetch documents from language collection"'));
-    console.log(chalk.gray('  • "How many documents are in language collection"'));
+    console.log(chalk.white('\n🤔 Design Rationale & Explanations:'));
+    console.log(chalk.gray('  • "Why did you embed these fields in MongoDB?" - Explain embedding decisions'));
+    console.log(chalk.gray('  • "Explain the rationale behind grouping these tables" - Design reasoning'));
+    console.log(chalk.gray('  • "Why was this transformation chosen?" - Migration strategy explanation'));
+    console.log(chalk.gray('  • "What is the reasoning behind this migration approach?" - Overall strategy'));
+    console.log(chalk.gray('  • "Why did you convert this table to a collection?" - Table conversion logic'));
+    console.log(chalk.gray('  • "Explain the design decision for this schema change" - Design decisions'));
     
-    console.log(chalk.white('\nDatabase Status & Comparison:'));
-    console.log(chalk.gray('  • "Show me the database status"'));
-    console.log(chalk.gray('  • "How are the databases doing?"'));
-    console.log(chalk.gray('  • "Perform a health check"'));
-    console.log(chalk.gray('  • "list the tables in postgres" (lists tables with row counts)'));
-    console.log(chalk.gray('  • "list the collections in mongo" (lists collections with document counts)'));
-          console.log(chalk.gray('  • "fetch the current state of both the databases" (comprehensive comparison)'));
-      console.log(chalk.gray('  • "analyze migration dependencies" (PostgreSQL to MongoDB migration plan)'));
-      console.log(chalk.gray('  • "plan migration strategy" (intelligent migration ordering)'));
-    console.log(chalk.gray('  • "Compare both databases" (basic comparison)'));
+    console.log(chalk.white('\n💾 Database Operations:'));
+    console.log(chalk.gray('  • "Fetch records from users table" - Query PostgreSQL'));
+    console.log(chalk.gray('  • "Update language table set name to Hindi where name is English" - Update PostgreSQL'));
+    console.log(chalk.gray('  • "Delete from language table where name is English" - Delete from PostgreSQL'));
+    console.log(chalk.gray('  • "How many records are in language table" - Count PostgreSQL records'));
+    console.log(chalk.gray('  • "Find documents in users collection" - Query MongoDB'));
+    console.log(chalk.gray('  • "Update language collection set name to Hindi where name is English" - Update MongoDB'));
+    console.log(chalk.gray('  • "How many documents are in language collection" - Count MongoDB documents'));
     
-    console.log(chalk.yellow('\n💡 Tips:'));
-    console.log(chalk.gray('  • Use natural language - the agent will convert it to the right database operations'));
-    console.log(chalk.gray('  • Be specific about which database (table vs collection)'));
-    console.log(chalk.gray('  • Health checks now run automatically every 5 minutes instead of constantly'));
-    console.log(chalk.gray('  • Use "analyze the postgres schema" to generate comprehensive documentation'));
-    console.log(chalk.gray('  • Schema analysis creates timestamped markdown files with full documentation'));
-    console.log(chalk.gray('  • Timestamped files preserve historical versions of your database schema'));
-    console.log(chalk.gray('  • MongoDB schema generation converts PostgreSQL to MongoDB collections'));
-          console.log(chalk.gray('  • Check database state with: "list the tables in postgres" or "list the collections in mongo"'));
-      console.log(chalk.gray('  • For schema analysis use "analyze the postgres schema" (comprehensive documentation)'));
+    console.log(chalk.white('\n📈 Database Status & Health:'));
+    console.log(chalk.gray('  • "Show me the database status" - Connection and health status'));
+    console.log(chalk.gray('  • "How are the databases doing?" - Health check'));
+    console.log(chalk.gray('  • "List the tables in postgres" - Tables with row counts'));
+    console.log(chalk.gray('  • "List the collections in mongo" - Collections with document counts'));
+    console.log(chalk.gray('  • "Compare both databases" - Side-by-side comparison'));
+    console.log(chalk.gray('  • "Fetch the current state of both databases" - Comprehensive comparison'));
+    
+    console.log(chalk.white('\n🔍 Advanced Analysis:'));
+    console.log(chalk.gray('  • "What are the relationships between tables?" - Analyze foreign keys'));
+    console.log(chalk.gray('  • "Which tables have the most data?" - Data volume analysis'));
+    console.log(chalk.gray('  • "What indexes exist in postgres?" - Index analysis'));
+    console.log(chalk.gray('  • "What are the data types used?" - Schema type analysis'));
+    console.log(chalk.gray('  • "How should I optimize this query?" - Query optimization'));
+    console.log(chalk.gray('  • "What are the performance implications?" - Performance analysis'));
+    
+    console.log(chalk.white('\n🌐 GitHub Repository Analysis:'));
+    console.log(chalk.gray('  • "Analyze github repo <url>" - Analyze repository for migration'));
+    console.log(chalk.gray('  • "What Spring Boot components need migration?" - Component analysis'));
+    console.log(chalk.gray('  • "How should I migrate this Java code to Node.js?" - Code migration'));
+    console.log(chalk.gray('  • "What database patterns are used in this code?" - Pattern detection'));
+    
+    console.log(chalk.yellow('\n💡 Enhanced Features:'));
+    console.log(chalk.gray('  • 🧠 Intent-based understanding - No keyword matching, true AI comprehension'));
+    console.log(chalk.gray('  • 📚 Document-aware responses - Uses your schema analysis files as knowledge base'));
+    console.log(chalk.gray('  • 🔄 Dynamic and portable - Works with any PostgreSQL and MongoDB database'));
+    console.log(chalk.gray('  • ⚡ Real-time analysis - Automatically detects and loads latest analysis files'));
+    console.log(chalk.gray('  • 🎯 Smart suggestions - Proactive recommendations based on your database'));
+    console.log(chalk.gray('  • 📊 Comprehensive documentation - Generates timestamped markdown files'));
+    console.log(chalk.gray('  • 🔍 Deep analysis - ER diagrams, relationships, performance insights'));
+    console.log(chalk.gray('  • 🚀 Migration planning - Intelligent transformation strategies'));
+    
+    console.log(chalk.yellow('\n🎯 Pro Tips:'));
+    console.log(chalk.gray('  • Ask questions naturally - "What tables are in my database?"'));
+    console.log(chalk.gray('  • Be specific about databases - "table" for PostgreSQL, "collection" for MongoDB'));
+    console.log(chalk.gray('  • Use "analyze postgres schema" first to generate knowledge base files'));
+    console.log(chalk.gray('  • Ask follow-up questions - "Why did you choose this approach?"'));
+    console.log(chalk.gray('  • Request explanations - "Explain the rationale behind this decision"'));
+    console.log(chalk.gray('  • Get suggestions - "What should I do next?" or "What files do I need?"'));
     console.log(chalk.gray('  • Type "help" anytime to see this message again\n'));
   }
 
@@ -2532,67 +2725,68 @@ export class CLI {
    */
   private promptUser(rl: readline.Interface, question: string): Promise<string> {
     return new Promise((resolve, reject) => {
+      let resolved = false;
+      
       try {
-        // Set a timeout to prevent hanging
-        const timeout = setTimeout(() => {
-          reject(new Error('Input timeout - no response received'));
-        }, 30000); // 30 second timeout
+        // No timeout for interactive mode - agent stays active indefinitely
+        // const timeout = setTimeout(() => {
+        //   if (!resolved) {
+        //     resolved = true;
+        //     reject(new Error('Input timeout - no response received'));
+        //   }
+        // }, 1800000); // Disabled timeout for continuous operation
 
-        rl.question(question, (answer) => {
-          clearTimeout(timeout);
-          resolve(answer);
-        });
+        // Create a one-time listener for the answer
+        const answerHandler = (answer: string) => {
+          if (!resolved) {
+            resolved = true;
+            // clearTimeout(timeout); // No timeout to clear
+            rl.removeListener('error', errorHandler);
+            rl.removeListener('close', closeHandler);
+            resolve(answer);
+          }
+        };
 
-        // Handle readline errors
-        rl.on('error', (error) => {
-          clearTimeout(timeout);
-          reject(error);
-        });
+        // Create one-time error handler
+        const errorHandler = (error: Error) => {
+          if (!resolved) {
+            resolved = true;
+            // clearTimeout(timeout); // No timeout to clear
+            rl.removeListener('data', answerHandler);
+            rl.removeListener('close', closeHandler);
+            reject(error);
+          }
+        };
 
-        // Handle readline close events
-        rl.on('close', () => {
-          clearTimeout(timeout);
-          reject(new Error('Readline interface closed unexpectedly'));
-        });
+        // Create one-time close handler
+        const closeHandler = () => {
+          if (!resolved) {
+            resolved = true;
+            // clearTimeout(timeout); // No timeout to clear
+            rl.removeListener('data', answerHandler);
+            rl.removeListener('error', errorHandler);
+            reject(new Error('Readline interface closed unexpectedly'));
+          }
+        };
+
+        // Add listeners
+        rl.once('line', answerHandler);
+        rl.once('error', errorHandler);
+        rl.once('close', closeHandler);
+
+        // Prompt the user
+        rl.setPrompt(question);
+        rl.prompt();
 
       } catch (error) {
-        reject(error);
+        if (!resolved) {
+          resolved = true;
+          reject(error);
+        }
       }
     });
   }
 
-  /**
-   * Fallback input method using process.stdin directly
-   */
-  private async fallbackInput(question: string): Promise<string> {
-    return new Promise((resolve) => {
-      process.stdout.write(question);
-      
-      const timeout = setTimeout(() => {
-        process.stdin.removeAllListeners('data');
-        resolve(''); // Return empty string on timeout
-      }, 30000); // 30 second timeout
-      
-      process.stdin.once('data', (data) => {
-        clearTimeout(timeout);
-        const input = data.toString().trim();
-        resolve(input);
-      });
-    });
-  }
-
-  /**
-   * Handle exit command in fallback mode
-   */
-  private async handleFallbackExit(input: string): Promise<boolean> {
-    const lowerInput = input.toLowerCase();
-    if (lowerInput === 'exit' || lowerInput === 'quit') {
-      console.log(chalk.yellow('👋 Goodbye!'));
-      console.log(chalk.gray('🧹 Clearing credentials from memory...'));
-      return true; // Signal to exit
-    }
-    return false; // Continue
-  }
 
   /**
    * Cleanup resources
@@ -2609,34 +2803,6 @@ export class CLI {
     }
   }
 
-  /**
-   * Reset readline interface if it gets stuck
-   */
-  private resetReadlineInterface(rl: readline.Interface): void {
-    try {
-      // Pause and resume to reset the interface
-      rl.pause();
-      setTimeout(() => {
-        rl.resume();
-      }, 100);
-    } catch (error) {
-      console.log(chalk.yellow('⚠️  Readline reset failed, continuing...'));
-    }
-  }
-
-  /**
-   * Ensure readline interface is responsive
-   */
-  private ensureReadlineResponsive(rl: readline.Interface): void {
-    try {
-      // Check if the interface is responsive by trying to pause/resume
-      rl.pause();
-      rl.resume();
-    } catch (error) {
-      console.log(chalk.yellow('⚠️  Readline interface issue detected, attempting recovery...'));
-      this.resetReadlineInterface(rl);
-    }
-  }
 
   /**
    * Force exit handler for stuck interfaces
@@ -2682,30 +2848,27 @@ export class CLI {
   private startReadlineHealthCheck(rl: readline.Interface, readlineFailed: boolean): NodeJS.Timeout {
     return setInterval(() => {
       if (!readlineFailed) {
-        try {
-          // Test if readline is responsive
-          this.ensureReadlineResponsive(rl);
-        } catch (error) {
-          console.log(chalk.yellow('⚠️  Periodic health check detected readline issues'));
-        }
+        // Simple health check - just log that we're alive
+        // No need to manipulate the readline interface
       }
-    }, 30000); // Check every 30 seconds
+    }, 300000); // Check every 5 minutes (very minimal)
   }
 
   /**
    * Run interactive mode
    */
   async runInteractive(): Promise<void> {
-    console.log(chalk.blue('\n🚀 PeerAI MongoMigrator - Interactive Mode'));
-    console.log(chalk.white('Type your requests in natural language or use commands. Type "help" for assistance.\n'));
+    console.log(chalk.blue('\n🚀 PeerAI MongoMigrator - Enhanced Document-Aware Agent'));
+    console.log(chalk.white('Ask any question about your database in natural language. The agent uses your schema analysis files as knowledge base.\n'));
     console.log(chalk.gray('💡 If the interface gets stuck, press Ctrl+C twice to force exit\n'));
 
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
       terminal: true, // Enable terminal mode for better stability
-      historySize: 100,
-      removeHistoryDuplicates: true
+      historySize: 50, // Reduced history size
+      removeHistoryDuplicates: true,
+      completer: undefined // Disable tab completion to avoid issues
     });
 
     // Handle graceful shutdown
@@ -2730,6 +2893,18 @@ export class CLI {
       console.error(chalk.gray(`Error: ${error.message}`));
     });
 
+    // Keep connections alive to prevent idle timeouts
+    const keepAliveInterval = setInterval(() => {
+      try {
+        // Send a keep-alive signal to prevent connection timeouts
+        if (this.agent) {
+          this.agent.getStatus(); // This will keep the connection alive
+        }
+      } catch (error) {
+        // Ignore keep-alive errors
+      }
+    }, 300000); // Every 5 minutes
+
     // Handle SIGINT (Ctrl+C)
     process.on('SIGINT', async () => {
       console.log(chalk.yellow('\n\n🛑 Interrupted by user. Cleaning up...'));
@@ -2739,46 +2914,24 @@ export class CLI {
     // Setup force exit handlers
     this.setupForceExitHandlers(cleanup);
 
-    let readlineFailed = false;
-    let consecutiveFailures = 0;
-    const maxFailures = 3;
     let healthCheckInterval: NodeJS.Timeout | null = null;
 
     try {
       // Start periodic health check
-      healthCheckInterval = this.startReadlineHealthCheck(rl, readlineFailed);
+      healthCheckInterval = this.startReadlineHealthCheck(rl, false);
 
       while (true) {
         try {
-          let input: string;
-
-          if (!readlineFailed) {
-            try {
-              // Ensure readline is responsive before prompting
-              this.ensureReadlineResponsive(rl);
-              
-              input = await this.promptUser(rl, '? peer-ai-mongo-migrator> ');
-            } catch (readlineError) {
-              console.log(chalk.yellow('⚠️  Readline interface failed, switching to fallback input...'));
-              readlineFailed = true;
-              consecutiveFailures++;
-              
-              if (consecutiveFailures >= maxFailures) {
-                console.log(chalk.red('❌ Too many readline failures. Exiting...'));
-                break;
-              }
-              
-              // Use fallback input
-              input = await this.fallbackInput('? peer-ai-mongo-migrator> ');
-            }
-          } else {
-            // Use fallback input
-            input = await this.fallbackInput('? peer-ai-mongo-migrator> ');
-          }
+          const input = await this.promptUser(rl, '? peer-ai-mongo-migrator> ');
           
           if (!input || input.trim() === '') continue;
           
-          if (await this.handleFallbackExit(input)) break;
+          if (input.toLowerCase() === 'exit' || input.toLowerCase() === 'quit') {
+            console.log(chalk.yellow('👋 Goodbye!'));
+            console.log(chalk.gray('🧹 Clearing credentials from memory...'));
+            clearInteractiveCredentials();
+            break;
+          }
           
           if (input.toLowerCase() === 'help') {
             this.showInteractiveHelp();
@@ -2798,32 +2951,25 @@ export class CLI {
           // Try to parse as natural language
           await this.handleNaturalLanguageInput(input, rl);
           
-          // Reset failure counter on successful command
-          if (readlineFailed) {
-            consecutiveFailures = 0;
-            readlineFailed = false;
-            console.log(chalk.green('✅ Readline interface recovered, switching back to normal mode'));
-          }
-          
         } catch (error) {
           console.error(chalk.red('❌ Error:'), error);
           
-          // If it's a readline error, try to recover
+          // If it's a readline error, show helpful message
           if (error instanceof Error && error.message.includes('timeout')) {
-            console.log(chalk.yellow('⚠️  Input timeout detected. Resetting readline interface...'));
-            this.resetReadlineInterface(rl);
-            // Small delay to let the interface reset
-            await new Promise(resolve => setTimeout(resolve, 100));
+            console.log(chalk.yellow('⚠️  Input timeout detected. Type "exit" to quit or try again.'));
           }
         }
         
         // Small delay between commands to ensure readline is ready
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     } finally {
-      // Clean up health check interval
+      // Clean up intervals
       if (healthCheckInterval) {
         clearInterval(healthCheckInterval);
+      }
+      if (keepAliveInterval) {
+        clearInterval(keepAliveInterval);
       }
       await cleanup();
     }
@@ -2863,7 +3009,7 @@ export class CLI {
    */
   private async handleMigrationAnalysisNaturalLanguage(input: string, rl: readline.Interface): Promise<void> {
     try {
-      console.log('🔍 Processing migration analysis request...');
+      // Processing migration analysis...
       
       // Import the migration analysis service
       const { MigrationAnalysisService } = await import('../services/MigrationAnalysisService.js');
@@ -2937,7 +3083,7 @@ export class CLI {
    */
   private async handleSourceCodeAnalysisNaturalLanguage(input: string, rl: readline.Interface): Promise<void> {
     try {
-      console.log('🔍 Processing source code analysis request...');
+      // Processing source code analysis...
       
       // Import the migration analysis service
       const { MigrationAnalysisService } = await import('../services/MigrationAnalysisService.js');
@@ -3628,7 +3774,7 @@ export class CLI {
    */
   private async handleGitHubAnalysisNaturalLanguage(input: string, rl: readline.Interface): Promise<void> {
     try {
-      console.log('🔍 Processing code analysis request...');
+      // Processing code analysis...
       
       // Check if user mentioned GitHub specifically or provided a URL
       const lowerInput = input.toLowerCase();
@@ -3723,7 +3869,7 @@ export class CLI {
         
         if (result.plan) {
           console.log(chalk.gray(`   - Total Phases: ${result.plan.phases?.length || 'Unknown'}`));
-          console.log(chalk.gray(`   - Estimated Effort: ${result.plan.summary?.totalEffort || 'Unknown'} hours`));
+          // Estimated effort removed as requested
           console.log(chalk.gray(`   - Risk Level: ${result.plan.summary?.riskLevel || 'Unknown'}`));
         }
       } else {

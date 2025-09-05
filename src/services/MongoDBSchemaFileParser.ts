@@ -63,7 +63,7 @@ export class MongoDBSchemaFileParser {
     try {
       const files = fs.readdirSync(directory);
       const mongodbFiles = files
-        .filter(file => file.startsWith('mongodb-schema-') && file.endsWith('.md'))
+        .filter(file => (file.startsWith('mongodb-schema-') || file.startsWith('proposed-mongodb-schema-')) && file.endsWith('.md'))
         .sort()
         .reverse();
       
@@ -97,7 +97,7 @@ export class MongoDBSchemaFileParser {
     const relationships = this.extractRelationships(content);
     const summary = this.extractSummary(content);
 
-    console.log(`📊 Parsed ${collections.length} collections from MongoDB schema`);
+    // Parsed collections from MongoDB schema
 
     return {
       collections,

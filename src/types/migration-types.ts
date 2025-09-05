@@ -109,9 +109,9 @@ export interface MigrationPlan {
 }
 
 export interface MigrationSummary {
-  totalEffort: number; // in hours
+  // totalEffort: number; // in hours - removed as requested
   complexity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  estimatedDuration: string; // e.g., "6-8 weeks"
+  // estimatedDuration: string; // e.g., "6-8 weeks" - removed as requested
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
   businessImpact: 'LOW' | 'MEDIUM' | 'HIGH';
 }
@@ -120,7 +120,7 @@ export interface MigrationPhase {
   name: string;
   description: string;
   duration: string;
-  effort: number; // in hours
+  // effort: number; // in hours - removed as requested
   dependencies: string[];
   deliverables: string[];
   risks: string[];

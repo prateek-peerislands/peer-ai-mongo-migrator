@@ -56,7 +56,7 @@ export class PostgreSQLSchemaFileParser {
    */
   async parsePostgreSQLSchemaFile(filepath: string): Promise<ParsedPostgreSQLSchema> {
     try {
-      console.log(`📖 Parsing PostgreSQL schema file: ${filepath}`);
+      // Parsing PostgreSQL schema file
       
       const fullPath = path.join(this.projectRoot, filepath);
       const content = fs.readFileSync(fullPath, 'utf8');
@@ -72,7 +72,7 @@ export class PostgreSQLSchemaFileParser {
       
       const stats = fs.statSync(fullPath);
       
-      console.log(`✅ Successfully parsed ${tables.length} tables from schema file`);
+      // Successfully parsed tables from schema file
       
       return {
         tables,
@@ -133,7 +133,7 @@ export class PostgreSQLSchemaFileParser {
     
     // Only log summary if there are tables found
     if (tables.length > 0) {
-      console.log(`📊 Parsed ${tables.length} unique tables from markdown`);
+      // Parsed tables from markdown
     }
     return tables;
   }
@@ -213,7 +213,7 @@ export class PostgreSQLSchemaFileParser {
     
     // Only log if there are columns found and it's a meaningful table
     if (columns.length > 0) {
-      console.log(`🔍 Parsed ${columns.length} columns for table`);
+      // Parsed columns for table
     }
     return columns;
   }

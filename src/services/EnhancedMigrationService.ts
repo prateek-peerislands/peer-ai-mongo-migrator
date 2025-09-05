@@ -551,8 +551,8 @@ export class EnhancedMigrationService {
         phase: 1,
         name: 'Core Data Migration',
         description: 'Migrate core business tables with simple relationships',
-        collections: sourceAnalysis.tables.slice(0, 5).map(t => t.name),
-        storedProcedures: sourceAnalysis.storedProcedures.slice(0, 3).map((sp: any) => sp.name),
+        collections: sourceAnalysis.tables.map(t => t.name),
+        storedProcedures: sourceAnalysis.storedProcedures.map((sp: any) => sp.name),
         estimatedDuration: 40,
         dependencies: [],
         risks: ['Data consistency during dual-write period', 'Performance impact on existing system']

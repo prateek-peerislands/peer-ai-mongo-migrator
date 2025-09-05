@@ -851,7 +851,7 @@ export class QueryPatternAnalyzer {
     // Top tables by usage
     const topTables = tableUsage
       .sort((a, b) => b.totalQueries - a.totalQueries)
-      .slice(0, 5)
+      // Show all patterns
       .map(t => t.tableName);
     
     // Top joins by frequency
@@ -863,7 +863,7 @@ export class QueryPatternAnalyzer {
     }
     const topJoins = Array.from(joinFrequency.entries())
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
+      // Show all patterns
       .map(([join]) => join);
     
     // Generate recommendations

@@ -45,9 +45,7 @@ export class MigrationPlanGenerator {
     const businessImpact = this.assessBusinessImpact(analysis);
     
     return {
-      totalEffort,
       complexity,
-      estimatedDuration,
       riskLevel,
       businessImpact
     };
@@ -150,7 +148,6 @@ export class MigrationPlanGenerator {
       name: 'Foundation & Setup',
       description: 'Set up Node.js environment, MongoDB, and basic project structure',
       duration: '1-2 weeks',
-      effort: 16,
       dependencies: [],
       deliverables: [
         'Node.js project setup',
@@ -176,7 +173,6 @@ export class MigrationPlanGenerator {
       name: 'Data Model Migration',
       description: 'Convert JPA entities to MongoDB schemas and handle relationships',
       duration: '2-4 weeks',
-      effort: dataModelEffort,
       dependencies: ['Foundation & Setup'],
       deliverables: [
         'MongoDB schemas for all entities',
@@ -202,7 +198,6 @@ export class MigrationPlanGenerator {
       name: 'Business Logic Migration',
       description: 'Convert Spring services and repositories to Node.js services',
       duration: '2-4 weeks',
-      effort: businessLogicEffort,
       dependencies: ['Data Model Migration'],
       deliverables: [
         'Node.js service classes',
@@ -228,7 +223,6 @@ export class MigrationPlanGenerator {
       name: 'API Layer Migration',
       description: 'Convert Spring controllers to Express.js routes',
       duration: '1-2 weeks',
-      effort: apiLayerEffort,
       dependencies: ['Business Logic Migration'],
       deliverables: [
         'Express.js route handlers',
@@ -253,7 +247,6 @@ export class MigrationPlanGenerator {
       name: 'Testing & Validation',
       description: 'Comprehensive testing of migrated functionality',
       duration: '1-2 weeks',
-      effort: 24,
       dependencies: ['API Layer Migration'],
       deliverables: [
         'Unit tests for all components',
@@ -278,7 +271,6 @@ export class MigrationPlanGenerator {
       name: 'Deployment & Documentation',
       description: 'Deploy to production and create comprehensive documentation',
       duration: '1 week',
-      effort: 16,
       dependencies: ['Testing & Validation'],
       deliverables: [
         'Production deployment',

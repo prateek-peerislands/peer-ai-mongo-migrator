@@ -80,9 +80,45 @@
             margin: 20px 0;
             text-align: center;
             box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+            min-height: 700px;
+            overflow: auto;
+            position: relative;
+        }
+        .zoom-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px;
+        }
+        .zoom-btn {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            margin: 0 2px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .zoom-btn:hover {
+            background: #357abd;
         }
         .mermaid {
-            display: inline-block;
+            display: block;
+            width: 100%;
+            height: auto;
+            min-height: 600px;
+            text-align: center;
+        }
+        .mermaid svg {
+            width: 100% !important;
+            height: auto !important;
+            max-width: none !important;
+            min-width: 800px !important;
         }
         .info-box {
             background: #e3f2fd;
@@ -177,193 +213,191 @@
         </div>
 
         <div class="nav-tabs">
-
             <button class="nav-tab active" onclick="showTab(0)">
-                🏗️ Main ER Diagram
+                🏗️ ER Diagram
             </button>
-
-            <button class="nav-tab " onclick="showTab(1)">
-                📊 Diagram 2
-            </button>
-
         </div>
-
 
         <div class="tab-content active" id="tab-0">
             <div class="diagram-container">
-                <div class="mermaid">
+                <div class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomIn(0)">🔍+</button>
+                    <button class="zoom-btn" onclick="zoomOut(0)">🔍-</button>
+                    <button class="zoom-btn" onclick="resetZoom(0)">🔄</button>
+                </div>
+                <div class="mermaid" id="mermaid-0">
 erDiagram
     actor {
-        integer actor_id
-        character varying first_name
-        character varying last_name
-        timestamp without time zone last_update
+        int actor_id
+        string first_name
+        string last_name
+        date last_update
     }
     actor_info {
-        integer actor_id
-        character varying first_name
-        character varying last_name
-        text film_info
+        int actor_id
+        string first_name
+        string last_name
+        string film_info
     }
     address {
-        integer address_id
-        character varying address
-        character varying address2
-        character varying district
-        smallint city_id
-        character varying postal_code
-        character varying phone
-        timestamp without time zone last_update
+        int address_id
+        string address
+        string address2
+        string district
+        int city_id
+        string postal_code
+        string phone
+        date last_update
     }
     category {
-        integer category_id
-        character varying name
-        timestamp without time zone last_update
+        int category_id
+        string name
+        date last_update
     }
     city {
-        integer city_id
-        character varying city
-        smallint country_id
-        timestamp without time zone last_update
+        int city_id
+        string city
+        int country_id
+        date last_update
     }
     country {
-        integer country_id
-        character varying country
-        timestamp without time zone last_update
+        int country_id
+        string country
+        date last_update
     }
     customer {
-        integer customer_id
-        smallint store_id
-        character varying first_name
-        character varying last_name
-        character varying email
-        smallint address_id
+        int customer_id
+        int store_id
+        string first_name
+        string last_name
+        string email
+        int address_id
         boolean activebool
         date create_date
-        timestamp without time zone last_update
-        integer active
+        date last_update
+        int active
     }
     customer_list {
-        integer id
-        text name
-        character varying address
-        character varying zip code
-        character varying phone
-        character varying city
-        character varying country
-        text notes
-        smallint sid
+        int id
+        string name
+        string address
+        string zip_code
+        string phone
+        string city
+        string country
+        string notes
+        int sid
     }
     film {
-        integer film_id
-        character varying title
-        text description
-        integer release_year
-        smallint language_id
-        smallint rental_duration
-        numeric rental_rate
-        smallint length
-        numeric replacement_cost
-        USER-DEFINED rating
-        timestamp without time zone last_update
-        ARRAY special_features
-        tsvector fulltext
+        int film_id
+        string title
+        string description
+        int release_year
+        int language_id
+        int rental_duration
+        decimal rental_rate
+        int length
+        decimal replacement_cost
+        string rating
+        date last_update
+        string special_features
+        string fulltext
     }
     film_actor {
-        smallint actor_id
-        smallint film_id
-        timestamp without time zone last_update
+        int actor_id
+        int film_id
+        date last_update
     }
     film_category {
-        smallint film_id
-        smallint category_id
-        timestamp without time zone last_update
+        int film_id
+        int category_id
+        date last_update
     }
     film_list {
-        integer fid
-        character varying title
-        text description
-        character varying category
-        numeric price
-        smallint length
-        USER-DEFINED rating
-        text actors
+        int fid
+        string title
+        string description
+        string category
+        decimal price
+        int length
+        string rating
+        string actors
     }
     inventory {
-        integer inventory_id
-        smallint film_id
-        smallint store_id
-        timestamp without time zone last_update
+        int inventory_id
+        int film_id
+        int store_id
+        date last_update
     }
     language {
-        integer language_id
-        character name
-        timestamp without time zone last_update
+        int language_id
+        string name
+        date last_update
     }
     nicer_but_slower_film_list {
-        integer fid
-        character varying title
-        text description
-        character varying category
-        numeric price
-        smallint length
-        USER-DEFINED rating
-        text actors
+        int fid
+        string title
+        string description
+        string category
+        decimal price
+        int length
+        string rating
+        string actors
     }
     payment {
-        integer payment_id
-        smallint customer_id
-        smallint staff_id
-        integer rental_id
-        numeric amount
-        timestamp without time zone payment_date
+        int payment_id
+        int customer_id
+        int staff_id
+        int rental_id
+        decimal amount
+        date payment_date
     }
     rental {
-        integer rental_id
-        timestamp without time zone rental_date
-        integer inventory_id
-        smallint customer_id
-        timestamp without time zone return_date
-        smallint staff_id
-        timestamp without time zone last_update
+        int rental_id
+        date rental_date
+        int inventory_id
+        int customer_id
+        date return_date
+        int staff_id
+        date last_update
     }
     sales_by_film_category {
-        character varying category
-        numeric total_sales
+        string category
+        decimal total_sales
     }
     sales_by_store {
-        text store
-        text manager
-        numeric total_sales
+        string store
+        string manager
+        decimal total_sales
     }
     staff {
-        integer staff_id
-        character varying first_name
-        character varying last_name
-        smallint address_id
-        character varying email
-        smallint store_id
+        int staff_id
+        string first_name
+        string last_name
+        int address_id
+        string email
+        int store_id
         boolean active
-        character varying username
-        character varying password
-        timestamp without time zone last_update
-        bytea picture
+        string username
+        string password
+        date last_update
+        string picture
     }
     staff_list {
-        integer id
-        text name
-        character varying address
-        character varying zip code
-        character varying phone
-        character varying city
-        character varying country
-        smallint sid
+        int id
+        string name
+        string address
+        string zip_code
+        string phone
+        string city
+        string country
+        int sid
     }
     store {
-        integer store_id
-        smallint manager_staff_id
-        smallint address_id
-        timestamp without time zone last_update
+        int store_id
+        int manager_staff_id
+        int address_id
+        date last_update
     }
     address ||--o{ city : "city_id -> city_id"
     city ||--o{ country : "country_id -> country_id"
@@ -387,55 +421,6 @@ erDiagram
             </div>
         </div>
 
-        <div class="tab-content " id="tab-1">
-            <div class="diagram-container">
-                <div class="mermaid">
-graph TD
-    actor[actor]
-    actor_info[actor_info]
-    address[address]
-    category[category]
-    city[city]
-    country[country]
-    customer[customer]
-    customer_list[customer_list]
-    film[film]
-    film_actor[film_actor]
-    film_category[film_category]
-    film_list[film_list]
-    inventory[inventory]
-    language[language]
-    nicer_but_slower_film_list[nicer_but_slower_film_list]
-    payment[payment]
-    rental[rental]
-    sales_by_film_category[sales_by_film_category]
-    sales_by_store[sales_by_store]
-    staff[staff]
-    staff_list[staff_list]
-    store[store]
-    address -->|FK| city
-    city -->|FK| country
-    customer -->|FK| address
-    film -->|FK| language
-    film_actor -->|FK| actor
-    film_actor -->|FK| film
-    film_category -->|FK| category
-    film_category -->|FK| film
-    inventory -->|FK| film
-    payment -->|FK| customer
-    payment -->|FK| rental
-    payment -->|FK| staff
-    rental -->|FK| customer
-    rental -->|FK| inventory
-    rental -->|FK| staff
-    staff -->|FK| address
-    store -->|FK| address
-    store -->|FK| staff
-                </div>
-            </div>
-        </div>
-
-
         <div class="download-section">
             <h3>📥 Download Options</h3>
             <p>Save your diagrams in different formats for presentations or documentation</p>
@@ -451,7 +436,7 @@ graph TD
             theme: 'default',
             securityLevel: 'loose',
             fontFamily: 'Arial, sans-serif',
-            fontSize: 14,
+            fontSize: 18,
             themeVariables: {
                 primaryColor: '#4a90e2',
                 primaryTextColor: '#333',
@@ -459,6 +444,34 @@ graph TD
                 lineColor: '#333',
                 secondaryColor: '#f0f0f0',
                 tertiaryColor: '#e1f5fe'
+            },
+            er: {
+                diagramPadding: 20,
+                layoutDirection: 'TB',
+                minEntityWidth: 200,
+                minEntityHeight: 100,
+                entityPadding: 15,
+                stroke: '#333',
+                fill: '#f9f9f9',
+                fontSize: 16
+            },
+            flowchart: {
+                diagramPadding: 20,
+                nodeSpacing: 50,
+                rankSpacing: 50,
+                curve: 'basis'
+            },
+            logLevel: 1,
+            errorHandler: function(error) {
+                console.error('Mermaid error:', error);
+                // Show error message in the diagram container
+                const activeTab = document.querySelector('.tab-content.active');
+                if (activeTab) {
+                    const container = activeTab.querySelector('.diagram-container');
+                    if (container) {
+                        container.innerHTML = '<div style="color: red; padding: 20px; text-align: center;"><h3>⚠️ Diagram Rendering Error</h3><p>There was an issue rendering this diagram. Please check the console for details.</p></div>';
+                    }
+                }
             }
         });
 
@@ -514,6 +527,37 @@ graph TD
                 };
                 
                 img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+            }
+        }
+
+        // Zoom functions
+        let zoomLevels = {};
+        
+        function zoomIn(tabIndex) {
+            if (!zoomLevels[tabIndex]) zoomLevels[tabIndex] = 1;
+            zoomLevels[tabIndex] = Math.min(zoomLevels[tabIndex] * 1.2, 3);
+            applyZoom(tabIndex);
+        }
+        
+        function zoomOut(tabIndex) {
+            if (!zoomLevels[tabIndex]) zoomLevels[tabIndex] = 1;
+            zoomLevels[tabIndex] = Math.max(zoomLevels[tabIndex] / 1.2, 0.5);
+            applyZoom(tabIndex);
+        }
+        
+        function resetZoom(tabIndex) {
+            zoomLevels[tabIndex] = 1;
+            applyZoom(tabIndex);
+        }
+        
+        function applyZoom(tabIndex) {
+            const mermaidDiv = document.getElementById('mermaid-' + tabIndex);
+            if (mermaidDiv) {
+                const svg = mermaidDiv.querySelector('svg');
+                if (svg) {
+                    svg.style.transform = 'scale(' + zoomLevels[tabIndex] + ')';
+                    svg.style.transformOrigin = 'center center';
+                }
             }
         }
     </script>

@@ -280,17 +280,8 @@ export class MongoDBSchemaGenerator {
     const relationships = this.analyzeRelationships(postgresSchema);
     const embeddedTables = new Set<string>();
     
-    // Define core collections that will embed related data
-    const coreCollections = [
-      'film',      // Will embed: language, category, actors
-      'customer',  // Will embed: address (with city and country)
-      'staff',     // Will embed: address (with city and country)
-      'address',   // Will embed: city (with country)
-      'store',     // Will embed: address, staff
-      'rental',    // Will embed: customer, inventory, staff
-      'payment',   // Will embed: customer, rental, staff
-      'inventory'  // Will embed: film, store
-    ];
+    // Dynamically identify core collections based on relationship analysis
+    const coreCollections = this.identifyCoreCollections(postgresSchema, relationships);
     
     // Create collections for core entities
     coreCollections.forEach(collectionName => {
@@ -326,8 +317,8 @@ export class MongoDBSchemaGenerator {
       !embeddedTables.has(tableName) && !coreCollections.includes(tableName)
     );
     
-    // Limit standalone collections to only essential reference tables
-    const essentialStandalone = standaloneTables.slice(0, 3); // Maximum 3 standalone
+    // Dynamically identify standalone collections (views, junction tables, etc.)
+    const essentialStandalone = this.identifyStandaloneCollections(postgresSchema, embeddedTables, coreCollections);
     
     essentialStandalone.forEach(tableName => {
       const table = postgresSchema.find(t => t.name === tableName);
@@ -371,6 +362,132 @@ export class MongoDBSchemaGenerator {
   }
 
   /**
+   * Dynamically identify core collections based on relationship analysis
+   */
+  private identifyCoreCollections(postgresSchema: TableSchema[], relationships: any[]): string[] {
+    const tableReferences: { [key: string]: number } = {};
+    const tableOutgoingRefs: { [key: string]: number } = {};
+    
+    // Count references for each table
+    relationships.forEach(rel => {
+      tableReferences[rel.targetTable] = (tableReferences[rel.targetTable] || 0) + 1;
+      tableOutgoingRefs[rel.sourceTable] = (tableOutgoingRefs[rel.sourceTable] || 0) + 1;
+    });
+    
+    // Core collections are tables that:
+    // 1. Are referenced by many other tables (high incoming references)
+    // 2. Have many outgoing references (complex relationships)
+    // 3. Are not lookup/reference tables (have business data)
+    
+    const coreTables = postgresSchema.filter(table => {
+      const incomingRefs = tableReferences[table.name] || 0;
+      const outgoingRefs = tableOutgoingRefs[table.name] || 0;
+      
+      // Dynamic logic: tables with significant relationships and data
+      return incomingRefs >= 2 || outgoingRefs >= 2 || 
+             table.columns.length >= 5; // Tables with substantial data
+    });
+    
+    return coreTables.map(table => table.name);
+  }
+
+  /**
+   * Generate embedding rules dynamically based on relationships
+   */
+  private generateEmbeddingRules(mainTable: TableSchema, relationships: any[], postgresSchema: TableSchema[]): { [key: string]: string[] } {
+    const embeddingRules: { [key: string]: string[] } = {};
+    
+    // Find tables that reference this main table (can be embedded)
+    const embeddableTableNames: string[] = [];
+    
+    relationships.forEach(rel => {
+      if (rel.targetTable === mainTable.name) {
+        const sourceTable = postgresSchema.find(t => t.name === rel.sourceTable);
+        if (sourceTable && this.isEmbeddable(sourceTable)) {
+          embeddableTableNames.push(rel.sourceTable);
+        }
+      }
+    });
+    
+    // Also find tables that this main table references (for nested embedding)
+    relationships.forEach(rel => {
+      if (rel.sourceTable === mainTable.name) {
+        const targetTable = postgresSchema.find(t => t.name === rel.targetTable);
+        if (targetTable && this.isEmbeddable(targetTable) && 
+            !embeddableTableNames.includes(rel.targetTable)) {
+          embeddableTableNames.push(rel.targetTable);
+        }
+      }
+    });
+    
+    embeddingRules[mainTable.name] = embeddableTableNames;
+    return embeddingRules;
+  }
+
+  /**
+   * Dynamically identify standalone collections
+   */
+  private identifyStandaloneCollections(postgresSchema: TableSchema[], embeddedTables: Set<string>, coreCollections: string[]): string[] {
+    return postgresSchema
+      .filter(table => {
+        // Not embedded anywhere and not a core collection
+        const isNotEmbedded = !embeddedTables.has(table.name);
+        const isNotCore = !coreCollections.includes(table.name);
+        
+        // Identify as standalone if it's a view, junction table, or reference data
+        const isView = this.isViewTable(table);
+        const isJunctionTable = this.isJunctionTable(table, postgresSchema);
+        const isReferenceData = table.columns.length <= 3; // Small reference tables
+        
+        return isNotEmbedded && isNotCore && (isView || isJunctionTable || isReferenceData);
+      })
+      .map(table => table.name);
+  }
+
+  /**
+   * Dynamically identify if a table is a view based on its characteristics
+   */
+  private isViewTable(table: TableSchema): boolean {
+    // Views typically have:
+    // 1. No primary key
+    // 2. No foreign keys
+    // 3. Descriptive names (containing common view patterns)
+    // 4. Mostly computed/derived columns
+    
+    const hasNoPrimaryKey = !table.columns.some(col => col.isPrimary);
+    const hasNoForeignKeys = !table.foreignKeys || table.foreignKeys.length === 0;
+    
+    // Dynamic pattern detection for view names
+    const viewPatterns = ['_list', '_info', '_by_', '_view', '_report', '_summary', '_detail'];
+    const hasDescriptiveName = viewPatterns.some(pattern => table.name.includes(pattern));
+    
+    return hasNoPrimaryKey && hasNoForeignKeys && hasDescriptiveName;
+  }
+
+  /**
+   * Dynamically identify if a table is a junction table
+   */
+  private isJunctionTable(table: TableSchema, postgresSchema: TableSchema[]): boolean {
+    // Junction tables typically have:
+    // 1. Two foreign keys (connecting two main tables)
+    // 2. Small number of columns (usually just the FKs + metadata)
+    // 3. Naming pattern with underscore (table1_table2)
+    
+    const foreignKeyCount = table.foreignKeys ? table.foreignKeys.length : 0;
+    const isSmallTable = table.columns.length <= 4;
+    const hasUnderscoreInName = table.name.includes('_');
+    
+    // Check if it connects two main tables
+    const connectsMainTables = foreignKeyCount === 2 && 
+      table.foreignKeys?.every(fk => {
+        const referencedTable = postgresSchema.find(t => t.name === fk.referencedTable);
+        return referencedTable && referencedTable.columns.length >= 5; // Main tables have more columns
+      }) || false;
+    
+    return hasUnderscoreInName && isSmallTable && (foreignKeyCount === 2 || connectsMainTables);
+  }
+
+  /**
    * Identify main tables (tables that are referenced by others)
    */
   private identifyMainTables(postgresSchema: TableSchema[], relationships: any[]): TableSchema[] {
@@ -387,7 +504,7 @@ export class MongoDBSchemaGenerator {
     );
     
     // Limit to only the most important tables to reduce collection count
-    return mainTables.slice(0, 11); // Maximum 11 collections to match MongoDB total
+    return mainTables; // Include all main tables
   }
 
   /**
@@ -396,18 +513,8 @@ export class MongoDBSchemaGenerator {
   private findEmbeddableTables(mainTable: TableSchema, relationships: any[], postgresSchema: TableSchema[]): TableSchema[] {
     const embeddableTables: TableSchema[] = [];
     
-    // Define embedding rules for specific tables
-    const embeddingRules: { [key: string]: string[] } = {
-      'film': ['language', 'category', 'actor'], // film embeds language, category, actors
-      'customer': ['address'], // customer embeds address
-      'staff': ['address'], // staff embeds address
-      'address': ['city'], // address embeds city
-      'city': ['country'], // city embeds country
-      'store': ['address', 'staff'], // store embeds address and staff
-      'rental': ['customer', 'inventory', 'staff'], // rental embeds customer, inventory, staff
-      'payment': ['customer', 'rental', 'staff'], // payment embeds customer, rental, staff
-      'inventory': ['film', 'store'] // inventory embeds film and store
-    };
+    // Dynamically determine embedding rules based on relationships
+    const embeddingRules = this.generateEmbeddingRules(mainTable, relationships, postgresSchema);
     
     const rules = embeddingRules[mainTable.name] || [];
     
@@ -496,10 +603,7 @@ export class MongoDBSchemaGenerator {
                        (columnName === `fk_${tableName}`) ||
                        (columnName === `${tableName}_fk`);
           
-          // Debug logging for foreign key detection
-          if (isFK) {
-            console.log(`🔗 Detected foreign key: ${column.name} → will become embedded ${embedded.sourceTable}`);
-          }
+          // Foreign key detection (logging removed for cleaner output)
           
           return isFK;
         }

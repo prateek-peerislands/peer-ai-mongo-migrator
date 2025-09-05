@@ -53,7 +53,7 @@ export class DocumentationGenerator {
       this.generateCurrentArchitectureOverview(analysis),
       this.generateImpactAnalysisMatrix(plan, analysis),
       this.generateDetailedComponentAnalysis(analysis),
-      this.generateFileInventory(analysis),
+      await this.generateFileInventory(analysis),
       this.generateStoredProceduresAnalysisSection(analysis),
       this.generateMetadataAnalysisSection(analysis),
       this.generateMigrationStrategy(plan),
@@ -66,6 +66,43 @@ export class DocumentationGenerator {
     ];
     
     return content.join('\n\n');
+  }
+
+  /**
+   * Generate split markdown content - summary and detail files
+   */
+  async generateSplitMarkdownContent(analysis: SourceCodeAnalysis, plan: MigrationPlan): Promise<{summary: string, detail: string}> {
+    // Generate summary content (everything before the transformation section)
+    const summaryContent = [
+      this.generateHeader(analysis),
+      this.generateExecutiveSummary(plan, analysis),
+      this.generateRealSourceCodeBenefits(analysis),
+      this.generateSourceCodeAnalysisBenefits(analysis),
+      this.generateCurrentArchitectureOverview(analysis),
+      this.generateImpactAnalysisMatrix(plan, analysis),
+      this.generateDetailedComponentAnalysis(analysis),
+      this.generateFileInventorySummary(analysis) // Stops at "New Files to Create"
+    ];
+
+    // Generate detail content (transformation section and everything after)
+    const detailContent = [
+      this.generateHeader(analysis),
+      await this.generateFileInventoryDetail(analysis), // Modified method for detail
+      this.generateStoredProceduresAnalysisSection(analysis),
+      this.generateMetadataAnalysisSection(analysis),
+      this.generateMigrationStrategy(plan),
+      this.generateRiskAssessment(plan),
+      this.generateSuccessMetrics(),
+      this.generateRecommendations(plan),
+      this.generateNewProjectStructure(analysis),
+      this.generateArchitectureBenefits(analysis),
+      this.generateConclusion(plan)
+    ];
+    
+    return {
+      summary: summaryContent.join('\n\n'),
+      detail: detailContent.join('\n\n')
+    };
   }
 
   /**
@@ -448,7 +485,7 @@ The migration from Spring Boot to Node.js represents a **${analysis.migrationCom
       return "No JPA entities found - simple service-based architecture";
     }
     
-    const entityNames = analysis.entities.map(e => e.fileName).slice(0, 3);
+    const entityNames = analysis.entities.map(e => e.fileName);
     const entityList = entityNames.join(', ');
     
     if (analysis.entities.length <= 3) {
@@ -626,7 +663,7 @@ ${this.generateAfterExample(analysis)}
 
     // Get actual entity names from the analysis
     const entityNames = analysis.entities.map(e => e.fileName || 'Unknown');
-    const sampleEntities = entityNames.slice(0, 3); // Show first 3 entities
+    const sampleEntities = entityNames; // Show all entities
     
     let examples = '';
     
@@ -694,7 +731,7 @@ ${this.generateAfterExample(analysis)}
     }
 
     const serviceNames = analysis.services.map(s => s.fileName || 'Unknown');
-    const sampleServices = serviceNames.slice(0, 2); // Show first 2 services
+    const sampleServices = serviceNames; // Show all services
     
     let examples = '';
     
@@ -1029,66 +1066,66 @@ ${impactDefinitions}`;
       {
         name: 'Data Model',
         impact: this.calculateDataModelImpact(analysis),
-        effort: this.calculateDataModelEffort(analysis),
+        // effort removed as requested
         risk: this.calculateDataModelRisk(analysis),
         dependencies: 'None'
       },
       {
         name: 'Entity Classes',
         impact: this.calculateEntityImpact(analysis),
-        effort: this.calculateEntityEffort(analysis),
+        // effort removed as requested
         risk: this.calculateEntityRisk(analysis),
         dependencies: 'Data Model'
       },
       {
         name: 'Repository Layer',
         impact: this.calculateRepositoryImpact(analysis),
-        effort: this.calculateRepositoryEffort(analysis),
+        // effort removed as requested
         risk: this.calculateRepositoryRisk(analysis),
         dependencies: 'Entity Classes'
       },
       {
         name: 'Service Layer',
         impact: this.calculateServiceImpact(analysis),
-        effort: this.calculateServiceEffort(analysis),
+        // effort removed as requested
         risk: this.calculateServiceRisk(analysis),
         dependencies: 'Repository Layer'
       },
       {
         name: 'Controller Layer',
         impact: this.calculateControllerImpact(analysis),
-        effort: this.calculateControllerEffort(analysis),
+        // effort removed as requested
         risk: this.calculateControllerRisk(analysis),
         dependencies: 'Service Layer'
       },
       {
         name: 'Configuration',
         impact: '🟡 MEDIUM',
-        effort: 8,
+        // effort removed as requested
         risk: '🟢 LOW',
         dependencies: 'None'
       },
       {
         name: 'Testing',
         impact: '🟡 MEDIUM',
-        effort: 24,
+        // effort removed as requested
         risk: '🟡 MEDIUM',
         dependencies: 'All Layers'
       },
       {
         name: 'Documentation',
         impact: '🟢 LOW',
-        effort: 8,
+        // effort removed as requested
         risk: '🟢 LOW',
         dependencies: 'None'
       }
     ];
 
-    let matrix = '| Component | Impact Level | Effort (Hours) | Risk Level | Dependencies |\n';
-    matrix += '|-----------|--------------|----------------|------------|--------------|\n';
+    let matrix = '| Component | Impact Level | Risk Level | Dependencies |\n';
+    matrix += '|-----------|--------------|------------|--------------|\n';
     
     components.forEach(component => {
-      matrix += `| **${component.name}** | ${component.impact} | ${component.effort} | ${component.risk} | ${component.dependencies} |\n`;
+      matrix += `| **${component.name}** | ${component.impact} | ${component.risk} | ${component.dependencies} |\n`;
     });
     
     return matrix;
@@ -1379,25 +1416,29 @@ ${this.generateControllerAnalysisTable(analysis)}
   /**
    * Generate file inventory section
    */
-  private generateFileInventory(analysis: SourceCodeAnalysis): string {
+  private async generateFileInventory(analysis: SourceCodeAnalysis): Promise<string> {
+    const repositoryTable = await this.generateRepositoryTransformationTable(analysis);
+    const serviceTable = await this.generateServiceTransformationTable(analysis);
+    const controllerTable = await this.generateControllerTransformationTable(analysis);
+    
     return `## 📁 File Inventory & Modification Requirements
 
 ### **High-Impact Files (Complete Rewrite Required)**
 
-| File Path | Current Purpose | Migration Effort | Dependencies |
-|-----------|----------------|------------------|--------------|
+| File Path | Current Purpose | Dependencies |
+|-----------|----------------|--------------|
 ${this.generateHighImpactFilesTable(analysis)}
 
 ### **Medium-Impact Files (Significant Modifications)**
 
-| File Path | Current Purpose | Migration Effort | Dependencies |
-|-----------|----------------|------------------|--------------|
+| File Path | Current Purpose | Dependencies |
+|-----------|----------------|--------------|
 ${this.generateMediumImpactFilesTable(analysis)}
 
 ### **Low-Impact Files (Minor Modifications)**
 
-| File Path | Current Purpose | Migration Effort | Dependencies |
-|-----------|----------------|------------------|--------------|
+| File Path | Current Purpose | Dependencies |
+|-----------|----------------|--------------|
 ${this.generateLowImpactFilesTable(analysis)}
 
 ### **Configuration Files**
@@ -1425,53 +1466,44 @@ ${this.generateLowImpactFilesTable(analysis)}
 **Current Spring Boot Structure (Normalized):**
 \`\`\`java
 @Entity
-public class Film {
-    @Id
-    private Long id;
-    private String title;
-    
-    @ManyToOne
-    @JoinColumn(name = "language_id")
-    private Language language;
-    
-    @ManyToMany
-    @JoinTable(name = "film_actor")
-    private List<Actor> actors;
-}
-
-@Entity
-public class Language {
+public class MainEntity {
     @Id
     private Long id;
     private String name;
+    
+    @ManyToOne
+    @JoinColumn(name = "related_id")
+    private RelatedEntity relatedEntity;
+    
+    @ManyToMany
+    @JoinTable(name = "main_related")
+    private List<RelatedEntity> relatedEntities;
 }
 
 @Entity
-public class Actor {
+public class RelatedEntity {
     @Id
     private Long id;
-    private String firstName;
-    private String lastName;
+    private String name;
 }
 \`\`\`
 
 **New Node.js Structure (Denormalized with Embedding):**
 \`\`\`javascript
-// models/film.js - Single collection with embedded documents
-const filmSchema = new mongoose.Schema({
-  title: String,
+// models/mainEntity.js - Single collection with embedded documents
+const mainEntitySchema = new mongoose.Schema({
+  name: String,
   description: String,
   
-  // Embedded language document (not separate class!)
-  language: {
+  // Embedded related document (not separate class!)
+  relatedEntity: {
     name: String,
     last_update: Date
   },
   
-  // Embedded actors array (not separate classes!)
-  actors: [{
-    first_name: String,
-    last_name: String,
+  // Embedded related entities array (not separate classes!)
+  relatedEntities: [{
+    name: String,
     last_update: Date
   }]
 });
@@ -1480,32 +1512,32 @@ const filmSchema = new mongoose.Schema({
 #### **Key Transformations Required:**
 
 1. **🔄 Entity Classes → Embedded Documents**
-   - **Language Entity** → **Embedded in Film** (no separate Language class)
-   - **Actor Entity** → **Embedded in Film** (no separate Actor class)
-   - **Category Entity** → **Embedded in Film** (no separate Category class)
+   - **Related Entity** → **Embedded in MainEntity** (no separate RelatedEntity class)
+   - **Secondary Entity** → **Embedded in MainEntity** (no separate SecondaryEntity class)
+   - **Tertiary Entity** → **Embedded in MainEntity** (no separate TertiaryEntity class)
 
 2. **🔄 Repository Layer → MongoDB Operations**
-   - **FilmRepository** → **Film.find()** with embedded data
-   - **LanguageRepository** → **Eliminated** (data embedded in Film)
-   - **ActorRepository** → **Eliminated** (data embedded in Film)
+   - **MainEntityRepository** → **MainEntity.find()** with embedded data
+   - **RelatedEntityRepository** → **Eliminated** (data embedded in MainEntity)
+   - **SecondaryEntityRepository** → **Eliminated** (data embedded in MainEntity)
 
 3. **🔄 Service Layer → Business Logic Adaptation**
-   - **FilmService.createFilm()** → **Create film with embedded language/actors**
-   - **LanguageService.getLanguage()** → **Access film.language.name directly**
-   - **ActorService.getActors()** → **Access film.actors array directly**
+   - **MainEntityService.createMainEntity()** → **Create mainEntity with embedded related/secondary entities**
+   - **RelatedEntityService.getRelatedEntity()** → **Access mainEntity.relatedEntity.name directly**
+   - **SecondaryEntityService.getSecondaryEntities()** → **Access mainEntity.secondaryEntities array directly**
 
 4. **🔄 Controller Layer → Express.js Routes**
-   - **FilmController** → **/api/films** (handles all film operations)
-   - **LanguageController** → **Eliminated** (no separate endpoints)
-   - **ActorController** → **Eliminated** (no separate endpoints)
+   - **MainEntityController** → **/api/mainEntities** (handles all mainEntity operations)
+   - **RelatedEntityController** → **Eliminated** (no separate endpoints)
+   - **SecondaryEntityController** → **Eliminated** (no separate endpoints)
 
 #### **Benefits of This Transformation:**
 
-- **🚀 Performance**: Single query gets complete film data with language and actors
+- **🚀 Performance**: Single query gets complete mainEntity data with related and secondary entities
 - **💾 Storage**: No need for separate collections and JOINs
 - **🔧 Maintenance**: Simpler codebase with fewer classes and files
-- **📱 API**: Cleaner REST endpoints (e.g., \`/api/films\` instead of \`/api/films/{id}/language\`)
-- **🔄 Updates**: Atomic updates to film and related data
+- **📱 API**: Cleaner REST endpoints (e.g., \`/api/mainEntities\` instead of \`/api/mainEntities/{id}/relatedEntity\`)
+- **🔄 Updates**: Atomic updates to mainEntity and related data
 
 ### **📁 File Transformation Analysis: Spring Boot → Node.js Migration**
 
@@ -1513,12 +1545,12 @@ const filmSchema = new mongoose.Schema({
 When moving from PostgreSQL (with separate tables) to MongoDB (with embedded documents), we eliminate many separate Java classes because related data is now embedded within main entities. 
 
 **Examples of Transformation:**
-- **Film.java** + **Language.java** + **Category.java** → **film.js** (one file with embedded data)
-- **Customer.java** + **Address.java** + **City.java** + **Country.java** → **customer.js** (one file with nested embedding)
-- **Staff.java** + **Address.java** + **City.java** + **Country.java** → **staff.js** (one file with nested embedding)
+- **MainEntity.java** + **RelatedEntity.java** + **SecondaryEntity.java** → **mainEntity.js** (one file with embedded data)
+- **ParentEntity.java** + **ChildEntity.java** + **GrandChildEntity.java** + **GreatGrandChildEntity.java** → **parentEntity.js** (one file with nested embedding)
+- **UserEntity.java** + **ProfileEntity.java** + **SettingsEntity.java** + **PreferencesEntity.java** → **userEntity.js** (one file with nested embedding)
 
 **What This Means**: 
-- **Fewer Java files** to maintain (Language.java, Category.java, City.java, Country.java are eliminated)
+- **Fewer Java files** to maintain (RelatedEntity.java, SecondaryEntity.java, ChildEntity.java, GrandChildEntity.java are eliminated)
 - **Simpler data access** patterns (no JOINs needed)
 - **Better performance** (single query gets all related data)
 - **Atomic updates** to main entity and related data
@@ -1529,15 +1561,15 @@ When moving from PostgreSQL (with separate tables) to MongoDB (with embedded doc
 
 #### **🔄 Repository Layer Transformation:**
 
-${this.generateRepositoryTransformationTable(analysis)}
+${repositoryTable}
 
 #### **🔄 Service Layer Transformation:**
 
-${this.generateServiceTransformationTable(analysis)}
+${serviceTable}
 
 #### **🔄 Controller Layer Transformation:**
 
-${this.generateControllerTransformationTable(analysis)}
+${controllerTable}
 
 #### **💡 Key Benefits of This Transformation:**
 
@@ -1551,6 +1583,191 @@ ${this.generateControllerTransformationTable(analysis)}
   | \`services/*.js\` | Node.js service classes | Services |
 | \`middleware/*.js\` | Express.js middleware | None |
 | \`tests/*.js\` | Test files | All components |`;
+  }
+
+  /**
+   * Generate file inventory summary section (everything before transformation)
+   */
+  private generateFileInventorySummary(analysis: SourceCodeAnalysis): string {
+    return `## 📁 File Inventory & Modification Requirements
+
+### **High-Impact Files (Complete Rewrite Required)**
+
+| File Path | Current Purpose | Dependencies |
+|-----------|----------------|--------------|
+${this.generateHighImpactFilesTable(analysis)}
+
+### **Medium-Impact Files (Significant Modifications)**
+
+| File Path | Current Purpose | Dependencies |
+|-----------|----------------|--------------|
+${this.generateMediumImpactFilesTable(analysis)}
+
+### **Low-Impact Files (Minor Modifications)**
+
+| File Path | Current Purpose | Dependencies |
+|-----------|----------------|--------------|
+${this.generateLowImpactFilesTable(analysis)}
+
+### **Configuration Files**
+
+| File Path | Current Purpose | Dependencies |
+|-----------|----------------|--------------|
+| \`pom.xml\` | Maven dependencies | None |
+| \`application.properties\` | Spring Boot config | None |
+| \`package.json\` | Node.js dependencies | None |
+| \`.env\` | Environment variables | None |
+
+### **New Files to Create**
+
+| File Path | Purpose | Dependencies |
+|-----------|---------|--------------|
+| \`server.js\` | Main application entry point | None |
+| \`config/database.js\` | MongoDB connection configuration | None |
+| \`models/*.js\` | MongoDB schema definitions | Data model |
+| \`routes/*.js\` | Express.js route handlers | Controllers |
+
+---
+
+> **📄 This is the SUMMARY document** - For detailed transformation analysis, technical implementation details, and migration strategies, please refer to the corresponding \`*-detail.md\` file.`;
+  }
+
+  /**
+   * Generate file inventory detail section (transformation section and after)
+   */
+  private async generateFileInventoryDetail(analysis: SourceCodeAnalysis): Promise<string> {
+    const repositoryTable = await this.generateRepositoryTransformationTable(analysis);
+    const serviceTable = await this.generateServiceTransformationTable(analysis);
+    const controllerTable = await this.generateControllerTransformationTable(analysis);
+    
+    return `## 📁 File Inventory & Modification Requirements
+
+> **📋 This is the DETAILED document** - Contains comprehensive transformation analysis, technical implementation details, migration strategies, and all technical specifications.
+
+### **🔄 Spring Boot → Node.js Transformation with Embedded Documents**
+
+#### **Why Classes Will Change Dramatically**
+
+**Current Spring Boot Structure (Normalized):**
+\`\`\`java
+@Entity
+public class MainEntity {
+    @Id
+    private Long id;
+    private String name;
+    
+    @ManyToOne
+    @JoinColumn(name = "related_id")
+    private RelatedEntity relatedEntity;
+    
+    @ManyToMany
+    @JoinTable(name = "main_related")
+    private List<RelatedEntity> relatedEntities;
+}
+
+@Entity
+public class RelatedEntity {
+    @Id
+    private Long id;
+    private String name;
+}
+\`\`\`
+
+**New Node.js Structure (Denormalized with Embedding):**
+\`\`\`javascript
+// models/mainEntity.js - Single collection with embedded documents
+const mainEntitySchema = new mongoose.Schema({
+  name: String,
+  description: String,
+  
+  // Embedded related document (not separate class!)
+  relatedEntity: {
+    name: String,
+    last_update: Date
+  },
+  
+  // Embedded related entities array (not separate classes!)
+  relatedEntities: [{
+    name: String,
+    last_update: Date
+  }]
+});
+\`\`\`
+
+#### **Key Transformations Required:**
+
+1. **🔄 Entity Classes → Embedded Documents**
+   - **Related Entity** → **Embedded in MainEntity** (no separate RelatedEntity class)
+   - **Secondary Entity** → **Embedded in MainEntity** (no separate SecondaryEntity class)
+   - **Tertiary Entity** → **Embedded in MainEntity** (no separate TertiaryEntity class)
+
+2. **🔄 Repository Layer → MongoDB Operations**
+   - **MainEntityRepository** → **MainEntity.find()** with embedded data
+   - **RelatedEntityRepository** → **Eliminated** (data embedded in MainEntity)
+   - **SecondaryEntityRepository** → **Eliminated** (data embedded in MainEntity)
+
+3. **🔄 Service Layer → Business Logic Adaptation**
+   - **MainEntityService.createMainEntity()** → **Create mainEntity with embedded related/secondary entities**
+   - **RelatedEntityService.getRelatedEntity()** → **Access mainEntity.relatedEntity.name directly**
+   - **SecondaryEntityService.getSecondaryEntities()** → **Access mainEntity.secondaryEntities array directly**
+
+4. **🔄 Controller Layer → Express.js Routes**
+   - **MainEntityController** → **/api/mainEntities** (handles all mainEntity operations)
+   - **RelatedEntityController** → **Eliminated** (no separate endpoints)
+   - **SecondaryEntityController** → **Eliminated** (no separate endpoints)
+
+#### **Benefits of This Transformation:**
+
+- **🚀 Performance**: Single query gets complete mainEntity data with related and secondary entities
+- **💾 Storage**: No need for separate collections and JOINs
+- **🔧 Maintenance**: Simpler codebase with fewer classes and files
+- **📱 API**: Cleaner REST endpoints (e.g., \`/api/mainEntities\` instead of \`/api/mainEntities/{id}/relatedEntity\`)
+- **🔄 Updates**: Atomic updates to mainEntity and related data
+
+### **📁 File Transformation Analysis: Spring Boot → Node.js Migration**
+
+**Why This Transformation Happens:**
+When moving from PostgreSQL (with separate tables) to MongoDB (with embedded documents), we eliminate many separate Java classes because related data is now embedded within main entities. 
+
+**Examples of Transformation:**
+- **MainEntity.java** + **RelatedEntity.java** + **SecondaryEntity.java** → **mainEntity.js** (one file with embedded data)
+- **ParentEntity.java** + **ChildEntity.java** + **GrandChildEntity.java** + **GreatGrandChildEntity.java** → **parentEntity.js** (one file with nested embedding)
+- **UserEntity.java** + **ProfileEntity.java** + **SettingsEntity.java** + **PreferencesEntity.java** → **userEntity.js** (one file with nested embedding)
+
+**What This Means**: 
+- **Fewer Java files** to maintain (RelatedEntity.java, SecondaryEntity.java, ChildEntity.java, GrandChildEntity.java are eliminated)
+- **Simpler data access** patterns (no JOINs needed)
+- **Better performance** (single query gets all related data)
+- **Atomic updates** to main entity and related data
+
+// Section removed as requested by user
+
+// Section removed as requested by user
+
+#### **🔄 Repository Layer Transformation:**
+
+${repositoryTable}
+
+#### **🔄 Service Layer Transformation:**
+
+${serviceTable}
+
+#### **🔄 Controller Layer Transformation:**
+
+${controllerTable}
+
+#### **💡 Key Benefits of This Transformation:**
+
+1. **🚀 Performance**: Single query gets complete data with embedded relationships
+2. **💾 Storage**: No need for separate collections and JOINs
+3. **🔧 Maintenance**: Simpler codebase with fewer files and classes
+4. **📱 API**: Cleaner REST endpoints with embedded data
+5. **🔄 Updates**: Atomic updates to main entities and related data
+6. **📊 Consistency**: No more data inconsistency between related tables
+
+  | \`services/*.js\` | Node.js service classes | Services |
+|| \`middleware/*.js\` | Express.js middleware | None |
+|| \`tests/*.js\` | Test files | All components |`;
   }
 
   /**
@@ -1585,11 +1802,9 @@ ${phase.mitigation.map(m => `  - ${m}`).join('\n')}
 ### **Critical Path**
 ${plan.timeline.criticalPath.map((phase, index) => `${index + 1}. ${phase}`).join('\n')}
 
-### **Timeline Overview**
+### **Migration Overview**
 - **Start Date**: ${plan.timeline.startDate.toLocaleDateString()} at ${new Date(plan.timeline.startDate).toLocaleTimeString()}
 - **End Date**: ${plan.timeline.endDate.toLocaleDateString()} at ${new Date(plan.timeline.endDate).toLocaleTimeString()}
-- **Total Duration**: ${this.calculateTotalDuration(plan.timeline)} days
-- **Buffer Time**: ${plan.timeline.bufferTime} days (20% contingency)
 - **Generated**: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`;
   }
 
@@ -1680,10 +1895,9 @@ ${plan.riskAssessment.mitigationStrategies.map(strategy => `- ${strategy}`).join
 - **Security**: Maintain or improve current security posture
 - **Compliance**: Meet all regulatory and compliance requirements
 
-### **Timeline Metrics**
-- **Phase Completion**: All phases completed within estimated timeline
+### **Migration Metrics**
+- **Phase Completion**: All phases completed successfully
 - **Milestone Achievement**: 100% milestone completion rate
-- **Buffer Utilization**: <50% of allocated buffer time used
 
 
 ### **Team Metrics**
@@ -1776,7 +1990,7 @@ ${databaseSchema}`;
     
     if (analysis.entities.length > 0) {
       // Show first 5 entities as specific routes
-      const routeEntities = analysis.entities.slice(0, 5);
+      const routeEntities = analysis.entities;
       routeEntities.forEach(entity => {
         const entityName = entity.fileName.replace('.java', '').toLowerCase();
         structure += `│   ├── ${entityName}.js                # ${entity.fileName} API routes\n`;
@@ -1792,7 +2006,7 @@ ${databaseSchema}`;
     // Generate controllers based on actual entities
     structure += `├── controllers/\n`;
     if (analysis.entities.length > 0) {
-      const controllerEntities = analysis.entities.slice(0, 5);
+      const controllerEntities = analysis.entities;
       controllerEntities.forEach(entity => {
         const entityName = entity.fileName.replace('.java', '').toLowerCase();
         structure += `│   ├── ${entityName}Controller.js       # ${entity.fileName} business logic\n`;
@@ -1808,7 +2022,7 @@ ${databaseSchema}`;
     // Generate services based on actual entities
     structure += `├── services/\n`;
     if (analysis.entities.length > 0) {
-      const serviceEntities = analysis.entities.slice(0, 5);
+      const serviceEntities = analysis.entities;
       serviceEntities.forEach(entity => {
         const entityName = entity.fileName.replace('.java', '').toLowerCase();
         structure += `│   ├── ${entityName}Service.js          # ${entity.fileName} data operations\n`;
@@ -1824,7 +2038,7 @@ ${databaseSchema}`;
     // Generate models based on actual entities
     structure += `├── models/\n`;
     if (analysis.entities.length > 0) {
-      const modelEntities = analysis.entities.slice(0, 5);
+      const modelEntities = analysis.entities;
       modelEntities.forEach(entity => {
         const entityName = entity.fileName.replace('.java', '').toLowerCase();
         structure += `│   ├── ${entityName}.js                 # ${entity.fileName} MongoDB schema\n`;
@@ -1919,7 +2133,7 @@ ${entityExamples}
       return '-- No JPA entities found';
     }
     
-    const sampleEntities = analysis.entities.slice(0, 3);
+    const sampleEntities = analysis.entities;
     let schema = '';
     
     sampleEntities.forEach((entity, index) => {
@@ -2076,8 +2290,8 @@ The migration from Spring Boot + PostgreSQL to Node.js + MongoDB represents a **
 5. **Stakeholder Communication**: Regular updates and milestone reviews
 6. **Performance Validation**: Ensure new architecture meets performance targets
 
-### **Estimated Timeline**
-The migration should be planned with additional buffer time recommended for unexpected challenges and thorough testing.
+### **Migration Planning**
+The migration should be planned with thorough testing and proper preparation for unexpected challenges.
 
 ### **Next Steps**
 1. **Team Training**: Begin Node.js and MongoDB training
@@ -2744,9 +2958,8 @@ const ${entityName.toLowerCase()}Details = await ${entityName}.findById(id)
     const eliminatedFiles: string[] = [];
     
     // Define which entities will be eliminated due to embedding
-    const eliminatedEntities = [
-      'language', 'actor', 'category', 'city', 'country',
-      'filmactor', 'filmcategory', 'filmactorid', 'filmcategoryid'
+    const eliminatedEntities: string[] = [
+      // Dynamic entity names will be determined from actual analysis
     ];
     
     // Analyze which entities will be eliminated due to embedding
@@ -2755,15 +2968,10 @@ const ${entityName.toLowerCase()}Details = await ${entityName}.findById(id)
       
       // Check if this entity should be eliminated
       if (eliminatedEntities.some(eliminated => entityName.includes(eliminated))) {
-        // Determine where this entity gets embedded
+        // Determine where this entity gets embedded dynamically
         let embeddedIn = '';
-        if (entityName.includes('language') || entityName.includes('category') || entityName.includes('actor')) {
-          embeddedIn = 'Film.java';
-        } else if (entityName.includes('city') || entityName.includes('country')) {
-          embeddedIn = 'Address.java';
-        } else if (entityName.includes('filmactor') || entityName.includes('filmcategory')) {
-          embeddedIn = 'Film.java';
-        }
+        // This will be determined by the actual embedded relationships from the schema
+        embeddedIn = 'MainEntity.java'; // Placeholder - will be replaced by actual logic
         
         eliminatedFiles.push(`| \`${entity.fileName}\` | Data embedded in ${embeddedIn} | \`mainEntity.${entityName}.field\` |`);
       }
@@ -2785,8 +2993,8 @@ ${eliminatedFiles.join('\n')}`;
     const newNodeJSFiles: string[] = [];
     
     // Define which entities will become main Node.js files (NOT eliminated ones)
-    const mainEntities = [
-      'film', 'customer', 'staff', 'address', 'store', 'rental', 'payment', 'inventory'
+    const mainEntities: string[] = [
+      // Dynamic table names will be determined from actual analysis
     ];
     
     // Generate based on actual entities - only main entities that will have collections
@@ -2827,21 +3035,115 @@ ${newNodeJSFiles.join('\n')}`;
   }
 
   /**
+   * Get embedded entity mappings based on actual MongoDB schema analysis
+   * This uses the real ER diagram service and proposed schema data to determine relationships
+   */
+  private async getEmbeddedEntityMappings(analysis: SourceCodeAnalysis): Promise<Record<string, { mainEntity: string; embeddedField: string }>> {
+    const mappings: Record<string, { mainEntity: string; embeddedField: string }> = {};
+    
+    // Try to get the actual MongoDB schema from the generated files first
+    try {
+      // Look for the proposed MongoDB schema file
+      const fs = await import('fs');
+      const path = await import('path');
+      const projectRoot = process.cwd();
+      
+      // Find the most recent proposed MongoDB schema file
+      const schemaFiles = fs.readdirSync(projectRoot)
+        .filter((file: string) => file.includes('mongodb-schema') && file.endsWith('.md'))
+        .sort()
+        .reverse();
+      
+      if (schemaFiles.length > 0) {
+        const schemaFilePath = path.join(projectRoot, schemaFiles[0]);
+        const schemaContent = fs.readFileSync(schemaFilePath, 'utf8');
+        
+        // Parse the embedded relationships from the schema file
+        const embeddedMatches = schemaContent.match(/(\w+)\s*-->\|embeds\|\s*(\w+)/g);
+        if (embeddedMatches) {
+          embeddedMatches.forEach((match: string) => {
+            const [, mainEntity, embeddedEntity] = match.match(/(\w+)\s*-->\|embeds\|\s*(\w+)/) || [];
+            if (mainEntity && embeddedEntity) {
+              // Convert snake_case to camelCase for entity matching
+              const camelCaseEntity = embeddedEntity.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
+              mappings[embeddedEntity.toLowerCase()] = { 
+                mainEntity: mainEntity.charAt(0).toUpperCase() + mainEntity.slice(1), 
+                embeddedField: embeddedEntity.toLowerCase() 
+              };
+              // Also add camelCase version for better matching
+              mappings[camelCaseEntity.toLowerCase()] = { 
+                mainEntity: mainEntity.charAt(0).toUpperCase() + mainEntity.slice(1), 
+                embeddedField: embeddedEntity.toLowerCase() 
+              };
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.warn('Could not read MongoDB schema file, trying ER diagram service');
+    }
+    
+    // Fallback: If no schema file found, use ER diagram service to get MongoDB collections
+    if (Object.keys(mappings).length === 0) {
+      try {
+        // Import the MongoDB schema generator to get the actual collections
+        const { MongoDBSchemaGenerator } = await import('./MongoDBSchemaGenerator.js');
+        const mongoDBSchemaGenerator = new MongoDBSchemaGenerator();
+        
+        // Get PostgreSQL schema first
+        const { SchemaService } = await import('./SchemaService.js');
+        const schemaService = new SchemaService();
+        const postgresSchema = await schemaService.getComprehensivePostgreSQLSchema();
+        
+        // Generate MongoDB schema
+        const conversionResult = await mongoDBSchemaGenerator.generateMongoDBSchemaFromPostgreSQL(postgresSchema.tables);
+        
+        if (conversionResult.success && conversionResult.mongodbSchema) {
+          // Extract embedded relationships from MongoDB collections
+          conversionResult.mongodbSchema.forEach(collection => {
+            if (collection.embeddedDocuments) {
+              collection.embeddedDocuments.forEach(embedded => {
+                mappings[embedded.name.toLowerCase()] = {
+                  mainEntity: collection.name.charAt(0).toUpperCase() + collection.name.slice(1),
+                  embeddedField: embedded.name.toLowerCase()
+                };
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.warn('Could not generate MongoDB schema via ER diagram service, using basic fallback');
+      }
+    }
+    
+    // Final fallback: If still no mappings, return empty object
+    // The transformation tables will handle this gracefully
+    return mappings;
+  }
+
+  /**
    * Generate repository transformation table based on actual analysis
    */
-  private generateRepositoryTransformationTable(analysis: SourceCodeAnalysis): string {
+  private async generateRepositoryTransformationTable(analysis: SourceCodeAnalysis): Promise<string> {
     const transformations: string[] = [];
     
-    analysis.entities.forEach(entity => {
-      const entityName = entity.fileName.replace('.java', '');
-      if (entity.fileName.toLowerCase().includes('language') ||
-          entity.fileName.toLowerCase().includes('actor') ||
-          entity.fileName.toLowerCase().includes('category') ||
-          entity.fileName.toLowerCase().includes('city') ||
-          entity.fileName.toLowerCase().includes('country')) {
-        transformations.push(`| \`${entityName}Repository.java\` | **ELIMINATED** | Data embedded in main entity |`);
+    // Define which entities get embedded and where
+    const embeddedEntityMappings = await this.getEmbeddedEntityMappings(analysis);
+    
+    // Process actual repository files from analysis
+    analysis.repositories.forEach(repo => {
+      const repoName = repo.fileName.replace('.java', '');
+      const entityName = repoName.replace('Repository', '');
+      const embeddedInfo = embeddedEntityMappings[entityName.toLowerCase()];
+      
+      if (embeddedInfo) {
+        // Repository is eliminated because entity is embedded
+        transformations.push(`| \`${repoName}.java\` | **ELIMINATED** | Data embedded in ${embeddedInfo.mainEntity} | **Remove file** - Data now embedded in ${embeddedInfo.mainEntity} collection |
+| | | | **Access via**: \`${embeddedInfo.mainEntity}.find({ "${embeddedInfo.embeddedField}": { $exists: true } })\` |`);
       } else {
-        transformations.push(`| \`${entityName}Repository.java\` | \`${entityName}.find()\` | Direct MongoDB operations |`);
+        // Repository is kept but converted to MongoDB operations
+        transformations.push(`| \`${repoName}.java\` | \`${entityName}.find()\` | Direct MongoDB operations | **Convert to**: \`${entityName}.findById(id)\`, \`${entityName}.find(query)\`, \`${entityName}.create(data)\` |
+| | | | **Suggestion**: Use MongoDB native operations instead of JPA |`);
       }
     });
     
@@ -2849,27 +3151,34 @@ ${newNodeJSFiles.join('\n')}`;
       return 'No repository transformations identified in your current schema.';
     }
     
-    return `| **Spring Boot Repository** | **Node.js Equivalent** | **Why Changed** |
-|---------------------------|------------------------|-----------------|
+    return `| **Spring Boot Repository** | **Node.js Equivalent** | **Why Changed** | **What to Do** |
+|---------------------------|------------------------|-----------------|---------------|
 ${transformations.join('\n')}`;
   }
 
   /**
    * Generate service transformation table based on actual analysis
    */
-  private generateServiceTransformationTable(analysis: SourceCodeAnalysis): string {
+  private async generateServiceTransformationTable(analysis: SourceCodeAnalysis): Promise<string> {
     const transformations: string[] = [];
     
-    analysis.entities.forEach(entity => {
-      const entityName = entity.fileName.replace('.java', '');
-      if (entity.fileName.toLowerCase().includes('language') ||
-          entity.fileName.toLowerCase().includes('actor') ||
-          entity.fileName.toLowerCase().includes('category') ||
-          entity.fileName.toLowerCase().includes('city') ||
-          entity.fileName.toLowerCase().includes('country')) {
-        transformations.push(`| \`${entityName}Service.get${entityName}(id)\` | **ELIMINATED** | Data embedded in main entity |`);
+    // Define which entities get embedded and where
+    const embeddedEntityMappings = await this.getEmbeddedEntityMappings(analysis);
+    
+    // Process actual service files from analysis
+    analysis.services.forEach(service => {
+      const serviceName = service.fileName.replace('.java', '');
+      const entityName = serviceName.replace('Service', '');
+      const embeddedInfo = embeddedEntityMappings[entityName.toLowerCase()];
+      
+      if (embeddedInfo) {
+        // Service is eliminated because entity is embedded
+        transformations.push(`| \`${serviceName}.java\` | **ELIMINATED** | Data embedded in ${embeddedInfo.mainEntity} | **Remove file** - Data now embedded in ${embeddedInfo.mainEntity} service |
+| | | | **Access via**: \`${embeddedInfo.mainEntity}Service.get${embeddedInfo.mainEntity}With${entityName}(id)\` |`);
       } else {
-        transformations.push(`| \`${entityName}Service.get${entityName}WithDetails(id)\` | \`${entityName}.findById(id)\` | Single query gets everything |`);
+        // Service is kept but simplified
+        transformations.push(`| \`${serviceName}.java\` | \`${serviceName}.js\` | Single query gets everything | **Simplify methods** - Remove "WithDetails" suffix |
+| | | | **Example**: \`async get${entityName}(id) { return await ${entityName}.findById(id); }\` |`);
       }
     });
     
@@ -2877,27 +3186,34 @@ ${transformations.join('\n')}`;
       return 'No service transformations identified in your current schema.';
     }
     
-    return `| **Spring Boot Service** | **Node.js Equivalent** | **Data Access Pattern** |
-|------------------------|------------------------|-------------------------|
+    return `| **Spring Boot Service** | **Node.js Equivalent** | **Why Changed** | **What to Do** |
+|------------------------|------------------------|-----------------|---------------|
 ${transformations.join('\n')}`;
   }
 
   /**
    * Generate controller transformation table based on actual analysis
    */
-  private generateControllerTransformationTable(analysis: SourceCodeAnalysis): string {
+  private async generateControllerTransformationTable(analysis: SourceCodeAnalysis): Promise<string> {
     const transformations: string[] = [];
     
-    analysis.entities.forEach(entity => {
-      const entityName = entity.fileName.replace('.java', '');
-      if (entity.fileName.toLowerCase().includes('language') ||
-          entity.fileName.toLowerCase().includes('actor') ||
-          entity.fileName.toLowerCase().includes('category') ||
-          entity.fileName.toLowerCase().includes('city') ||
-          entity.fileName.toLowerCase().includes('country')) {
-        transformations.push(`| \`GET /api/${entityName.toLowerCase()}s/{id}\` | **ELIMINATED** | Data embedded in main entity |`);
+    // Define which entities get embedded and where
+    const embeddedEntityMappings = await this.getEmbeddedEntityMappings(analysis);
+    
+    // Process actual controller files from analysis
+    analysis.controllers.forEach(controller => {
+      const controllerName = controller.fileName.replace('.java', '');
+      const entityName = controllerName.replace('Controller', '');
+      const embeddedInfo = embeddedEntityMappings[entityName.toLowerCase()];
+      
+      if (embeddedInfo) {
+        // Controller is eliminated because entity is embedded
+        transformations.push(`| \`${controllerName}.java\` | **ELIMINATED** | Data embedded in ${embeddedInfo.mainEntity} | **Remove file** - Data now embedded in ${embeddedInfo.mainEntity} controller |
+| | | | **Access via**: \`GET /api/${embeddedInfo.mainEntity.toLowerCase()}s/:id\` (includes embedded ${entityName.toLowerCase()}) |`);
       } else {
-        transformations.push(`| \`GET /api/${entityName.toLowerCase()}s/{id}\` | \`GET /api/${entityName.toLowerCase()}s/:id\` | Single endpoint gets all data |`);
+        // Controller is kept but simplified
+        transformations.push(`| \`${controllerName}.java\` | \`${controllerName}.js\` | Single endpoint gets all data | **Simplify endpoints** - Update to return embedded data |
+| | | | **Example**: \`app.get('/api/${entityName.toLowerCase()}s/:id', async (req, res) => { ... })\` |`);
       }
     });
     
@@ -2905,8 +3221,8 @@ ${transformations.join('\n')}`;
       return 'No controller transformations identified in your current schema.';
     }
     
-    return `| **Spring Boot Endpoint** | **Node.js Endpoint** | **Why Simplified** |
-|-------------------------|---------------------|-------------------|
+    return `| **Spring Boot Controller** | **Node.js Equivalent** | **Why Changed** | **What to Do** |
+|---------------------------|------------------------|-----------------|---------------|
 ${transformations.join('\n')}`;
   }
 

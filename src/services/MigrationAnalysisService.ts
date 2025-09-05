@@ -132,6 +132,56 @@ export class MigrationAnalysisService {
   }
 
   /**
+   * Create split migration documentation - summary and detail files
+   */
+  async createSplitMigrationDocumentation(
+    analysis: SourceCodeAnalysis, 
+    plan: MigrationPlan, 
+    outputPath: string
+  ): Promise<{summaryPath: string, detailPath: string}> {
+    try {
+      // Generate versioned filenames for both files
+      const baseName = path.basename(outputPath, '.md');
+      const dir = path.dirname(outputPath);
+      
+      const summaryPath = path.join(dir, `${baseName}-summary.md`);
+      const detailPath = path.join(dir, `${baseName}-detail.md`);
+      
+      const versionedSummaryPath = await this.generateVersionedFilename(summaryPath);
+      const versionedDetailPath = await this.generateVersionedFilename(detailPath);
+      
+      console.log(`📝 Creating split migration documentation:`);
+      console.log(`   📄 Summary: ${versionedSummaryPath}`);
+      console.log(`   📄 Detail: ${versionedDetailPath}`);
+      
+      // Generate the split markdown content
+      const { summary, detail } = await this.docGenerator.generateSplitMarkdownContent(analysis, plan);
+      
+      // Write both files
+      const outputDir = path.dirname(versionedSummaryPath);
+      if (!fs.existsSync(outputDir)) {
+        await fs.promises.mkdir(outputDir, { recursive: true });
+      }
+      
+      await fs.promises.writeFile(versionedSummaryPath, summary, 'utf-8');
+      await fs.promises.writeFile(versionedDetailPath, detail, 'utf-8');
+      
+      console.log(`✅ Split migration documentation created successfully:`);
+      console.log(`   📄 Summary: ${versionedSummaryPath}`);
+      console.log(`   📄 Detail: ${versionedDetailPath}`);
+      
+      return {
+        summaryPath: versionedSummaryPath,
+        detailPath: versionedDetailPath
+      };
+      
+    } catch (error) {
+      console.error('❌ Error creating split migration documentation:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Generate versioned filename to avoid overwriting existing files
    */
   private async generateVersionedFilename(basePath: string): Promise<string> {

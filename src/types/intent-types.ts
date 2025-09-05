@@ -83,6 +83,12 @@ export enum IntentType {
   EMBEDDING_RATIONALE = 'embedding_rationale',
   GROUPING_RATIONALE = 'grouping_rationale',
   
+  // MongoDB Documentation
+  MONGODB_DOCUMENTATION_QUERY = 'mongodb_documentation_query',
+  MONGODB_BEST_PRACTICES = 'mongodb_best_practices',
+  MONGODB_FEATURE_EXPLANATION = 'mongodb_feature_explanation',
+  MONGODB_OFFICIAL_GUIDANCE = 'mongodb_official_guidance',
+  
   // Configuration
   CREDENTIAL_SETUP = 'credential_setup',
   CONFIGURATION_CHANGE = 'configuration_change',

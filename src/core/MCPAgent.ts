@@ -1164,13 +1164,9 @@ ${mongodbOnly.length > 0 ? `  • ${mongodbOnly.length} MongoDB collections coul
       const fileAvailability = this.postgreSQLSchemaFileParser.isPostgreSQLSchemaFileAvailable(24); // 24 hours
       
       if (fileAvailability.available && fileAvailability.filepath) {
-        console.log(`📖 Found recent PostgreSQL schema file: ${fileAvailability.filepath}`);
-        console.log(`⏰ File age: ${fileAvailability.age?.toFixed(2)} hours`);
-        
         try {
           postgresSchema = await this.postgreSQLSchemaFileParser.parsePostgreSQLSchemaFile(fileAvailability.filepath);
           sourceInfo = `Parsed from existing file: ${fileAvailability.filepath}`;
-          console.log(`✅ Successfully parsed ${postgresSchema.tables.length} tables from existing schema file`);
         } catch (parseError) {
           console.warn(`⚠️ Failed to parse existing schema file, will generate new one: ${parseError}`);
           fileAvailability.available = false;
@@ -1195,7 +1191,7 @@ ${mongodbOnly.length > 0 ? `  • ${mongodbOnly.length} MongoDB collections coul
         throw new Error('No tables found in PostgreSQL schema');
       }
       
-      console.log(`🔍 Converting ${postgresSchema.tables.length} PostgreSQL tables to MongoDB collections...`);
+      // Converting PostgreSQL tables to MongoDB collections...
       
       // Generate MongoDB schema
       const conversionResult = await this.mongoDBSchemaGenerator.generateMongoDBSchemaFromPostgreSQL(

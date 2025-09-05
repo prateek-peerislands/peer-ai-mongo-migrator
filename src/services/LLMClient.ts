@@ -206,17 +206,23 @@ AVAILABLE INTENTS:
    - embedding_rationale: Questions about why fields were embedded in documents
    - grouping_rationale: Questions about why tables/collections were grouped together
 
-9. CONFIGURATION:
+9. MONGODB_DOCUMENTATION:
+   - mongodb_documentation_query: General questions about MongoDB features and capabilities
+   - mongodb_best_practices: Questions about MongoDB best practices and recommendations
+   - mongodb_feature_explanation: Questions about specific MongoDB features and how they work
+   - mongodb_official_guidance: Questions requiring official MongoDB documentation and guidance
+
+10. CONFIGURATION:
    - credential_setup: Setting up credentials
    - configuration_change: Changing configuration
    - settings_management: Managing settings
 
-10. COMPLEX_OPERATIONS:
+11. COMPLEX_OPERATIONS:
    - comprehensive_analysis: Multi-step analysis
    - end_to_end_migration: Complete migration process
    - business_context_analysis: Business context analysis
 
-11. FALLBACK:
+12. FALLBACK:
     - unknown_intent: Intent not recognized
     - ambiguous_intent: Multiple possible intents
 
@@ -264,6 +270,16 @@ RATIONALE CONVERSATION EXAMPLES:
 - "What's the relationship between [table1] and [table2]?" → rationale_query
 - "How many collections are in MongoDB?" → rationale_query
 - "What's the migration strategy for this database?" → rationale_query
+
+MONGODB DOCUMENTATION EXAMPLES:
+- "What are MongoDB best practices for indexing?" → mongodb_best_practices
+- "How do MongoDB transactions work?" → mongodb_feature_explanation
+- "What's the recommended way to handle MongoDB aggregation?" → mongodb_official_guidance
+- "How to optimize MongoDB performance?" → mongodb_best_practices
+- "What is MongoDB Atlas vector search?" → mongodb_feature_explanation
+- "MongoDB data modeling best practices" → mongodb_best_practices
+- "How to use MongoDB Compass?" → mongodb_documentation_query
+- "MongoDB official migration tools" → mongodb_official_guidance
 
 CRITICAL PRIORITY RULES:
 1. ANY question about existing schema data (tables, fields, relationships, collections) → prioritize RATIONALE_CONVERSATION intents

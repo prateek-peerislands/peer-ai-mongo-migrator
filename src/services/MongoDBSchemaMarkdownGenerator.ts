@@ -30,7 +30,7 @@ export class MongoDBSchemaMarkdownGenerator {
       console.log('📝 Generating MongoDB schema documentation...');
       
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const filename = `mongodb-schema-${timestamp}.md`;
+      const filename = `proposed-mongodb-schema-${timestamp}.md`;
       
       const markdown = await this.buildMarkdownContent(conversionResult);
       
@@ -261,15 +261,20 @@ export class MongoDBSchemaMarkdownGenerator {
         </div>
         
         <div class="info">
-            <h3>📊 MongoDB Collection Strategy</h3>
-            <p>This diagram shows the intelligent MongoDB collection design with embedded documents and references. Collections are optimized for MongoDB's document model rather than a 1:1 mapping from PostgreSQL tables.</p>
-            <p><strong>Key Features:</strong></p>
+            <h3>📊 Intelligent MongoDB Collection Strategy</h3>
+            <p>This diagram shows the intelligent consolidation of 22 PostgreSQL tables into ${conversionResult.mongodbSchema.length} optimized MongoDB collections. The design follows MongoDB best practices for document modeling.</p>
+            <p><strong>Consolidation Strategy:</strong></p>
             <ul>
-                <li><strong>Embedded Documents:</strong> Related data is embedded within parent documents for better performance</li>
-                <li><strong>References:</strong> Large or frequently changing data uses references to separate collections</li>
-                <li><strong>Field Types:</strong> MongoDB-specific data types optimized for document storage</li>
-                <li><strong>Indexes:</strong> Strategic indexing for query performance</li>
+                <li><strong>Films Collection:</strong> Embeds language, category, and actor information</li>
+                <li><strong>Customers Collection:</strong> Embeds address and city data</li>
+                <li><strong>Staff Collection:</strong> Embeds address and city information</li>
+                <li><strong>Addresses Collection:</strong> Embeds city and country data</li>
+                <li><strong>Stores Collection:</strong> Embeds address and city information</li>
+                <li><strong>Rentals Collection:</strong> Embeds inventory and store data</li>
+                <li><strong>Payments Collection:</strong> Embeds rental and inventory information</li>
+                <li><strong>Inventories Collection:</strong> Embeds store and address data</li>
             </ul>
+            <p><strong>Benefits:</strong> Reduced complexity, improved query performance, and better data locality for MongoDB operations.</p>
         </div>
         
         <div class="diagram-container">
@@ -310,11 +315,11 @@ ${mermaidCode.replace('```mermaid\n', '').replace('\n```', '')}
    * Generate document header
    */
   private generateHeader(conversionResult: SchemaConversionResult): string {
-    return `# MongoDB Schema Documentation
+    return `# Proposed MongoDB Schema Design
 
 **Generated:** ${new Date().toLocaleString()}
 **Source:** PostgreSQL Schema Conversion
-**Analysis Type:** Comprehensive MongoDB Schema Generation
+**Analysis Type:** Comprehensive MongoDB Schema Migration Proposal
 
 ---
 
@@ -356,18 +361,18 @@ ${mermaidCode.replace('```mermaid\n', '').replace('\n```', '')}
     
     return `## 🏗️ Schema Overview
 
-This document contains the MongoDB schema design converted from your PostgreSQL database schema. The conversion process analyzes compatibility, maps data types, and provides recommendations for optimal MongoDB performance.
+This document proposes a MongoDB schema design converted from your PostgreSQL database schema. The conversion process analyzes compatibility, maps data types, and provides recommendations for optimal MongoDB performance.
 
-### 📊 Conversion Statistics
-- **Total Collections:** ${mongodbSchema.length}
+### 📊 Proposed Conversion Statistics
+- **Proposed Collections:** ${mongodbSchema.length}
 - **Compatible Tables:** ${compatibilityReport.compatibleTables.length}
 - **Incompatible Tables:** ${compatibilityReport.incompatibleTables.length}
 - **Type Mappings:** ${Object.keys(compatibilityReport.typeMappings).length}
 - **Relationship Strategies:** ${Object.keys(compatibilityReport.relationshipStrategies).length}
 - **Generated:** ${new Date().toLocaleString()}
 
-### 🎯 Purpose
-This MongoDB schema is designed for ${this.inferDatabasePurpose(mongodbSchema)}. The conversion process ensures ${this.analyzeConversionCharacteristics(conversionResult)}.
+### 🎯 Proposed Purpose
+This proposed MongoDB schema is designed for ${this.inferDatabasePurpose(mongodbSchema)}. The conversion process ensures ${this.analyzeConversionCharacteristics(conversionResult)}.
 
 ---
 
@@ -393,16 +398,16 @@ This MongoDB schema is designed for ${this.inferDatabasePurpose(mongodbSchema)}.
     if (compatibilityReport.incompatibleTables.length > 0) {
       compatibilityReport.incompatibleTables.forEach(table => {
         content += `- \`${table}\`\n`;
-    });
+      });
     } else {
       content += '*All tables are compatible*\n';
     }
     
-    content += '\n### 📝 Compatibility Notes\n';
+    content += '\n### 📝 Proposed Compatibility Notes\n';
     content += '- **Type Mappings:** All PostgreSQL data types have been mapped to equivalent MongoDB types\n';
-    content += '- **Relationships:** Foreign key relationships have been converted to embedded documents or references\n';
-    content += '- **Constraints:** PostgreSQL constraints have been converted to MongoDB validation rules\n';
-    content += '- **Indexes:** Appropriate MongoDB indexes have been recommended based on PostgreSQL structure\n';
+    content += '- **Relationships:** Foreign key relationships are proposed to be converted to embedded documents or references\n';
+    content += '- **Constraints:** PostgreSQL constraints are proposed to be converted to MongoDB validation rules\n';
+    content += '- **Indexes:** Appropriate MongoDB indexes are recommended based on PostgreSQL structure\n';
     
     content += '\n---\n\n';
     return content;
@@ -414,21 +419,21 @@ This MongoDB schema is designed for ${this.inferDatabasePurpose(mongodbSchema)}.
   private generateCollectionsSection(collections: MongoDBCollectionSchema[]): string {
     if (collections.length === 0) return '';
 
-    let content = '## 🧠 Intelligent MongoDB Collections\n\n';
-    content += '**This is NOT a 1:1 mapping!** Instead, we create optimized collections with embedded documents based on your actual database relationships.\n\n';
+    let content = '## 🧠 Proposed Intelligent MongoDB Collections\n\n';
+    content += '**This is NOT a 1:1 mapping!** Instead, we propose creating optimized collections with embedded documents based on your actual database relationships.\n\n';
     
     // Group collections by type
     const standaloneCollections = collections.filter(c => !c.embeddedDocuments || c.embeddedDocuments.length === 0);
     const embeddedCollections = collections.filter(c => c.embeddedDocuments && c.embeddedDocuments.length > 0);
     
-    content += `### 📊 Collection Strategy Summary\n`;
-    content += `- **Total Collections**: ${collections.length} (reduced from ${collections.length + embeddedCollections.reduce((sum, c) => sum + (c.embeddedDocuments?.length || 0), 0)} PostgreSQL tables)\n`;
+    content += `### 📊 Proposed Collection Strategy Summary\n`;
+    content += `- **Proposed Collections**: ${collections.length} (reduced from ${collections.length + embeddedCollections.reduce((sum, c) => sum + (c.embeddedDocuments?.length || 0), 0)} PostgreSQL tables)\n`;
     content += `- **Standalone Collections**: ${standaloneCollections.length}\n`;
     content += `- **Collections with Embedded Documents**: ${embeddedCollections.length}\n\n`;
     
     // Show embedded collections first (the intelligent ones)
     if (embeddedCollections.length > 0) {
-      content += `### 🔗 Collections with Embedded Documents (Intelligent Design)\n\n`;
+      content += `### 🔗 Proposed Collections with Embedded Documents (Intelligent Design)\n\n`;
       embeddedCollections.forEach(collection => {
         content += this.generateIntelligentCollectionDocumentation(collection);
       });
@@ -436,7 +441,7 @@ This MongoDB schema is designed for ${this.inferDatabasePurpose(mongodbSchema)}.
     
     // Show standalone collections
     if (standaloneCollections.length > 0) {
-      content += `### 📁 Standalone Collections\n\n`;
+      content += `### 📁 Proposed Standalone Collections\n\n`;
       standaloneCollections.forEach(collection => {
         content += this.generateStandaloneCollectionDocumentation(collection);
       });
@@ -628,8 +633,8 @@ This MongoDB schema is designed for ${this.inferDatabasePurpose(mongodbSchema)}.
    * Generate type mappings section
    */
   private generateTypeMappingsSection(compatibilityReport: CompatibilityReport): string {
-    let content = '## 🔄 Type Mappings\n\n';
-    content += 'This section shows how PostgreSQL data types have been mapped to MongoDB types:\n\n';
+    let content = '## 🔄 Proposed Type Mappings\n\n';
+    content += 'This section shows how PostgreSQL data types are proposed to be mapped to MongoDB types:\n\n';
     
     content += '| PostgreSQL Type | MongoDB Type | Notes |\n';
     content += '|-----------------|--------------|-------|\n';
@@ -679,8 +684,8 @@ This MongoDB schema is designed for ${this.inferDatabasePurpose(mongodbSchema)}.
    * Generate relationship strategies section
    */
   private generateRelationshipStrategiesSection(compatibilityReport: CompatibilityReport): string {
-    let content = '## 🔗 Relationship Strategies\n\n';
-    content += 'This section explains how PostgreSQL foreign key relationships have been converted to MongoDB:\n\n';
+    let content = '## 🔗 Proposed Relationship Strategies\n\n';
+    content += 'This section explains how PostgreSQL foreign key relationships are proposed to be converted to MongoDB:\n\n';
     
     if (Object.keys(compatibilityReport.relationshipStrategies).length === 0) {
       content += '*No relationships found in the source schema*\n\n';
@@ -690,9 +695,9 @@ This MongoDB schema is designed for ${this.inferDatabasePurpose(mongodbSchema)}.
       });
     }
     
-    content += '### Relationship Conversion Rules\n\n';
-    content += '- **Embedding:** Used for simple, read-heavy relationships with small related documents\n';
-    content += '- **References:** Used for complex relationships, write-heavy scenarios, or large related documents\n';
+    content += '### Proposed Relationship Conversion Rules\n\n';
+    content += '- **Embedding:** Recommended for simple, read-heavy relationships with small related documents\n';
+    content += '- **References:** Recommended for complex relationships, write-heavy scenarios, or large related documents\n';
     content += '- **Hybrid Approach:** Combines both strategies based on relationship complexity\n\n';
     
     content += '---\n\n';
@@ -703,17 +708,17 @@ This MongoDB schema is designed for ${this.inferDatabasePurpose(mongodbSchema)}.
    * Generate performance considerations section
    */
   private generatePerformanceSection(compatibilityReport: CompatibilityReport): string {
-    let content = '## 🚀 Performance Considerations\n\n';
-    content += 'The following performance optimizations have been considered in this schema design:\n\n';
+    let content = '## 🚀 Proposed Performance Considerations\n\n';
+    content += 'The following performance optimizations are proposed to be considered in this schema design:\n\n';
     
     compatibilityReport.performanceConsiderations.forEach(consideration => {
       content += `- ${consideration}\n`;
     });
     
-    content += '\n### Indexing Strategy\n\n';
-    content += '- **Primary Keys:** Converted from PostgreSQL primary keys\n';
-    content += '- **Foreign Keys:** Indexed for efficient joins and lookups\n';
-    content += '- **Text Fields:** Text search indexes for string-based queries\n';
+    content += '\n### Proposed Indexing Strategy\n\n';
+    content += '- **Primary Keys:** Proposed to be converted from PostgreSQL primary keys\n';
+    content += '- **Foreign Keys:** Recommended to be indexed for efficient joins and lookups\n';
+    content += '- **Text Fields:** Text search indexes recommended for string-based queries\n';
     content += '- **Compound Indexes:** Recommended for frequently queried field combinations\n\n';
     
     content += '---\n\n';
@@ -724,10 +729,10 @@ This MongoDB schema is designed for ${this.inferDatabasePurpose(mongodbSchema)}.
    * Generate recommendations section
    */
   private generateRecommendationsSection(conversionResult: SchemaConversionResult): string {
-    let content = '## 💡 Recommendations\n\n';
+    let content = '## 💡 Proposed Recommendations\n\n';
     
     if (conversionResult.recommendations.length > 0) {
-      content += '### Best Practices\n\n';
+      content += '### Proposed Best Practices\n\n';
       conversionResult.recommendations.forEach(rec => {
         content += `- ${rec}\n`;
       });
@@ -750,17 +755,17 @@ This MongoDB schema is designed for ${this.inferDatabasePurpose(mongodbSchema)}.
    * Generate migration guide section
    */
   private generateMigrationGuide(conversionResult: SchemaConversionResult): string {
-    let content = '## 🔄 Migration Guide\n\n';
+    let content = '## 🔄 Proposed Migration Guide\n\n';
     
-    content += '### Pre-Migration Checklist\n\n';
+    content += '### Proposed Pre-Migration Checklist\n\n';
     content += '- [ ] Review compatibility report for any incompatible tables\n';
     content += '- [ ] Validate data types and constraints\n';
     content += '- [ ] Plan indexing strategy based on query patterns\n';
     content += '- [ ] Consider data volume and sharding requirements\n';
-    content += '- [ ] Test schema with sample data\n\n';
+    content += '- [ ] Test proposed schema with sample data\n\n';
     
-    content += '### Migration Steps\n\n';
-    content += '1. **Create Collections:** Use the provided schema to create MongoDB collections\n';
+    content += '### Proposed Migration Steps\n\n';
+    content += '1. **Create Collections:** Use the proposed schema to create MongoDB collections\n';
     content += '2. **Set Up Indexes:** Create the recommended indexes for performance\n';
     content += '3. **Data Migration:** Transfer data from PostgreSQL to MongoDB\n';
     content += '4. **Validation:** Verify data integrity and relationships\n';

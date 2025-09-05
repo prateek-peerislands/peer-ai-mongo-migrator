@@ -1,15 +1,19 @@
 import fs from 'fs';
 import path from 'path';
+import chalk from 'chalk';
 import { LLMClient } from './LLMClient.js';
 import { IntentMappingService } from './IntentMappingService.js';
 import { PostgreSQLSchemaFileParser } from './PostgreSQLSchemaFileParser.js';
-// import { MongoDBSchemaFileParser } from './MongoDBSchemaFileParser.js';
-// import { MigrationAnalysisFileParser } from './MigrationAnalysisFileParser.js';
+import { MongoDBSchemaFileParser } from './MongoDBSchemaFileParser.js';
+import { MigrationAnalysisFileParser } from './MigrationAnalysisFileParser.js';
+import { MongoDBDocumentationService } from './MongoDBDocumentationService.js';
+import { UnifiedKnowledgeService } from './UnifiedKnowledgeService.js';
 
 export interface AnalysisContext {
   postgresSchema?: any;
   mongodbSchema?: any;
   migrationAnalysis?: any;
+  mongodbDocumentation?: any;
   latestFiles: {
     postgres?: string;
     mongodb?: string;
@@ -29,15 +33,74 @@ export class RationaleConversationService {
   private llmClient: LLMClient;
   private intentMappingService: IntentMappingService;
   private postgresParser: PostgreSQLSchemaFileParser;
-  // private mongodbParser: MongoDBSchemaFileParser;
-  // private migrationParser: MigrationAnalysisFileParser;
+  private mongodbParser: MongoDBSchemaFileParser;
+  private migrationParser: MigrationAnalysisFileParser;
+  private mongodbDocsService: MongoDBDocumentationService;
+  private unifiedKnowledgeService: UnifiedKnowledgeService;
 
   constructor() {
     this.llmClient = LLMClient.getInstance();
     this.intentMappingService = IntentMappingService.getInstance();
     this.postgresParser = new PostgreSQLSchemaFileParser();
-    // this.mongodbParser = new MongoDBSchemaFileParser();
-    // this.migrationParser = new MigrationAnalysisFileParser();
+    this.mongodbParser = new MongoDBSchemaFileParser();
+    this.migrationParser = new MigrationAnalysisFileParser();
+    this.mongodbDocsService = MongoDBDocumentationService.getInstance();
+    this.unifiedKnowledgeService = UnifiedKnowledgeService.getInstance();
+  }
+
+  /**
+   * Handle comprehensive queries using unified knowledge service
+   */
+  async handleComprehensiveQuery(userQuery: string, projectPath: string = process.cwd()): Promise<any> {
+    try {
+      console.log(chalk.blue(`🧠 Processing comprehensive query: "${userQuery}"`));
+      
+      // Use the unified knowledge service for comprehensive answers
+      const unifiedResponse = await this.unifiedKnowledgeService.processQuery(userQuery, projectPath);
+      
+      // Format response for consistency with existing interface
+      const response: RationaleResponse = {
+        answer: unifiedResponse.answer,
+        context: {
+          sourceFiles: this.getSourceFilesFromResponse(unifiedResponse),
+          analysisType: this.determineAnalysisTypeFromSources(unifiedResponse.sources)
+        }
+      };
+      
+      // Add compliance information if available
+      if (unifiedResponse.compliance) {
+        response.answer += `\n\n📊 **Compliance Analysis:**\n`;
+        if (unifiedResponse.compliance.isCompliant) {
+          response.answer += `✅ **Compliant** - Follows MongoDB best practices\n`;
+        } else {
+          response.answer += `⚠️ **Needs Review** - ${unifiedResponse.compliance.warnings.length} warning(s)\n`;
+        }
+        
+        if (unifiedResponse.compliance.recommendations.length > 0) {
+          response.answer += `\n💡 **Recommendations:**\n`;
+          unifiedResponse.compliance.recommendations.forEach(rec => {
+            response.answer += `• ${rec}\n`;
+          });
+        }
+      }
+      
+      // Add confidence and reasoning
+      response.answer += `\n\n🎯 **Response Confidence:** ${Math.round(unifiedResponse.confidence * 100)}%\n`;
+      response.answer += `📚 **Knowledge Sources:** ${Object.entries(unifiedResponse.sources).filter(([_, used]) => used).map(([source, _]) => source).join(', ')}\n`;
+      response.answer += `🧠 **Reasoning:** ${unifiedResponse.reasoning}\n`;
+      
+      return response;
+      
+    } catch (error) {
+      console.error('❌ Comprehensive query processing failed:', error);
+      return {
+        answer: 'I apologize, but I encountered an error while processing your comprehensive query. Please try again.',
+        context: {
+          sourceFiles: [],
+          analysisType: 'comparison'
+        }
+      };
+    }
   }
 
   /**
@@ -49,7 +112,7 @@ export class RationaleConversationService {
       const context = await this.detectAnalysisContext(projectPath);
       
       // 2. Check if we have the necessary files
-      if (!this.hasRequiredFiles(context, userQuery)) {
+      if (!(await this.hasRequiredFiles(context, userQuery))) {
         return this.generateMissingFilesResponse(context, userQuery);
       }
 
@@ -76,29 +139,16 @@ export class RationaleConversationService {
    * Detect available analysis files in the project directory
    */
   private async detectAnalysisContext(projectPath: string): Promise<AnalysisContext> {
-    const files = fs.readdirSync(projectPath);
-    
-    // Find latest files by type
-    const postgresFiles = files
-      .filter(file => file.startsWith('postgres-schema-') && file.endsWith('.md'))
-      .sort()
-      .reverse();
-    
-    const mongodbFiles = files
-      .filter(file => file.startsWith('mongodb-schema-') && file.endsWith('.md'))
-      .sort()
-      .reverse();
-    
-    const migrationFiles = files
-      .filter(file => file.includes('-analysis-') && file.endsWith('.md'))
-      .sort()
-      .reverse();
+    // Use the proper parsers to find latest files
+    const postgresFile = this.postgresParser.findLatestPostgreSQLSchemaFile();
+    const mongodbFile = this.mongodbParser.findLatestMongoDBSchemaFile(projectPath);
+    const migrationFile = this.migrationParser.findLatestMigrationAnalysisFile(projectPath);
 
     return {
       latestFiles: {
-        postgres: postgresFiles[0] || undefined,
-        mongodb: mongodbFiles[0] || undefined,
-        migration: migrationFiles[0] || undefined
+        postgres: postgresFile || undefined,
+        mongodb: mongodbFile || undefined,
+        migration: migrationFile || undefined
       }
     };
   }
@@ -106,11 +156,11 @@ export class RationaleConversationService {
   /**
    * Check if we have the required files for the query
    */
-  private hasRequiredFiles(context: AnalysisContext, query: string): boolean {
+  private async hasRequiredFiles(context: AnalysisContext, query: string): Promise<boolean> {
     const queryLower = query.toLowerCase();
     
     // For rationale questions, we need at least one schema file
-    if (this.isRationaleQuery(queryLower)) {
+    if (await this.isRationaleQuery(queryLower)) {
       return !!(context.latestFiles.postgres || context.latestFiles.mongodb);
     }
     
@@ -152,14 +202,29 @@ export class RationaleConversationService {
       if (!context.latestFiles.mongodb) missingFiles.push('MongoDB schema analysis');
     }
 
-    const answer = `To answer your question about the rationale behind the analysis, I need the following files to be generated first:
+    const answer = `I'd love to help you with that question! However, I need the following analysis files to be generated first:
 
 ${missingFiles.map(file => `• ${file}`).join('\n')}
 
-Please run the following commands to generate the required analysis:
+**To generate these files, please run:**
 ${this.getRequiredCommands(missingFiles)}
 
-Once you have generated these files, I'll be able to provide detailed explanations about the design decisions and rationale behind the schema transformations.`;
+**What I can do once you have these files:**
+• Answer detailed questions about your database schema
+• Explain the rationale behind migration decisions
+• Provide insights about table relationships and transformations
+• Help you understand the business logic behind design choices
+• Compare PostgreSQL and MongoDB schemas
+• Explain embedding and grouping strategies
+
+**Example questions I can answer:**
+• "Why was the user table structured this way in MongoDB?"
+• "What's the relationship between orders and customers?"
+• "How many fields does the products table have?"
+• "Why did you choose to embed the address data?"
+• "What's the migration strategy for this database?"
+
+Just run the commands above, and then ask me anything about your database! 🚀`;
 
     return {
       answer,
@@ -178,42 +243,78 @@ Once you have generated these files, I'll be able to provide detailed explanatio
     const queryLower = query.toLowerCase();
 
     // For rationale queries, parse all available files to provide comprehensive context
-    if (this.isRationaleQuery(queryLower)) {
+    if (await this.isRationaleQuery(queryLower)) {
       if (context.latestFiles.postgres) {
-        parsedData.postgres = await this.parseMarkdownFile(
-          path.join(process.cwd(), context.latestFiles.postgres)
-        );
+        try {
+          parsedData.postgres = await this.postgresParser.parsePostgreSQLSchemaFile(context.latestFiles.postgres);
+        } catch (error) {
+          console.warn('Failed to parse PostgreSQL schema file:', error);
+          parsedData.postgres = await this.parseMarkdownFile(context.latestFiles.postgres);
+        }
       }
       
       if (context.latestFiles.mongodb) {
-        parsedData.mongodb = await this.parseMarkdownFile(
-          path.join(process.cwd(), context.latestFiles.mongodb)
-        );
+        try {
+          parsedData.mongodb = await this.mongodbParser.parseSchemaFile(context.latestFiles.mongodb);
+        } catch (error) {
+          console.warn('Failed to parse MongoDB schema file:', error);
+          parsedData.mongodb = await this.parseMarkdownFile(context.latestFiles.mongodb);
+        }
       }
       
       if (context.latestFiles.migration) {
-        parsedData.migration = await this.parseMarkdownFile(
-          path.join(process.cwd(), context.latestFiles.migration)
-        );
+        try {
+          parsedData.migration = await this.migrationParser.parseAnalysisFile(context.latestFiles.migration);
+        } catch (error) {
+          console.warn('Failed to parse migration analysis file:', error);
+          parsedData.migration = await this.parseMarkdownFile(context.latestFiles.migration);
+        }
+      }
+
+      // NEW: Add MongoDB Documentation for rationale queries
+      if (this.needsMongoDBDocumentation(queryLower)) {
+        try {
+          parsedData.mongodbDocs = await this.mongodbDocsService.getRelevantDocumentation(query);
+        } catch (error) {
+          console.warn('Failed to fetch MongoDB documentation:', error);
+        }
       }
     } else {
       // For specific queries, parse only relevant files
       if (this.isPostgresQuery(queryLower) && context.latestFiles.postgres) {
-        parsedData.postgres = await this.parseMarkdownFile(
-          path.join(process.cwd(), context.latestFiles.postgres)
-        );
+        try {
+          parsedData.postgres = await this.postgresParser.parsePostgreSQLSchemaFile(context.latestFiles.postgres);
+        } catch (error) {
+          console.warn('Failed to parse PostgreSQL schema file:', error);
+          parsedData.postgres = await this.parseMarkdownFile(context.latestFiles.postgres);
+        }
       }
 
       if (this.isMongoDBQuery(queryLower) && context.latestFiles.mongodb) {
-        parsedData.mongodb = await this.parseMarkdownFile(
-          path.join(process.cwd(), context.latestFiles.mongodb)
-        );
+        try {
+          parsedData.mongodb = await this.mongodbParser.parseSchemaFile(context.latestFiles.mongodb);
+        } catch (error) {
+          console.warn('Failed to parse MongoDB schema file:', error);
+          parsedData.mongodb = await this.parseMarkdownFile(context.latestFiles.mongodb);
+        }
       }
 
       if (this.isMigrationQuery(queryLower) && context.latestFiles.migration) {
-        parsedData.migration = await this.parseMarkdownFile(
-          path.join(process.cwd(), context.latestFiles.migration)
-        );
+        try {
+          parsedData.migration = await this.migrationParser.parseAnalysisFile(context.latestFiles.migration);
+        } catch (error) {
+          console.warn('Failed to parse migration analysis file:', error);
+          parsedData.migration = await this.parseMarkdownFile(context.latestFiles.migration);
+        }
+      }
+
+      // NEW: Add MongoDB Documentation for specific MongoDB queries
+      if (this.needsMongoDBDocumentation(queryLower)) {
+        try {
+          parsedData.mongodbDocs = await this.mongodbDocsService.getRelevantDocumentation(query);
+        } catch (error) {
+          console.warn('Failed to fetch MongoDB documentation:', error);
+        }
       }
     }
 
@@ -228,26 +329,22 @@ Once you have generated these files, I'll be able to provide detailed explanatio
     parsedData: any, 
     context: AnalysisContext
   ): Promise<RationaleResponse> {
-    const systemPrompt = this.buildSystemPrompt(parsedData, context);
+    const systemPrompt = this.buildSystemPrompt(parsedData, context, query);
     const queryType = this.determineQueryType(query);
     
     const userPrompt = `User Question: ${query}
 
 RESPONSE REQUIREMENTS:
-• Maximum 70-80 words
-• Use bullet points (•) or numbers (1. 2. 3.)
-• Reference ONLY actual schema data above
-• NO generic examples
+• Provide concise, direct answers (70-80 words maximum)
+• Use simple, human-readable language
+• Reference ONLY actual schema data from above
+• Include specific examples from the actual database
+• NO markdown formatting, bullet points, or technical jargon
+• NO generic examples - use only data from the actual schema
 
 QUERY TYPE: ${queryType}
 
-Answer the user's question using the actual schema data provided above. Focus on:
-1. Specific details from the actual database schema
-2. Real table/collection names and field names
-3. Actual relationships and transformations
-4. Concrete benefits/trade-offs for this specific migration
-
-Format: Bullet points for clarity.`;
+Answer the user's question using the actual schema data provided above. Be direct and conversational.`;
 
     const response = await this.llmClient.generateTextResponse(systemPrompt, userPrompt);
     
@@ -266,8 +363,8 @@ Format: Bullet points for clarity.`;
   /**
    * Build system prompt with relevant context
    */
-  private buildSystemPrompt(parsedData: any, context: AnalysisContext): string {
-    let prompt = `You are an expert database architect. Provide CONCISE, SPECIFIC answers based on the actual database schema data below.
+  private buildSystemPrompt(parsedData: any, context: AnalysisContext, query?: string): string {
+    let prompt = `You are an expert database architect and migration specialist. Provide detailed, specific answers based on the actual database schema data below.
 
 ACTUAL SCHEMA DATA:
 `;
@@ -275,50 +372,110 @@ ACTUAL SCHEMA DATA:
     if (parsedData.postgres) {
       prompt += `
 PostgreSQL Schema Data:
-${this.formatExtractedTables(parsedData.postgres.tables || [])}
+${this.formatStructuredPostgresData(parsedData.postgres, query)}
 
 PostgreSQL Relationships:
-${this.formatExtractedRelationships(parsedData.postgres.relationships || [])}
+${this.formatStructuredRelationships(parsedData.postgres.relationships || [])}
+
+PostgreSQL Summary:
+${this.formatPostgresSummary(parsedData.postgres.summary || {})}
 `;
     }
 
     if (parsedData.mongodb) {
       prompt += `
 MongoDB Schema Data:
-${this.formatExtractedTables(parsedData.mongodb.tables || [])}
+${this.formatStructuredMongoDBData(parsedData.mongodb)}
 
 MongoDB Relationships:
-${this.formatExtractedRelationships(parsedData.mongodb.relationships || [])}
+${this.formatStructuredMongoDBRelationships(parsedData.mongodb.relationships || [])}
+
+MongoDB Summary:
+${this.formatMongoDBSummary(parsedData.mongodb.summary || {})}
 `;
     }
 
     if (parsedData.migration) {
       prompt += `
+Migration Analysis Data:
+${this.formatStructuredMigrationData(parsedData.migration)}
+
 Migration Transformations:
-${this.formatExtractedTransformations(parsedData.migration.transformations || [])}
+${this.formatStructuredTransformations(parsedData.migration.transformationRules || [])}
+
+Migration Recommendations:
+${this.formatStructuredRecommendations(parsedData.migration.recommendations || [])}
+`;
+    }
+
+    // NEW: Add MongoDB Documentation
+    if (parsedData.mongodbDocs) {
+      prompt += `
+MongoDB Official Documentation:
+${parsedData.mongodbDocs}
 `;
     }
 
     prompt += `
 
 RESPONSE RULES:
-• Use ONLY actual table/collection names from above
-• Reference specific fields and relationships from the data
-• Maximum 70-80 words
-• Use bullet points (•) or numbers (1. 2. 3.)
-• Be specific to this database schema
-• NO generic examples or theoretical explanations
-• Focus on concrete benefits and trade-offs`;
+• Use ONLY actual table/collection names from the data above
+• Reference specific fields, relationships, and transformations from the actual data
+• Provide detailed explanations with concrete examples from this specific schema
+• Use bullet points (•) or numbers (1. 2. 3.) for clarity
+• Be specific to this database schema and migration context
+• Include technical details and business rationale
+• Reference actual field types, constraints, and relationships
+• Explain the reasoning behind specific design decisions
+• When referencing MongoDB best practices, cite the official documentation
+• Combine your specific schema data with MongoDB official recommendations
+• NO generic examples - use only data from the actual schema and official MongoDB docs`;
 
     return prompt;
   }
 
   /**
-   * Helper methods to determine query intent
+   * Helper methods to determine query intent using LLM for dynamic detection
    */
-  private isRationaleQuery(query: string): boolean {
-    const rationaleKeywords = ['why', 'rationale', 'reason', 'explain', 'justify', 'decision', 'thinking', 'logic', 'how', 'what', 'when', 'where'];
-    return rationaleKeywords.some(keyword => query.includes(keyword));
+  private async isRationaleQuery(query: string): Promise<boolean> {
+    try {
+      const llmClient = LLMClient.getInstance();
+      const systemPrompt = `You are an expert at analyzing database-related queries. Determine if this query requires database analysis context to answer properly.
+
+A query needs database context if it asks about:
+- Database structure (tables, collections, fields, relationships)
+- Data migration or transformation
+- Schema analysis or comparison
+- Performance or optimization
+- Data relationships or constraints
+- Counts or statistics about the database
+- Specific database entities or their properties
+
+Respond with just "true" or "false".`;
+
+      const response = await llmClient.generateTextResponse(systemPrompt, `Query: "${query}"`);
+
+      return response.trim().toLowerCase() === 'true';
+    } catch (error) {
+      console.warn('Failed to analyze query with LLM, using fallback:', error);
+      return this.fallbackRationaleDetection(query);
+    }
+  }
+
+  /**
+   * Fallback rationale detection when LLM fails
+   */
+  private fallbackRationaleDetection(query: string): boolean {
+    const rationaleKeywords = [
+      'why', 'rationale', 'reason', 'explain', 'justify', 'decision', 'thinking', 'logic', 
+      'how', 'what', 'when', 'where', 'which', 'who', 'show', 'tell', 'describe',
+      'count', 'number', 'total', 'list', 'find', 'search', 'look', 'see',
+      'relationship', 'connection', 'link', 'between', 'among', 'across',
+      'field', 'column', 'table', 'collection', 'document', 'schema',
+      'migration', 'transform', 'convert', 'change', 'strategy', 'approach',
+      'embed', 'group', 'combine', 'merge', 'split', 'separate'
+    ];
+    return rationaleKeywords.some(keyword => query.toLowerCase().includes(keyword));
   }
 
   private isPostgresQuery(query: string): boolean {
@@ -334,6 +491,52 @@ RESPONSE RULES:
   private isMigrationQuery(query: string): boolean {
     const migrationKeywords = ['migrate', 'transform', 'convert', 'embed', 'group'];
     return migrationKeywords.some(keyword => query.includes(keyword));
+  }
+
+  /**
+   * Determine if MongoDB documentation is needed for the query
+   */
+  private needsMongoDBDocumentation(query: string): boolean {
+    const mongodbDocsKeywords = [
+      'mongodb', 'mongo', 'collection', 'document', 'bson', 'nosql',
+      'atlas', 'compass', 'aggregation', 'pipeline', 'index', 'performance',
+      'transaction', 'acid', 'consistency', 'best practice', 'recommendation',
+      'official', 'documentation', 'guide', 'tutorial', 'example',
+      'vector search', 'search', 'full text', 'embedded', 'referenced',
+      'data modeling', 'schema design', 'relationships', 'optimization'
+    ];
+    
+    const queryLower = query.toLowerCase();
+    return mongodbDocsKeywords.some(keyword => queryLower.includes(keyword)) ||
+           queryLower.includes('how to') ||
+           queryLower.includes('what is') ||
+           queryLower.includes('best way') ||
+           queryLower.includes('recommended');
+  }
+
+  /**
+   * Get source files from unified response
+   */
+  private getSourceFilesFromResponse(unifiedResponse: any): string[] {
+    const sourceFiles: string[] = [];
+    
+    if (unifiedResponse.sources.postgres) sourceFiles.push('PostgreSQL Schema');
+    if (unifiedResponse.sources.mongodb) sourceFiles.push('MongoDB Schema');
+    if (unifiedResponse.sources.migration) sourceFiles.push('Migration Analysis');
+    if (unifiedResponse.sources.mongodbDocs) sourceFiles.push('MongoDB Documentation');
+    
+    return sourceFiles;
+  }
+
+  /**
+   * Determine analysis type from sources used
+   */
+  private determineAnalysisTypeFromSources(sources: any): 'postgres' | 'mongodb' | 'migration' | 'comparison' {
+    if (sources.migration) return 'migration';
+    if (sources.postgres && sources.mongodb) return 'comparison';
+    if (sources.mongodb) return 'mongodb';
+    if (sources.postgres) return 'postgres';
+    return 'comparison';
   }
 
   private determineAnalysisType(query: string, context: AnalysisContext): 'postgres' | 'mongodb' | 'migration' | 'comparison' {
@@ -392,7 +595,7 @@ RESPONSE RULES:
   private formatPostgresTables(tables: any[]): string {
     if (!tables || tables.length === 0) return 'No tables found';
     
-    return tables.slice(0, 10).map(table => 
+    return tables.map(table => 
       `- ${table.name}: ${table.columns?.length || 0} columns`
     ).join('\n');
   }
@@ -403,7 +606,7 @@ RESPONSE RULES:
   private formatPostgresRelationships(relationships: any[]): string {
     if (!relationships || relationships.length === 0) return 'No relationships found';
     
-    return relationships.slice(0, 5).map(rel => 
+    return relationships.map(rel => 
       `- ${rel.fromTable} → ${rel.toTable} (${rel.type})`
     ).join('\n');
   }
@@ -414,7 +617,7 @@ RESPONSE RULES:
   private formatMongoDBCollections(collections: any[]): string {
     if (!collections || collections.length === 0) return 'No collections found';
     
-    return collections.slice(0, 10).map(collection => 
+    return collections.map(collection => 
       `- ${collection.name}: ${collection.documents?.length || 0} document types`
     ).join('\n');
   }
@@ -425,7 +628,7 @@ RESPONSE RULES:
   private formatMigrationTransformations(transformations: any[]): string {
     if (!transformations || transformations.length === 0) return 'No transformations found';
     
-    return transformations.slice(0, 5).map(trans => 
+    return transformations.map(trans => 
       `- ${trans.sourceType} → ${trans.targetType}: ${trans.description}`
     ).join('\n');
   }
@@ -436,8 +639,8 @@ RESPONSE RULES:
   private formatExtractedTables(tables: any[]): string {
     if (!tables || tables.length === 0) return 'No tables/collections found';
     
-    return tables.slice(0, 10).map(table => {
-      const fields = table.fields?.slice(0, 5).map((f: any) => f.name).join(', ') || 'no fields';
+    return tables.map(table => {
+      const fields = table.fields?.map((f: any) => f.name).join(', ') || 'no fields';
       return `- ${table.name} (${table.type}): ${fields}`;
     }).join('\n');
   }
@@ -448,7 +651,7 @@ RESPONSE RULES:
   private formatExtractedRelationships(relationships: any[]): string {
     if (!relationships || relationships.length === 0) return 'No relationships found';
     
-    return relationships.slice(0, 8).map(rel => {
+    return relationships.map(rel => {
       if (rel.type === 'foreign_key') {
         return `- ${rel.fromTable}.${rel.fromField} → ${rel.toTable}.${rel.toField}`;
       } else if (rel.type === 'embedded') {
@@ -464,9 +667,186 @@ RESPONSE RULES:
   private formatExtractedTransformations(transformations: any[]): string {
     if (!transformations || transformations.length === 0) return 'No transformations found';
     
-    return transformations.slice(0, 8).map(trans => 
+    return transformations.map(trans => 
       `- ${trans.sourceName} (${trans.sourceType}) → ${trans.targetName} (${trans.targetType})`
     ).join('\n');
+  }
+
+  /**
+   * Format structured PostgreSQL data for prompt
+   */
+  private formatStructuredPostgresData(postgresData: any, query?: string): string {
+    if (!postgresData || !postgresData.tables) return 'No PostgreSQL data available';
+    
+    let result = `Tables (${postgresData.tables.length}):\n`;
+    
+    // If query mentions a specific table, prioritize it
+    let tablesToShow = postgresData.tables;
+    if (query) {
+      const queryLower = query.toLowerCase();
+      const matchingTable = postgresData.tables.find((table: any) => 
+        queryLower.includes(table.name.toLowerCase())
+      );
+      if (matchingTable) {
+        // Show the matching table first, then others
+        tablesToShow = [matchingTable, ...postgresData.tables.filter((t: any) => t.name !== matchingTable.name)];
+      }
+    }
+    
+    // Show all tables, but prioritize the queried table if mentioned
+    tablesToShow.forEach((table: any) => {
+      result += `• ${table.name}:\n`;
+      if (table.columns) {
+        table.columns.forEach((col: any) => {
+          result += `  - ${col.name}: ${col.type} ${col.nullable ? '(nullable)' : '(not null)'} ${col.isPrimary ? '[PRIMARY KEY]' : ''}\n`;
+        });
+      }
+      if (table.foreignKeys && table.foreignKeys.length > 0) {
+        result += `  Foreign Keys: ${table.foreignKeys.map((fk: any) => `${fk.column} → ${fk.referencedTable}.${fk.referencedColumn}`).join(', ')}\n`;
+      }
+    });
+    
+    if (postgresData.views && postgresData.views.length > 0) {
+      result += `\nViews (${postgresData.views.length}):\n`;
+      postgresData.views.forEach((view: any) => {
+        result += `• ${view.name}\n`;
+      });
+    }
+    
+    if (postgresData.functions && postgresData.functions.length > 0) {
+      result += `\nFunctions (${postgresData.functions.length}):\n`;
+      postgresData.functions.forEach((func: any) => {
+        result += `• ${func.name}() → ${func.returnType}\n`;
+      });
+    }
+    
+    return result;
+  }
+
+  /**
+   * Format structured MongoDB data for prompt
+   */
+  private formatStructuredMongoDBData(mongodbData: any): string {
+    if (!mongodbData || !mongodbData.collections) return 'No MongoDB data available';
+    
+    let result = `Collections (${mongodbData.collections.length}):\n`;
+    mongodbData.collections.forEach((collection: any) => {
+      result += `• ${collection.name}:\n`;
+      if (collection.documents) {
+        collection.documents.forEach((doc: any) => {
+          result += `  - ${doc.name} Document:\n`;
+          if (doc.fields) {
+            doc.fields.forEach((field: any) => {
+              result += `    - ${field.name}: ${field.type} ${field.required ? '(required)' : '(optional)'}\n`;
+            });
+          }
+        });
+      }
+    });
+    
+    if (mongodbData.embeddedDocuments && mongodbData.embeddedDocuments.length > 0) {
+      result += `\nEmbedded Documents (${mongodbData.embeddedDocuments.length}):\n`;
+      mongodbData.embeddedDocuments.forEach((embedded: any) => {
+        result += `• ${embedded.documentName} (in ${embedded.parentCollection})\n`;
+      });
+    }
+    
+    return result;
+  }
+
+  /**
+   * Format structured migration data for prompt
+   */
+  private formatStructuredMigrationData(migrationData: any): string {
+    if (!migrationData) return 'No migration data available';
+    
+    let result = '';
+    
+    if (migrationData.transformationRules && migrationData.transformationRules.length > 0) {
+      result += `Transformation Rules (${migrationData.transformationRules.length}):\n`;
+      migrationData.transformationRules.forEach((rule: any) => {
+        result += `• ${rule.sourceType} → ${rule.targetType}: ${rule.description}\n`;
+        if (rule.rationale) {
+          result += `  Rationale: ${rule.rationale}\n`;
+        }
+      });
+    }
+    
+    if (migrationData.dataMapping && migrationData.dataMapping.length > 0) {
+      result += `\nData Mappings (${migrationData.dataMapping.length}):\n`;
+      migrationData.dataMapping.forEach((mapping: any) => {
+        result += `• ${mapping.sourceField} → ${mapping.targetField}: ${mapping.transformation}\n`;
+      });
+    }
+    
+    return result;
+  }
+
+  /**
+   * Format structured relationships for prompt
+   */
+  private formatStructuredRelationships(relationships: any[]): string {
+    if (!relationships || relationships.length === 0) return 'No relationships found';
+    
+    return relationships.map(rel => {
+      if (rel.type === 'foreign_key') {
+        return `• ${rel.fromTable}.${rel.fromField} → ${rel.toTable}.${rel.toField} (FK)`;
+      } else if (rel.type === 'embedded') {
+        return `• ${rel.fromTable} → embedded in ${rel.toTable}`;
+      }
+      return `• ${rel.fromTable} → ${rel.toTable} (${rel.type})`;
+    }).join('\n');
+  }
+
+  /**
+   * Format structured MongoDB relationships for prompt
+   */
+  private formatStructuredMongoDBRelationships(relationships: any[]): string {
+    if (!relationships || relationships.length === 0) return 'No relationships found';
+    
+    return relationships.map(rel => 
+      `• ${rel.from} → ${rel.to} (${rel.type})`
+    ).join('\n');
+  }
+
+  /**
+   * Format structured transformations for prompt
+   */
+  private formatStructuredTransformations(transformations: any[]): string {
+    if (!transformations || transformations.length === 0) return 'No transformations found';
+    
+    return transformations.map(trans => 
+      `• ${trans.sourceType} → ${trans.targetType}: ${trans.description}`
+    ).join('\n');
+  }
+
+  /**
+   * Format structured recommendations for prompt
+   */
+  private formatStructuredRecommendations(recommendations: any[]): string {
+    if (!recommendations || recommendations.length === 0) return 'No recommendations found';
+    
+    return recommendations.map(rec => 
+      `• [${rec.priority.toUpperCase()}] ${rec.title}: ${rec.description}`
+    ).join('\n');
+  }
+
+  /**
+   * Format PostgreSQL summary for prompt
+   */
+  private formatPostgresSummary(summary: any): string {
+    if (!summary) return 'No summary available';
+    
+    return `Total Tables: ${summary.totalTables || 0}, Views: ${summary.totalViews || 0}, Functions: ${summary.totalFunctions || 0}, Triggers: ${summary.totalTriggers || 0}`;
+  }
+
+  /**
+   * Format MongoDB summary for prompt
+   */
+  private formatMongoDBSummary(summary: any): string {
+    if (!summary) return 'No summary available';
+    
+    return `Total Collections: ${summary.totalCollections || 0}, Documents: ${summary.totalDocuments || 0}, Indexes: ${summary.totalIndexes || 0}`;
   }
 
   /**

@@ -575,7 +575,7 @@ ${schema.impactMatrix && schema.impactMatrix.length > 0 ? `- **Impact Matrix:** 
       content += `**Owner:** ${process.owner}\n`;
       content += `**Trigger:** ${process.trigger}\n`;
       content += `**Criticality:** ${process.criticality}\n`;
-      content += `**Estimated Duration:** ${process.estimatedDuration}\n\n`;
+      // Estimated duration removed as requested
 
       content += '**Stakeholders:**\n';
       process.stakeholders.forEach(stakeholder => {
@@ -869,7 +869,7 @@ ${schema.impactMatrix && schema.impactMatrix.length > 0 ? `- **Impact Matrix:** 
       content += `    ${cleanTableName} {\n`;
       
       // Only add a few key columns to keep it simple
-      const keyColumns = table.columns.slice(0, 3); // Limit to 3 columns
+      const keyColumns = table.columns; // Show all columns
       keyColumns.forEach(col => {
         // Use simple, clean data types for Mermaid
         let cleanType = 'string';
