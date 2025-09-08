@@ -1425,26 +1425,26 @@ ${this.generateControllerAnalysisTable(analysis)}
 
 ### **High-Impact Files (Complete Rewrite Required)**
 
-| File Path | Current Purpose | Dependencies |
-|-----------|----------------|--------------|
+| File Path | Current Purpose | Migration Requirements |
+|-----------|----------------|----------------------|
 ${this.generateHighImpactFilesTable(analysis)}
 
 ### **Medium-Impact Files (Significant Modifications)**
 
-| File Path | Current Purpose | Dependencies |
-|-----------|----------------|--------------|
+| File Path | Current Purpose | Migration Requirements |
+|-----------|----------------|----------------------|
 ${this.generateMediumImpactFilesTable(analysis)}
 
 ### **Low-Impact Files (Minor Modifications)**
 
-| File Path | Current Purpose | Dependencies |
-|-----------|----------------|--------------|
+| File Path | Current Purpose | Migration Requirements |
+|-----------|----------------|----------------------|
 ${this.generateLowImpactFilesTable(analysis)}
 
 ### **Configuration Files**
 
-| File Path | Current Purpose | Dependencies |
-|-----------|----------------|--------------|
+| File Path | Current Purpose | Migration Requirements |
+|-----------|----------------|----------------------|
 | \`pom.xml\` | Maven dependencies | None |
 | \`application.properties\` | Spring Boot config | None |
 | \`package.json\` | Node.js dependencies | None |
@@ -1452,8 +1452,8 @@ ${this.generateLowImpactFilesTable(analysis)}
 
 ### **New Files to Create**
 
-| File Path | Purpose | Dependencies |
-|-----------|---------|--------------|
+| File Path | Purpose | Migration Requirements |
+|-----------|---------|----------------------|
 | \`server.js\` | Main application entry point | None |
 | \`config/database.js\` | MongoDB connection configuration | None |
 | \`models/*.js\` | MongoDB schema definitions | Data model |
@@ -1593,26 +1593,26 @@ ${controllerTable}
 
 ### **High-Impact Files (Complete Rewrite Required)**
 
-| File Path | Current Purpose | Dependencies |
-|-----------|----------------|--------------|
+| File Path | Current Purpose | Migration Requirements |
+|-----------|----------------|----------------------|
 ${this.generateHighImpactFilesTable(analysis)}
 
 ### **Medium-Impact Files (Significant Modifications)**
 
-| File Path | Current Purpose | Dependencies |
-|-----------|----------------|--------------|
+| File Path | Current Purpose | Migration Requirements |
+|-----------|----------------|----------------------|
 ${this.generateMediumImpactFilesTable(analysis)}
 
 ### **Low-Impact Files (Minor Modifications)**
 
-| File Path | Current Purpose | Dependencies |
-|-----------|----------------|--------------|
+| File Path | Current Purpose | Migration Requirements |
+|-----------|----------------|----------------------|
 ${this.generateLowImpactFilesTable(analysis)}
 
 ### **Configuration Files**
 
-| File Path | Current Purpose | Dependencies |
-|-----------|----------------|--------------|
+| File Path | Current Purpose | Migration Requirements |
+|-----------|----------------|----------------------|
 | \`pom.xml\` | Maven dependencies | None |
 | \`application.properties\` | Spring Boot config | None |
 | \`package.json\` | Node.js dependencies | None |
@@ -1620,8 +1620,8 @@ ${this.generateLowImpactFilesTable(analysis)}
 
 ### **New Files to Create**
 
-| File Path | Purpose | Dependencies |
-|-----------|---------|--------------|
+| File Path | Purpose | Migration Requirements |
+|-----------|---------|----------------------|
 | \`server.js\` | Main application entry point | None |
 | \`config/database.js\` | MongoDB connection configuration | None |
 | \`models/*.js\` | MongoDB schema definitions | Data model |
@@ -2377,7 +2377,9 @@ ${rows.join('\n')}`;
     ];
     
     const rows = highImpactFiles.map(file => {
-      return `| \`${file.filePath}\` | ${file.fileType.toLowerCase()} | ${file.dependencies.join(', ') || 'None'} |`;
+      const cleanPath = this.cleanFilePath(file.filePath);
+      const descriptiveDeps = this.generateDescriptiveDependencies(file.dependencies, file.fileType);
+      return `| \`${cleanPath}\` | ${file.fileType.toLowerCase()} | ${descriptiveDeps} |`;
     });
     
     return rows.length > 0 ? rows.join('\n') : '| No high-impact files found | | | |';
@@ -2392,7 +2394,9 @@ ${rows.join('\n')}`;
     ];
     
     const rows = mediumImpactFiles.map(file => {
-      return `| \`${file.filePath}\` | ${file.fileType.toLowerCase()} | ${file.dependencies.join(', ') || 'None'} |`;
+      const cleanPath = this.cleanFilePath(file.filePath);
+      const descriptiveDeps = this.generateDescriptiveDependencies(file.dependencies, file.fileType);
+      return `| \`${cleanPath}\` | ${file.fileType.toLowerCase()} | ${descriptiveDeps} |`;
     });
     
     return rows.length > 0 ? rows.join('\n') : '| No medium-impact files found | | | |';
@@ -2407,10 +2411,222 @@ ${rows.join('\n')}`;
     ];
     
     const rows = lowImpactFiles.map(file => {
-      return `| \`${file.filePath}\` | ${file.fileType.toLowerCase()} | ${file.dependencies.join(', ') || 'None'} |`;
+      const cleanPath = this.cleanFilePath(file.filePath);
+      const descriptiveDeps = this.generateDescriptiveDependencies(file.dependencies, file.fileType);
+      return `| \`${cleanPath}\` | ${file.fileType.toLowerCase()} | ${descriptiveDeps} |`;
     });
     
     return rows.length > 0 ? rows.join('\n') : '| No low-impact files found | | | |';
+  }
+
+  /**
+   * Clean file path to remove temp-github-repos and start from src/
+   */
+  private cleanFilePath(filePath: string): string {
+    // Remove temp-github-repos/owner-repo-timestamp/ prefix
+    const tempRepoPattern = /temp-github-repos\/[^\/]+\/[^\/]+\//;
+    let cleanPath = filePath.replace(tempRepoPattern, '');
+    
+    // If it doesn't start with src/, add it
+    if (!cleanPath.startsWith('src/')) {
+      cleanPath = 'src/' + cleanPath;
+    }
+    
+    return cleanPath;
+  }
+
+  /**
+   * Generate descriptive migration requirements based on dependencies and file type
+   */
+  private generateDescriptiveDependencies(dependencies: string[], fileType: string): string {
+    if (!dependencies || dependencies.length === 0) {
+      return 'No external dependencies - Simple conversion to Node.js equivalent';
+    }
+
+    // Filter out common Java imports that aren't meaningful for migration
+    const meaningfulDeps = dependencies.filter(dep => 
+      !['*', 'LocalDateTime', 'LocalDate', 'BigDecimal', 'List', 'Optional', 'Collectors'].includes(dep)
+    );
+
+    if (meaningfulDeps.length === 0) {
+      return 'Standard Java types only - Direct conversion to JavaScript/TypeScript';
+    }
+
+    // Generate comprehensive migration guidance based on file type and dependencies
+    switch (fileType.toLowerCase()) {
+      case 'entity':
+        return this.generateEntityMigrationRequirements(meaningfulDeps);
+      case 'repository':
+        return this.generateRepositoryMigrationRequirements(meaningfulDeps);
+      case 'service':
+        return this.generateServiceMigrationRequirements(meaningfulDeps);
+      case 'controller':
+        return this.generateControllerMigrationRequirements(meaningfulDeps);
+      default:
+        return `Convert dependencies: ${meaningfulDeps.join(', ')} to Node.js equivalents`;
+    }
+  }
+
+  /**
+   * Generate entity-specific migration requirements
+   */
+  private generateEntityMigrationRequirements(deps: string[]): string {
+    const jpaDeps = deps.filter(dep => 
+      dep.includes('Entity') || dep.includes('Id') || dep.includes('Column') || 
+      dep.includes('Table') || dep.includes('Join') || dep.includes('OneToMany') ||
+      dep.includes('ManyToOne') || dep.includes('ManyToMany')
+    );
+    
+    const otherDeps = deps.filter(dep => !jpaDeps.includes(dep));
+    
+    let requirements = [];
+    
+    if (jpaDeps.length > 0) {
+      requirements.push('Remove JPA annotations, convert to MongoDB schema');
+    }
+    
+    if (otherDeps.length > 0) {
+      requirements.push(`Convert ${otherDeps.join(', ')} to MongoDB document structure`);
+    }
+    
+    if (requirements.length === 0) {
+      return 'Convert to MongoDB document schema with embedded relationships';
+    }
+    
+    return requirements.join('; ');
+  }
+
+  /**
+   * Generate repository-specific migration requirements
+   */
+  private generateRepositoryMigrationRequirements(deps: string[]): string {
+    const jpaDeps = deps.filter(dep => 
+      dep.includes('JpaRepository') || dep.includes('Repository') || dep.includes('Query') ||
+      dep.includes('Param') || dep.includes('CrudRepository')
+    );
+    
+    const otherDeps = deps.filter(dep => !jpaDeps.includes(dep));
+    
+    let requirements = [];
+    
+    if (jpaDeps.length > 0) {
+      requirements.push('Replace Spring Data JPA with MongoDB operations');
+    }
+    
+    if (otherDeps.length > 0) {
+      requirements.push(`Convert ${otherDeps.join(', ')} to MongoDB query methods`);
+    }
+    
+    if (requirements.length === 0) {
+      return 'Convert to MongoDB collection operations and aggregation pipelines';
+    }
+    
+    return requirements.join('; ');
+  }
+
+  /**
+   * Generate service-specific migration requirements
+   */
+  private generateServiceMigrationRequirements(deps: string[]): string {
+    const springDeps = deps.filter(dep => 
+      dep.includes('Service') || dep.includes('Autowired') || dep.includes('Transactional') ||
+      dep.includes('Component') || dep.includes('Repository')
+    );
+    
+    const otherDeps = deps.filter(dep => !springDeps.includes(dep));
+    
+    let requirements = [];
+    
+    if (springDeps.length > 0) {
+      requirements.push('Remove Spring annotations, implement as Node.js service class');
+    }
+    
+    if (otherDeps.length > 0) {
+      requirements.push(`Convert ${otherDeps.join(', ')} to JavaScript/TypeScript business logic`);
+    }
+    
+    if (requirements.length === 0) {
+      return 'Convert to Node.js service with MongoDB integration';
+    }
+    
+    return requirements.join('; ');
+  }
+
+  /**
+   * Generate controller-specific migration requirements
+   */
+  private generateControllerMigrationRequirements(deps: string[]): string {
+    const springDeps = deps.filter(dep => 
+      dep.includes('Controller') || dep.includes('RestController') || dep.includes('RequestMapping') ||
+      dep.includes('GetMapping') || dep.includes('PostMapping') || dep.includes('PutMapping') ||
+      dep.includes('DeleteMapping') || dep.includes('ResponseEntity')
+    );
+    
+    const otherDeps = deps.filter(dep => !springDeps.includes(dep));
+    
+    let requirements = [];
+    
+    if (springDeps.length > 0) {
+      requirements.push('Replace Spring MVC with Express.js routes');
+    }
+    
+    if (otherDeps.length > 0) {
+      requirements.push(`Convert ${otherDeps.join(', ')} to Express.js middleware and handlers`);
+    }
+    
+    if (requirements.length === 0) {
+      return 'Convert to Express.js REST API endpoints';
+    }
+    
+    return requirements.join('; ');
+  }
+
+  /**
+   * Generate dynamic embedded entities based on actual relationships
+   */
+  private generateDynamicEmbeddedEntities(entityName: string, analysis: SourceCodeAnalysis): string {
+    // Find the entity in the analysis
+    const entity = analysis.entities.find(e => 
+      e.fileName.toLowerCase().includes(entityName.toLowerCase())
+    );
+    
+    if (!entity) {
+      return 'related entities based on foreign key relationships';
+    }
+    
+    // Analyze foreign key relationships to determine what should be embedded
+    const foreignKeys = entity.foreignKeys || [];
+    const relationships = entity.relationships || [];
+    
+    if (foreignKeys.length === 0 && relationships.length === 0) {
+      return 'related entities based on foreign key relationships';
+    }
+    
+    // Generate embedded entities based on actual relationships
+    const embeddedEntities = [];
+    
+    // Add foreign key relationships
+    foreignKeys.forEach(fk => {
+      if (fk.referencedTable) {
+        embeddedEntities.push(fk.referencedTable.toLowerCase());
+      }
+    });
+    
+    // Add relationship entities
+    relationships.forEach(rel => {
+      if (rel.targetEntity) {
+        embeddedEntities.push(rel.targetEntity.toLowerCase());
+      }
+    });
+    
+    if (embeddedEntities.length === 0) {
+      return 'related entities based on foreign key relationships';
+    }
+    
+    // Remove duplicates and limit to 3 most important
+    const uniqueEntities = [...new Set(embeddedEntities)].slice(0, 3);
+    
+    return uniqueEntities.join(', ');
   }
 
 
@@ -2971,7 +3187,7 @@ const ${entityName.toLowerCase()}Details = await ${entityName}.findById(id)
         // Determine where this entity gets embedded dynamically
         let embeddedIn = '';
         // This will be determined by the actual embedded relationships from the schema
-        embeddedIn = 'MainEntity.java'; // Placeholder - will be replaced by actual logic
+        embeddedIn = 'main entity'; // Dynamic placeholder - will be replaced by actual logic
         
         eliminatedFiles.push(`| \`${entity.fileName}\` | Data embedded in ${embeddedIn} | \`mainEntity.${entityName}.field\` |`);
       }
@@ -3004,22 +3220,8 @@ ${eliminatedFiles.join('\n')}`;
       // Only create Node.js files for main entities (not eliminated ones)
       if (mainEntities.some(main => entityName.includes(main))) {
         // Determine what gets embedded in this entity
-        let embeddedEntities = '';
-        if (entityName.includes('film')) {
-          embeddedEntities = 'language, category, actors';
-        } else if (entityName.includes('customer') || entityName.includes('staff')) {
-          embeddedEntities = 'address (with city and country)';
-        } else if (entityName.includes('address')) {
-          embeddedEntities = 'city (with country)';
-        } else if (entityName.includes('store')) {
-          embeddedEntities = 'address, staff';
-        } else if (entityName.includes('rental')) {
-          embeddedEntities = 'customer, inventory, staff';
-        } else if (entityName.includes('payment')) {
-          embeddedEntities = 'customer, rental, staff';
-        } else if (entityName.includes('inventory')) {
-          embeddedEntities = 'film, store';
-        }
+        // Generate dynamic embedded entities based on actual relationships
+        const embeddedEntities = this.generateDynamicEmbeddedEntities(entityName, analysis);
         
         newNodeJSFiles.push(`| \`models/${entityName}.js\` | ${entityName} schema with embedded: ${embeddedEntities} | \`${entityName}.java\` + related entity classes |`);
       }
@@ -3252,6 +3454,18 @@ ${transformations.join('\n')}`;
         content += `**Methods:** ${service.methods.length}\n`;
         content += `**Dependencies:** ${service.dependencies.length}\n\n`;
 
+        // Add code snippets if available
+        if (service.codeSnippets && service.codeSnippets.length > 0) {
+          content += `**Code Snippets:**\n\n`;
+          
+          service.codeSnippets.forEach((snippet, snippetIndex) => {
+            content += `**${snippet.context}** (Lines ${snippet.lineStart}-${snippet.lineEnd}):\n\n`;
+            content += `\`\`\`java\n`;
+            content += `${snippet.snippet}\n`;
+            content += `\`\`\`\n\n`;
+          });
+        }
+
         if (service.migrationNotes && service.migrationNotes.length > 0) {
           content += `**Migration Notes:**\n`;
           service.migrationNotes.forEach(note => {
@@ -3289,6 +3503,18 @@ ${transformations.join('\n')}`;
         content += `**Complexity:** ${repo.complexity}\n`;
         content += `**Methods:** ${repo.methods.length}\n`;
         content += `**Dependencies:** ${repo.dependencies.length}\n\n`;
+
+        // Add code snippets if available
+        if (repo.codeSnippets && repo.codeSnippets.length > 0) {
+          content += `**Code Snippets:**\n\n`;
+          
+          repo.codeSnippets.forEach((snippet, snippetIndex) => {
+            content += `**${snippet.context}** (Lines ${snippet.lineStart}-${snippet.lineEnd}):\n\n`;
+            content += `\`\`\`java\n`;
+            content += `${snippet.snippet}\n`;
+            content += `\`\`\`\n\n`;
+          });
+        }
 
         if (repo.migrationNotes && repo.migrationNotes.length > 0) {
           content += `**Migration Notes:**\n`;

@@ -1,25 +1,25 @@
 # Spring Boot to Node.js + MongoDB Migration Analysis
-## Prateek Peerislands Data Migration 1757072928307
+## Prateek Peerislands Data Migration 1757316702461
 
 **Document Version:** v1  
-**Generated Date:** September 5, 2025  
-**Generated Time:** 05:18:49 PM GMT+5:30  
-**Timestamp:** 2025-09-05T11:48:49.438Z  
-**Project:** Prateek Peerislands Data Migration 1757072928307  
+**Generated Date:** September 8, 2025  
+**Generated Time:** 01:01:44 PM GMT+5:30  
+**Timestamp:** 2025-09-08T07:31:44.018Z  
+**Project:** Prateek Peerislands Data Migration 1757316702461  
 **Migration Type:** Technology Stack Change (Spring Boot + PostgreSQL → Node.js + MongoDB)
 
 ---
 
 ## 📋 Executive Summary
 
-This document provides a comprehensive analysis and migration plan for converting the **Prateek Peerislands Data Migration 1757072928307** from Spring Boot + PostgreSQL to Node.js + MongoDB. The migration involves significant architectural changes, data model transformations, and code refactoring across multiple layers of the application.
+This document provides a comprehensive analysis and migration plan for converting the **Prateek Peerislands Data Migration 1757316702461** from Spring Boot + PostgreSQL to Node.js + MongoDB. The migration involves significant architectural changes, data model transformations, and code refactoring across multiple layers of the application.
 
 **Migration Complexity:** **MEDIUM** 🟡
 
 ## 🎯 Executive Summary
 
 ### **Migration Overview**
-The migration from Spring Boot to Node.js represents a **medium complexity transformation** that will modernize the **prateek-peerislands-data-migration-1757072928307** application architecture and provide better scalability, flexibility, and development velocity.
+The migration from Spring Boot to Node.js represents a **medium complexity transformation** that will modernize the **prateek-peerislands-data-migration-1757316702461** application architecture and provide better scalability, flexibility, and development velocity.
 
 ### **🚀 Key Benefits of New Architecture (Node.js + MongoDB)**
 
@@ -248,7 +248,7 @@ public class Actor.java {
 
 ### **Current Project Structure**
 ```
-prateek-peerislands-data-migration-1757072928307/
+prateek-peerislands-data-migration-1757316702461/
 ├── src/
 │   ├── main/
 │   │   ├── java/
@@ -427,86 +427,86 @@ The application currently uses 17 JPA entities with the following characteristic
 
 ### **High-Impact Files (Complete Rewrite Required)**
 
-| File Path | Current Purpose | Dependencies |
-|-----------|----------------|--------------|
+| File Path | Current Purpose | Migration Requirements |
+|-----------|----------------|----------------------|
 | No high-impact files found | | | |
 
 ### **Medium-Impact Files (Significant Modifications)**
 
-| File Path | Current Purpose | Dependencies |
-|-----------|----------------|--------------|
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/ActorRepository.java` | repository | Actor, JpaRepository, Repository, List |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/AddressRepository.java` | repository | Address, JpaRepository, Repository, List |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/CategoryRepository.java` | repository | Category, JpaRepository, Repository, List, Optional |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/CityRepository.java` | repository | City, JpaRepository, Repository, List |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/CustomerRepository.java` | repository | Customer, JpaRepository, Repository, List, Optional |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/FilmActorRepository.java` | repository | FilmActor, FilmActorId, JpaRepository, Repository, List |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/FilmCategoryRepository.java` | repository | FilmCategory, FilmCategoryId, JpaRepository, Repository, List |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/FilmRepository.java` | repository | Film, JpaRepository, Query, Param, Repository, BigDecimal, List |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/InventoryRepository.java` | repository | Inventory, JpaRepository, Repository, List |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/LanguageRepository.java` | repository | Language, JpaRepository, Repository, List, Optional |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/PaymentRepository.java` | repository | Payment, JpaRepository, Query, Param, Repository, BigDecimal, LocalDateTime, List |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/RentalRepository.java` | repository | Rental, JpaRepository, Query, Param, Repository, LocalDateTime, List |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/StaffRepository.java` | repository | Staff, JpaRepository, Repository, List, Optional |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/StoreRepository.java` | repository | Store, JpaRepository, Repository, List |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/service/ActorService.java` | service | ActorDTO, List, Optional |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/service/ActorServiceImpl.java` | service | ActorDTO, Actor, ActorRepository, Service, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/service/CountryService.java` | service | CountryDTO, List, Optional |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/service/CountryServiceImpl.java` | service | CountryDTO, Country, CountryRepository, Service, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/service/CustomerService.java` | service | CustomerDTO, List, Optional |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/service/CustomerServiceImpl.java` | service | CustomerDTO, Customer, CustomerRepository, Service, LocalDate, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/service/FilmService.java` | service | FilmDTO, BigDecimal, List, Optional |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/service/MCPIntegrationService.java` | service | Service, Value, Component, Logger, LoggerFactory, HashMap, Map, CompletableFuture, Pattern, Matcher |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/service/RealMCPBackupService.java` | service | Service, Autowired, JdbcTemplate, HttpEntity, HttpHeaders, MediaType, RestTemplate, ResponseEntity, *, LocalDateTime, DateTimeFormatter |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/service/RealMCPClientService.java` | service | Service, Value, Component, Logger, LoggerFactory, IOException, Socket, PrintWriter, BufferedReader, InputStreamReader, HashMap, Map, List, CompletableFuture, TimeUnit, Pattern, Matcher, ObjectMapper, JsonNode |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/service/RealMCPIntegrationService.java` | service | Service, Component, Autowired, JdbcTemplate, Logger, LoggerFactory, HashMap, Map, List, CompletableFuture, Pattern, Matcher |
+| File Path | Current Purpose | Migration Requirements |
+|-----------|----------------|----------------------|
+| `src/main/java/com/dvdrental/management/repository/ActorRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert Actor to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/repository/AddressRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert Address to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/repository/CategoryRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert Category to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/repository/CityRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert City to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/repository/CustomerRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert Customer to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/repository/FilmActorRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert FilmActor, FilmActorId to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/repository/FilmCategoryRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert FilmCategory, FilmCategoryId to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/repository/FilmRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert Film to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/repository/InventoryRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert Inventory to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/repository/LanguageRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert Language to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/repository/PaymentRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert Payment to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/repository/RentalRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert Rental to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/repository/StaffRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert Staff to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/repository/StoreRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert Store to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/service/ActorService.java` | service | Convert ActorDTO to JavaScript/TypeScript business logic |
+| `src/main/java/com/dvdrental/management/service/ActorServiceImpl.java` | service | Remove Spring annotations, implement as Node.js service class; Convert ActorDTO, Actor to JavaScript/TypeScript business logic |
+| `src/main/java/com/dvdrental/management/service/CountryService.java` | service | Convert CountryDTO to JavaScript/TypeScript business logic |
+| `src/main/java/com/dvdrental/management/service/CountryServiceImpl.java` | service | Remove Spring annotations, implement as Node.js service class; Convert CountryDTO, Country to JavaScript/TypeScript business logic |
+| `src/main/java/com/dvdrental/management/service/CustomerService.java` | service | Convert CustomerDTO to JavaScript/TypeScript business logic |
+| `src/main/java/com/dvdrental/management/service/CustomerServiceImpl.java` | service | Remove Spring annotations, implement as Node.js service class; Convert CustomerDTO, Customer to JavaScript/TypeScript business logic |
+| `src/main/java/com/dvdrental/management/service/FilmService.java` | service | Convert FilmDTO to JavaScript/TypeScript business logic |
+| `src/main/java/com/dvdrental/management/service/MCPIntegrationService.java` | service | Remove Spring annotations, implement as Node.js service class; Convert Value, Logger, LoggerFactory, HashMap, Map, CompletableFuture, Pattern, Matcher to JavaScript/TypeScript business logic |
+| `src/main/java/com/dvdrental/management/service/RealMCPBackupService.java` | service | Remove Spring annotations, implement as Node.js service class; Convert JdbcTemplate, HttpEntity, HttpHeaders, MediaType, RestTemplate, ResponseEntity, DateTimeFormatter to JavaScript/TypeScript business logic |
+| `src/main/java/com/dvdrental/management/service/RealMCPClientService.java` | service | Remove Spring annotations, implement as Node.js service class; Convert Value, Logger, LoggerFactory, IOException, Socket, PrintWriter, BufferedReader, InputStreamReader, HashMap, Map, CompletableFuture, TimeUnit, Pattern, Matcher, ObjectMapper, JsonNode to JavaScript/TypeScript business logic |
+| `src/main/java/com/dvdrental/management/service/RealMCPIntegrationService.java` | service | Remove Spring annotations, implement as Node.js service class; Convert JdbcTemplate, Logger, LoggerFactory, HashMap, Map, CompletableFuture, Pattern, Matcher to JavaScript/TypeScript business logic |
 
 ### **Low-Impact Files (Minor Modifications)**
 
-| File Path | Current Purpose | Dependencies |
-|-----------|----------------|--------------|
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/Actor.java` | entity | *, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/Address.java` | entity | *, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/Category.java` | entity | *, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/City.java` | entity | *, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/Country.java` | entity | *, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/Customer.java` | entity | *, LocalDate, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/Film.java` | entity | *, BigDecimal, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/FilmActor.java` | entity | *, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/FilmActorId.java` | entity | Serializable, Objects |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/FilmCategory.java` | entity | *, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/FilmCategoryId.java` | entity | Serializable, Objects |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/Inventory.java` | entity | *, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/Language.java` | entity | *, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/Payment.java` | entity | *, BigDecimal, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/Rental.java` | entity | *, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/Staff.java` | entity | *, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/entity/Store.java` | entity | *, LocalDateTime |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/repository/CountryRepository.java` | repository | Country, JpaRepository, Repository, List |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/service/FilmServiceImpl.java` | service | FilmDTO, Film, FilmRepository, Service, BigDecimal, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/ActorController.java` | controller | ActorDTO, ActorService, HttpStatus, ResponseEntity, *, List, Optional |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/AddressController.java` | controller | AddressDTO, Address, AddressRepository, HttpStatus, ResponseEntity, *, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/CategoryController.java` | controller | CategoryDTO, Category, CategoryRepository, HttpStatus, ResponseEntity, *, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/CityController.java` | controller | CityDTO, City, CityRepository, HttpStatus, ResponseEntity, *, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/CountryController.java` | controller | CountryDTO, CountryService, HttpStatus, ResponseEntity, *, List, Optional |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/CustomerController.java` | controller | CustomerDTO, CustomerService, HttpStatus, ResponseEntity, *, List, Optional |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/FilmActorController.java` | controller | FilmActorDTO, FilmActor, FilmActorId, FilmActorRepository, HttpStatus, ResponseEntity, *, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/FilmCategoryController.java` | controller | FilmCategoryDTO, FilmCategory, FilmCategoryId, FilmCategoryRepository, HttpStatus, ResponseEntity, *, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/FilmController.java` | controller | FilmDTO, FilmService, HttpStatus, ResponseEntity, *, BigDecimal, List, Optional |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/InventoryController.java` | controller | InventoryDTO, Inventory, InventoryRepository, HttpStatus, ResponseEntity, *, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/LanguageController.java` | controller | LanguageDTO, Language, LanguageRepository, HttpStatus, ResponseEntity, *, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/MCPInterfaceController.java` | controller | RealMCPClientService, MCPQueryResult, Autowired, ResponseEntity, *, RestController, RequestMapping, CrossOrigin, Logger, LoggerFactory, Map, HashMap |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/PaymentController.java` | controller | PaymentDTO, Payment, PaymentRepository, HttpStatus, ResponseEntity, *, BigDecimal, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/RealMCPBackupController.java` | controller | RealMCPBackupService, Autowired, ResponseEntity, *, Map |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/RentalController.java` | controller | RentalDTO, Rental, RentalRepository, HttpStatus, ResponseEntity, *, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/StaffController.java` | controller | StaffDTO, Staff, StaffRepository, HttpStatus, ResponseEntity, *, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/StoreController.java` | controller | StoreDTO, Store, StoreRepository, HttpStatus, ResponseEntity, *, LocalDateTime, List, Optional, Collectors |
-| `temp-github-repos/prateek-peerislands-data-migration-1757072928307/src/main/java/com/dvdrental/management/controller/WelcomeController.java` | controller | ResponseEntity, GetMapping, RestController, HashMap, Map |
+| File Path | Current Purpose | Migration Requirements |
+|-----------|----------------|----------------------|
+| `src/main/java/com/dvdrental/management/entity/Actor.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/Address.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/Category.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/City.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/Country.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/Customer.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/Film.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/FilmActor.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/FilmActorId.java` | entity | Convert Serializable, Objects to MongoDB document structure |
+| `src/main/java/com/dvdrental/management/entity/FilmCategory.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/FilmCategoryId.java` | entity | Convert Serializable, Objects to MongoDB document structure |
+| `src/main/java/com/dvdrental/management/entity/Inventory.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/Language.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/Payment.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/Rental.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/Staff.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/entity/Store.java` | entity | Standard Java types only - Direct conversion to JavaScript/TypeScript |
+| `src/main/java/com/dvdrental/management/repository/CountryRepository.java` | repository | Replace Spring Data JPA with MongoDB operations; Convert Country to MongoDB query methods |
+| `src/main/java/com/dvdrental/management/service/FilmServiceImpl.java` | service | Remove Spring annotations, implement as Node.js service class; Convert FilmDTO, Film to JavaScript/TypeScript business logic |
+| `src/main/java/com/dvdrental/management/controller/ActorController.java` | controller | Replace Spring MVC with Express.js routes; Convert ActorDTO, ActorService, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/AddressController.java` | controller | Replace Spring MVC with Express.js routes; Convert AddressDTO, Address, AddressRepository, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/CategoryController.java` | controller | Replace Spring MVC with Express.js routes; Convert CategoryDTO, Category, CategoryRepository, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/CityController.java` | controller | Replace Spring MVC with Express.js routes; Convert CityDTO, City, CityRepository, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/CountryController.java` | controller | Replace Spring MVC with Express.js routes; Convert CountryDTO, CountryService, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/CustomerController.java` | controller | Replace Spring MVC with Express.js routes; Convert CustomerDTO, CustomerService, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/FilmActorController.java` | controller | Replace Spring MVC with Express.js routes; Convert FilmActorDTO, FilmActor, FilmActorId, FilmActorRepository, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/FilmCategoryController.java` | controller | Replace Spring MVC with Express.js routes; Convert FilmCategoryDTO, FilmCategory, FilmCategoryId, FilmCategoryRepository, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/FilmController.java` | controller | Replace Spring MVC with Express.js routes; Convert FilmDTO, FilmService, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/InventoryController.java` | controller | Replace Spring MVC with Express.js routes; Convert InventoryDTO, Inventory, InventoryRepository, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/LanguageController.java` | controller | Replace Spring MVC with Express.js routes; Convert LanguageDTO, Language, LanguageRepository, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/MCPInterfaceController.java` | controller | Replace Spring MVC with Express.js routes; Convert RealMCPClientService, MCPQueryResult, Autowired, CrossOrigin, Logger, LoggerFactory, Map, HashMap to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/PaymentController.java` | controller | Replace Spring MVC with Express.js routes; Convert PaymentDTO, Payment, PaymentRepository, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/RealMCPBackupController.java` | controller | Replace Spring MVC with Express.js routes; Convert RealMCPBackupService, Autowired, Map to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/RentalController.java` | controller | Replace Spring MVC with Express.js routes; Convert RentalDTO, Rental, RentalRepository, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/StaffController.java` | controller | Replace Spring MVC with Express.js routes; Convert StaffDTO, Staff, StaffRepository, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/StoreController.java` | controller | Replace Spring MVC with Express.js routes; Convert StoreDTO, Store, StoreRepository, HttpStatus to Express.js middleware and handlers |
+| `src/main/java/com/dvdrental/management/controller/WelcomeController.java` | controller | Replace Spring MVC with Express.js routes; Convert HashMap, Map to Express.js middleware and handlers |
 
 ### **Configuration Files**
 
-| File Path | Current Purpose | Dependencies |
-|-----------|----------------|--------------|
+| File Path | Current Purpose | Migration Requirements |
+|-----------|----------------|----------------------|
 | `pom.xml` | Maven dependencies | None |
 | `application.properties` | Spring Boot config | None |
 | `package.json` | Node.js dependencies | None |
@@ -514,8 +514,8 @@ The application currently uses 17 JPA entities with the following characteristic
 
 ### **New Files to Create**
 
-| File Path | Purpose | Dependencies |
-|-----------|---------|--------------|
+| File Path | Purpose | Migration Requirements |
+|-----------|---------|----------------------|
 | `server.js` | Main application entry point | None |
 | `config/database.js` | MongoDB connection configuration | None |
 | `models/*.js` | MongoDB schema definitions | Data model |

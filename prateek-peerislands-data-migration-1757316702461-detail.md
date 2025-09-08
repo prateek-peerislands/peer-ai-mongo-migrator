@@ -1,18 +1,18 @@
 # Spring Boot to Node.js + MongoDB Migration Analysis
-## Prateek Peerislands Data Migration 1757072928307
+## Prateek Peerislands Data Migration 1757316702461
 
 **Document Version:** v1  
-**Generated Date:** September 5, 2025  
-**Generated Time:** 05:18:49 PM GMT+5:30  
-**Timestamp:** 2025-09-05T11:48:49.454Z  
-**Project:** Prateek Peerislands Data Migration 1757072928307  
+**Generated Date:** September 8, 2025  
+**Generated Time:** 01:01:44 PM GMT+5:30  
+**Timestamp:** 2025-09-08T07:31:44.020Z  
+**Project:** Prateek Peerislands Data Migration 1757316702461  
 **Migration Type:** Technology Stack Change (Spring Boot + PostgreSQL → Node.js + MongoDB)
 
 ---
 
 ## 📋 Executive Summary
 
-This document provides a comprehensive analysis and migration plan for converting the **Prateek Peerislands Data Migration 1757072928307** from Spring Boot + PostgreSQL to Node.js + MongoDB. The migration involves significant architectural changes, data model transformations, and code refactoring across multiple layers of the application.
+This document provides a comprehensive analysis and migration plan for converting the **Prateek Peerislands Data Migration 1757316702461** from Spring Boot + PostgreSQL to Node.js + MongoDB. The migration involves significant architectural changes, data model transformations, and code refactoring across multiple layers of the application.
 
 **Migration Complexity:** **MEDIUM** 🟡
 
@@ -251,6 +251,48 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 6
 **Dependencies:** 3
 
+**Code Snippets:**
+
+**Class definition: ActorService** (Lines 8-12):
+
+```java
+public interface ActorService {
+    List<ActorDTO> getAllActors();
+    Optional<ActorDTO> getActorById(Integer id);
+    ActorDTO saveActor(ActorDTO actorDTO);
+    ActorDTO updateActor(Integer id, ActorDTO actorDTO);
+```
+
+**Method: saveActor** (Lines 11-17):
+
+```java
+ActorDTO saveActor(ActorDTO actorDTO);
+    ActorDTO updateActor(Integer id, ActorDTO actorDTO);
+    void deleteActor(Integer id);
+    
+    List<ActorDTO> searchActorsByName(String name);
+}
+```
+
+**Method: updateActor** (Lines 12-17):
+
+```java
+ActorDTO updateActor(Integer id, ActorDTO actorDTO);
+    void deleteActor(Integer id);
+    
+    List<ActorDTO> searchActorsByName(String name);
+}
+```
+
+**Method: deleteActor** (Lines 13-17):
+
+```java
+void deleteActor(Integer id);
+    
+    List<ActorDTO> searchActorsByName(String name);
+}
+```
+
 **MongoDB Migration Strategy:**
 - **Application Services:** Convert to Node.js service classes
 - **Business Logic:** Implement in application layer with proper error handling
@@ -271,6 +313,57 @@ This section analyzes how stored procedures and business logic from the current 
 **Complexity:** MEDIUM
 **Methods:** 15
 **Dependencies:** 8
+
+**Code Snippets:**
+
+**Class definition: ActorServiceImpl** (Lines 14-18):
+
+```java
+public class ActorServiceImpl implements ActorService {
+
+    private final ActorRepository actorRepository;
+
+    public ActorServiceImpl(ActorRepository actorRepository) {
+```
+
+**Method: saveActor** (Lines 35-42):
+
+```java
+public ActorDTO saveActor(ActorDTO actorDTO) {
+        Actor actor = convertToEntity(actorDTO);
+        Actor savedActor = actorRepository.save(actor);
+        return convertToDTO(savedActor);
+    }
+
+    @Override
+    public ActorDTO updateActor(Integer id, ActorDTO actorDTO) {
+```
+
+**Method: updateActor** (Lines 42-49):
+
+```java
+public ActorDTO updateActor(Integer id, ActorDTO actorDTO) {
+        Actor actor = actorRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Actor not found with id: " + id));
+        
+        actor.setFirstName(actorDTO.firstName());
+        actor.setLastName(actorDTO.lastName());
+        
+        Actor updatedActor = actorRepository.save(actor);
+```
+
+**Method: deleteActor** (Lines 54-61):
+
+```java
+public void deleteActor(Integer id) {
+        if (!actorRepository.existsById(id)) {
+            throw new RuntimeException("Actor not found with id: " + id);
+        }
+        actorRepository.deleteById(id);
+    }
+
+    @Override
+```
 
 **Migration Notes:**
 - Convert Spring @Service to Node.js service class
@@ -296,6 +389,45 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 6
 **Dependencies:** 3
 
+**Code Snippets:**
+
+**Class definition: CountryService** (Lines 8-12):
+
+```java
+public interface CountryService {
+    List<CountryDTO> getAllCountries();
+    Optional<CountryDTO> getCountryById(Integer id);
+    CountryDTO saveCountry(CountryDTO countryDTO);
+    CountryDTO updateCountry(Integer id, CountryDTO countryDTO);
+```
+
+**Method: saveCountry** (Lines 11-16):
+
+```java
+CountryDTO saveCountry(CountryDTO countryDTO);
+    CountryDTO updateCountry(Integer id, CountryDTO countryDTO);
+    void deleteCountry(Integer id);
+    List<CountryDTO> searchCountriesByName(String name);
+}
+```
+
+**Method: updateCountry** (Lines 12-16):
+
+```java
+CountryDTO updateCountry(Integer id, CountryDTO countryDTO);
+    void deleteCountry(Integer id);
+    List<CountryDTO> searchCountriesByName(String name);
+}
+```
+
+**Method: deleteCountry** (Lines 13-16):
+
+```java
+void deleteCountry(Integer id);
+    List<CountryDTO> searchCountriesByName(String name);
+}
+```
+
 **MongoDB Migration Strategy:**
 - **Application Services:** Convert to Node.js service classes
 - **Business Logic:** Implement in application layer with proper error handling
@@ -316,6 +448,57 @@ This section analyzes how stored procedures and business logic from the current 
 **Complexity:** MEDIUM
 **Methods:** 15
 **Dependencies:** 8
+
+**Code Snippets:**
+
+**Class definition: CountryServiceImpl** (Lines 14-18):
+
+```java
+public class CountryServiceImpl implements CountryService {
+
+    private final CountryRepository countryRepository;
+
+    public CountryServiceImpl(CountryRepository countryRepository) {
+```
+
+**Method: saveCountry** (Lines 35-42):
+
+```java
+public CountryDTO saveCountry(CountryDTO countryDTO) {
+        Country country = convertToEntity(countryDTO);
+        Country savedCountry = countryRepository.save(country);
+        return convertToDTO(savedCountry);
+    }
+
+    @Override
+    public CountryDTO updateCountry(Integer id, CountryDTO countryDTO) {
+```
+
+**Method: updateCountry** (Lines 42-49):
+
+```java
+public CountryDTO updateCountry(Integer id, CountryDTO countryDTO) {
+        Country country = countryRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Country not found with id: " + id));
+        
+        country.setCountry(countryDTO.country());
+        
+        Country updatedCountry = countryRepository.save(country);
+        return convertToDTO(updatedCountry);
+```
+
+**Method: deleteCountry** (Lines 53-60):
+
+```java
+public void deleteCountry(Integer id) {
+        if (!countryRepository.existsById(id)) {
+            throw new RuntimeException("Country not found with id: " + id);
+        }
+        countryRepository.deleteById(id);
+    }
+
+    @Override
+```
 
 **Migration Notes:**
 - Convert Spring @Service to Node.js service class
@@ -341,6 +524,51 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 8
 **Dependencies:** 3
 
+**Code Snippets:**
+
+**Class definition: CustomerService** (Lines 8-12):
+
+```java
+public interface CustomerService {
+    List<CustomerDTO> getAllCustomers();
+    Optional<CustomerDTO> getCustomerById(Integer id);
+    CustomerDTO saveCustomer(CustomerDTO customerDTO);
+    CustomerDTO updateCustomer(Integer id, CustomerDTO customerDTO);
+```
+
+**Method: saveCustomer** (Lines 11-18):
+
+```java
+CustomerDTO saveCustomer(CustomerDTO customerDTO);
+    CustomerDTO updateCustomer(Integer id, CustomerDTO customerDTO);
+    void deleteCustomer(Integer id);
+    List<CustomerDTO> searchCustomersByName(String name);
+    List<CustomerDTO> getCustomersByStore(Short storeId);
+    Optional<CustomerDTO> getCustomerByEmail(String email);
+}
+```
+
+**Method: updateCustomer** (Lines 12-18):
+
+```java
+CustomerDTO updateCustomer(Integer id, CustomerDTO customerDTO);
+    void deleteCustomer(Integer id);
+    List<CustomerDTO> searchCustomersByName(String name);
+    List<CustomerDTO> getCustomersByStore(Short storeId);
+    Optional<CustomerDTO> getCustomerByEmail(String email);
+}
+```
+
+**Method: deleteCustomer** (Lines 13-18):
+
+```java
+void deleteCustomer(Integer id);
+    List<CustomerDTO> searchCustomersByName(String name);
+    List<CustomerDTO> getCustomersByStore(Short storeId);
+    Optional<CustomerDTO> getCustomerByEmail(String email);
+}
+```
+
 **Migration Notes:**
 - Adapt 4 business logic method(s) for Node.js
 
@@ -364,6 +592,57 @@ This section analyzes how stored procedures and business logic from the current 
 **Complexity:** MEDIUM
 **Methods:** 17
 **Dependencies:** 9
+
+**Code Snippets:**
+
+**Class definition: CustomerServiceImpl** (Lines 15-19):
+
+```java
+public class CustomerServiceImpl implements CustomerService {
+
+    private final CustomerRepository customerRepository;
+
+    public CustomerServiceImpl(CustomerRepository customerRepository) {
+```
+
+**Method: saveCustomer** (Lines 36-43):
+
+```java
+public CustomerDTO saveCustomer(CustomerDTO customerDTO) {
+        Customer customer = convertToEntity(customerDTO);
+        Customer savedCustomer = customerRepository.save(customer);
+        return convertToDTO(savedCustomer);
+    }
+
+    @Override
+    public CustomerDTO updateCustomer(Integer id, CustomerDTO customerDTO) {
+```
+
+**Method: updateCustomer** (Lines 43-50):
+
+```java
+public CustomerDTO updateCustomer(Integer id, CustomerDTO customerDTO) {
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Customer not found with id: " + id));
+        
+        customer.setStoreId(customerDTO.storeId());
+        customer.setFirstName(customerDTO.firstName());
+        customer.setLastName(customerDTO.lastName());
+        customer.setEmail(customerDTO.email());
+```
+
+**Method: deleteCustomer** (Lines 60-67):
+
+```java
+public void deleteCustomer(Integer id) {
+        if (!customerRepository.existsById(id)) {
+            throw new RuntimeException("Customer not found with id: " + id);
+        }
+        customerRepository.deleteById(id);
+    }
+
+    @Override
+```
 
 **Migration Notes:**
 - Convert Spring @Service to Node.js service class
@@ -390,6 +669,57 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 11
 **Dependencies:** 4
 
+**Code Snippets:**
+
+**Class definition: FilmService** (Lines 9-13):
+
+```java
+public interface FilmService {
+    List<FilmDTO> getAllFilms();
+    Optional<FilmDTO> getFilmById(Integer id);
+    FilmDTO saveFilm(FilmDTO filmDTO);
+    FilmDTO updateFilm(Integer id, FilmDTO filmDTO);
+```
+
+**Method: saveFilm** (Lines 12-19):
+
+```java
+FilmDTO saveFilm(FilmDTO filmDTO);
+    FilmDTO updateFilm(Integer id, FilmDTO filmDTO);
+    void deleteFilm(Integer id);
+    
+    List<FilmDTO> searchFilmsByTitle(String title);
+    List<FilmDTO> getFilmsByYear(Integer year);
+    List<FilmDTO> getFilmsByLanguage(Short languageId);
+    List<FilmDTO> getFilmsByRating(String rating);
+```
+
+**Method: updateFilm** (Lines 13-20):
+
+```java
+FilmDTO updateFilm(Integer id, FilmDTO filmDTO);
+    void deleteFilm(Integer id);
+    
+    List<FilmDTO> searchFilmsByTitle(String title);
+    List<FilmDTO> getFilmsByYear(Integer year);
+    List<FilmDTO> getFilmsByLanguage(Short languageId);
+    List<FilmDTO> getFilmsByRating(String rating);
+    List<FilmDTO> getFilmsByRentalRateRange(BigDecimal minRate, BigDecimal maxRate);
+```
+
+**Method: deleteFilm** (Lines 14-21):
+
+```java
+void deleteFilm(Integer id);
+    
+    List<FilmDTO> searchFilmsByTitle(String title);
+    List<FilmDTO> getFilmsByYear(Integer year);
+    List<FilmDTO> getFilmsByLanguage(Short languageId);
+    List<FilmDTO> getFilmsByRating(String rating);
+    List<FilmDTO> getFilmsByRentalRateRange(BigDecimal minRate, BigDecimal maxRate);
+    List<FilmDTO> searchFilmsByKeyword(String keyword);
+```
+
 **MongoDB Migration Strategy:**
 - **Application Services:** Convert to Node.js service classes
 - **Business Logic:** Implement in application layer with proper error handling
@@ -410,6 +740,57 @@ This section analyzes how stored procedures and business logic from the current 
 **Complexity:** LOW
 **Methods:** 20
 **Dependencies:** 9
+
+**Code Snippets:**
+
+**Class definition: FilmServiceImpl** (Lines 15-19):
+
+```java
+public class FilmServiceImpl implements FilmService {
+
+    private final FilmRepository filmRepository;
+
+    public FilmServiceImpl(FilmRepository filmRepository) {
+```
+
+**Method: saveFilm** (Lines 36-43):
+
+```java
+public FilmDTO saveFilm(FilmDTO filmDTO) {
+        Film film = convertToEntity(filmDTO);
+        Film savedFilm = filmRepository.save(film);
+        return convertToDTO(savedFilm);
+    }
+
+    @Override
+    public FilmDTO updateFilm(Integer id, FilmDTO filmDTO) {
+```
+
+**Method: updateFilm** (Lines 43-50):
+
+```java
+public FilmDTO updateFilm(Integer id, FilmDTO filmDTO) {
+        Film film = filmRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Film not found with id: " + id));
+        
+        film.setTitle(filmDTO.title());
+        film.setDescription(filmDTO.description());
+        film.setReleaseYear(filmDTO.releaseYear());
+        film.setLanguageId(filmDTO.languageId());
+```
+
+**Method: deleteFilm** (Lines 63-70):
+
+```java
+public void deleteFilm(Integer id) {
+        if (!filmRepository.existsById(id)) {
+            throw new RuntimeException("Film not found with id: " + id);
+        }
+        filmRepository.deleteById(id);
+    }
+
+    @Override
+```
 
 **Migration Notes:**
 - Convert Spring @Service to Node.js service class
@@ -434,6 +815,57 @@ This section analyzes how stored procedures and business logic from the current 
 **Complexity:** MEDIUM
 **Methods:** 32
 **Dependencies:** 10
+
+**Code Snippets:**
+
+**Class definition: MCPIntegrationService** (Lines 21-25):
+
+```java
+public class MCPIntegrationService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(MCPIntegrationService.class);
+    
+    /**
+```
+
+**Method: processQuery** (Lines 28-35):
+
+```java
+public MCPQueryResult processQuery(String naturalLanguageQuery) {
+        logger.info("Processing MCP query: {}", naturalLanguageQuery);
+        
+        try {
+            // Analyze the query to determine the target database and operation
+            QueryAnalysis analysis = analyzeQuery(naturalLanguageQuery);
+            
+            // Route to appropriate MCP server based on analysis
+```
+
+**Method: getOriginalQuery** (Lines 307-314):
+
+```java
+public String getOriginalQuery() { return originalQuery; }
+        public void setOriginalQuery(String originalQuery) { this.originalQuery = originalQuery; }
+        
+        public DatabaseType getTargetDatabase() { return targetDatabase; }
+        public void setTargetDatabase(DatabaseType targetDatabase) { this.targetDatabase = targetDatabase; }
+        
+        public OperationType getOperation() { return operation; }
+        public void setOperation(OperationType operation) { this.operation = operation; }
+```
+
+**Method: getTargetDatabase** (Lines 310-317):
+
+```java
+public DatabaseType getTargetDatabase() { return targetDatabase; }
+        public void setTargetDatabase(DatabaseType targetDatabase) { this.targetDatabase = targetDatabase; }
+        
+        public OperationType getOperation() { return operation; }
+        public void setOperation(OperationType operation) { this.operation = operation; }
+        
+        public String getSpecificTarget() { return specificTarget; }
+        public void setSpecificTarget(String specificTarget) { this.specificTarget = specificTarget; }
+```
 
 **Migration Notes:**
 - Convert Spring @Service to Node.js service class
@@ -460,6 +892,17 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 14
 **Dependencies:** 11
 
+**Code Snippets:**
+
+**Class definition: RealMCPBackupService** (Lines 17-21):
+
+```java
+public class RealMCPBackupService {
+    
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+```
+
 **Migration Notes:**
 - Convert Spring @Service to Node.js service class
 - Adapt 1 business logic method(s) for Node.js
@@ -484,6 +927,57 @@ This section analyzes how stored procedures and business logic from the current 
 **Complexity:** MEDIUM
 **Methods:** 47
 **Dependencies:** 19
+
+**Code Snippets:**
+
+**Class definition: RealMCPClientService** (Lines 30-34):
+
+```java
+public class RealMCPClientService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(RealMCPClientService.class);
+    
+    @Value("${mcp.postgresql.port:3001}")
+```
+
+**Method: processQuery** (Lines 52-59):
+
+```java
+public MCPQueryResult processQuery(String naturalLanguageQuery) {
+        logger.info("Processing MCP query with real MCP servers: {}", naturalLanguageQuery);
+        
+        try {
+            // Analyze the query to determine the target database and operation
+            QueryAnalysis analysis = analyzeQuery(naturalLanguageQuery);
+            
+            // Execute the query using appropriate MCP servers
+```
+
+**Method: getOriginalQuery** (Lines 651-658):
+
+```java
+public String getOriginalQuery() { return originalQuery; }
+        public void setOriginalQuery(String originalQuery) { this.originalQuery = originalQuery; }
+        
+        public DatabaseType getTargetDatabase() { return targetDatabase; }
+        public void setTargetDatabase(DatabaseType targetDatabase) { this.targetDatabase = targetDatabase; }
+        
+        public OperationType getOperation() { return operation; }
+        public void setOperation(OperationType operation) { this.operation = operation; }
+```
+
+**Method: getTargetDatabase** (Lines 654-661):
+
+```java
+public DatabaseType getTargetDatabase() { return targetDatabase; }
+        public void setTargetDatabase(DatabaseType targetDatabase) { this.targetDatabase = targetDatabase; }
+        
+        public OperationType getOperation() { return operation; }
+        public void setOperation(OperationType operation) { this.operation = operation; }
+        
+        public String getSpecificTarget() { return specificTarget; }
+        public void setSpecificTarget(String specificTarget) { this.specificTarget = specificTarget; }
+```
 
 **Migration Notes:**
 - Convert Spring @Service to Node.js service class
@@ -510,6 +1004,57 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 44
 **Dependencies:** 12
 
+**Code Snippets:**
+
+**Class definition: RealMCPIntegrationService** (Lines 22-26):
+
+```java
+public class RealMCPIntegrationService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(RealMCPIntegrationService.class);
+    
+    @Autowired
+```
+
+**Method: processQuery** (Lines 32-39):
+
+```java
+public MCPQueryResult processQuery(String naturalLanguageQuery) {
+        logger.info("Processing MCP query: {}", naturalLanguageQuery);
+        
+        try {
+            // Analyze the query to determine the target database and operation
+            QueryAnalysis analysis = analyzeQuery(naturalLanguageQuery);
+            
+            // Execute the query using appropriate MCP tools
+```
+
+**Method: getOriginalQuery** (Lines 485-492):
+
+```java
+public String getOriginalQuery() { return originalQuery; }
+        public void setOriginalQuery(String originalQuery) { this.originalQuery = originalQuery; }
+        
+        public DatabaseType getTargetDatabase() { return targetDatabase; }
+        public void setTargetDatabase(DatabaseType targetDatabase) { this.targetDatabase = targetDatabase; }
+        
+        public OperationType getOperation() { return operation; }
+        public void setOperation(OperationType operation) { this.operation = operation; }
+```
+
+**Method: getTargetDatabase** (Lines 488-495):
+
+```java
+public DatabaseType getTargetDatabase() { return targetDatabase; }
+        public void setTargetDatabase(DatabaseType targetDatabase) { this.targetDatabase = targetDatabase; }
+        
+        public OperationType getOperation() { return operation; }
+        public void setOperation(OperationType operation) { this.operation = operation; }
+        
+        public String getSpecificTarget() { return specificTarget; }
+        public void setSpecificTarget(String specificTarget) { this.specificTarget = specificTarget; }
+```
+
 **Migration Notes:**
 - Convert Spring @Service to Node.js service class
 - Adapt 9 business logic method(s) for Node.js
@@ -535,6 +1080,18 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 3
 **Dependencies:** 4
 
+**Code Snippets:**
+
+**Class definition: ActorRepository** (Lines 10-14):
+
+```java
+public interface ActorRepository extends JpaRepository<Actor, Integer> {
+    List<Actor> findByFirstNameContainingIgnoreCase(String firstName);
+    List<Actor> findByLastNameContainingIgnoreCase(String lastName);
+    List<Actor> findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCase(String firstName, String lastName);
+}
+```
+
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
 
@@ -558,6 +1115,18 @@ This section analyzes how stored procedures and business logic from the current 
 **Complexity:** MEDIUM
 **Methods:** 3
 **Dependencies:** 4
+
+**Code Snippets:**
+
+**Class definition: AddressRepository** (Lines 10-14):
+
+```java
+public interface AddressRepository extends JpaRepository<Address, Integer> {
+    List<Address> findByCityId(Short cityId);
+    List<Address> findByDistrictContainingIgnoreCase(String district);
+    List<Address> findByPostalCode(String postalCode);
+}
+```
 
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
@@ -583,6 +1152,17 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 2
 **Dependencies:** 5
 
+**Code Snippets:**
+
+**Class definition: CategoryRepository** (Lines 11-15):
+
+```java
+public interface CategoryRepository extends JpaRepository<Category, Integer> {
+    Optional<Category> findByNameIgnoreCase(String name);
+    List<Category> findByNameContainingIgnoreCase(String name);
+}
+```
+
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
 
@@ -606,6 +1186,17 @@ This section analyzes how stored procedures and business logic from the current 
 **Complexity:** MEDIUM
 **Methods:** 2
 **Dependencies:** 4
+
+**Code Snippets:**
+
+**Class definition: CityRepository** (Lines 10-14):
+
+```java
+public interface CityRepository extends JpaRepository<City, Integer> {
+    List<City> findByCityContainingIgnoreCase(String city);
+    List<City> findByCountryId(Short countryId);
+}
+```
 
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
@@ -631,6 +1222,16 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 1
 **Dependencies:** 4
 
+**Code Snippets:**
+
+**Class definition: CountryRepository** (Lines 10-13):
+
+```java
+public interface CountryRepository extends JpaRepository<Country, Integer> {
+    List<Country> findByCountryContainingIgnoreCase(String country);
+}
+```
+
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
 
@@ -654,6 +1255,18 @@ This section analyzes how stored procedures and business logic from the current 
 **Complexity:** MEDIUM
 **Methods:** 4
 **Dependencies:** 5
+
+**Code Snippets:**
+
+**Class definition: CustomerRepository** (Lines 11-15):
+
+```java
+public interface CustomerRepository extends JpaRepository<Customer, Integer> {
+    List<Customer> findByStoreId(Short storeId);
+    List<Customer> findByActivebool(Boolean activebool);
+    Optional<Customer> findByEmail(String email);
+    List<Customer> findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCase(String firstName, String lastName);
+```
 
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
@@ -679,6 +1292,17 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 2
 **Dependencies:** 5
 
+**Code Snippets:**
+
+**Class definition: FilmActorRepository** (Lines 11-15):
+
+```java
+public interface FilmActorRepository extends JpaRepository<FilmActor, FilmActorId> {
+    List<FilmActor> findByActorId(Short actorId);
+    List<FilmActor> findByFilmId(Short filmId);
+}
+```
+
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
 
@@ -702,6 +1326,17 @@ This section analyzes how stored procedures and business logic from the current 
 **Complexity:** MEDIUM
 **Methods:** 2
 **Dependencies:** 5
+
+**Code Snippets:**
+
+**Class definition: FilmCategoryRepository** (Lines 11-15):
+
+```java
+public interface FilmCategoryRepository extends JpaRepository<FilmCategory, FilmCategoryId> {
+    List<FilmCategory> findByFilmId(Short filmId);
+    List<FilmCategory> findByCategoryId(Short categoryId);
+}
+```
 
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
@@ -727,6 +1362,18 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 7
 **Dependencies:** 7
 
+**Code Snippets:**
+
+**Class definition: FilmRepository** (Lines 13-17):
+
+```java
+public interface FilmRepository extends JpaRepository<Film, Integer> {
+    List<Film> findByTitleContainingIgnoreCase(String title);
+    List<Film> findByReleaseYear(Integer releaseYear);
+    List<Film> findByLanguageId(Short languageId);
+    List<Film> findByRating(String rating);
+```
+
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
 
@@ -750,6 +1397,18 @@ This section analyzes how stored procedures and business logic from the current 
 **Complexity:** MEDIUM
 **Methods:** 3
 **Dependencies:** 4
+
+**Code Snippets:**
+
+**Class definition: InventoryRepository** (Lines 10-14):
+
+```java
+public interface InventoryRepository extends JpaRepository<Inventory, Integer> {
+    List<Inventory> findByFilmId(Short filmId);
+    List<Inventory> findByStoreId(Short storeId);
+    List<Inventory> findByFilmIdAndStoreId(Short filmId, Short storeId);
+}
+```
 
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
@@ -775,6 +1434,17 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 2
 **Dependencies:** 5
 
+**Code Snippets:**
+
+**Class definition: LanguageRepository** (Lines 11-15):
+
+```java
+public interface LanguageRepository extends JpaRepository<Language, Integer> {
+    Optional<Language> findByNameIgnoreCase(String name);
+    List<Language> findByNameContainingIgnoreCase(String name);
+}
+```
+
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
 
@@ -798,6 +1468,25 @@ This section analyzes how stored procedures and business logic from the current 
 **Complexity:** MEDIUM
 **Methods:** 7
 **Dependencies:** 8
+
+**Code Snippets:**
+
+**Class definition: PaymentRepository** (Lines 14-18):
+
+```java
+public interface PaymentRepository extends JpaRepository<Payment, Integer> {
+    List<Payment> findByCustomerId(Short customerId);
+    List<Payment> findByStaffId(Short staffId);
+    List<Payment> findByRentalId(Integer rentalId);
+    List<Payment> findByPaymentDateBetween(LocalDateTime startDate, LocalDateTime endDate);
+```
+
+**Method: getTotalPaymentsByCustomer** (Lines 22-24):
+
+```java
+BigDecimal getTotalPaymentsByCustomer(@Param("customerId") Short customerId);
+}
+```
 
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
@@ -824,6 +1513,18 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 6
 **Dependencies:** 7
 
+**Code Snippets:**
+
+**Class definition: RentalRepository** (Lines 13-17):
+
+```java
+public interface RentalRepository extends JpaRepository<Rental, Integer> {
+    List<Rental> findByCustomerId(Short customerId);
+    List<Rental> findByStaffId(Short staffId);
+    List<Rental> findByInventoryId(Integer inventoryId);
+    List<Rental> findByReturnDateIsNull();
+```
+
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
 - Rewrite 2 custom method(s) for MongoDB
@@ -849,6 +1550,18 @@ This section analyzes how stored procedures and business logic from the current 
 **Methods:** 4
 **Dependencies:** 5
 
+**Code Snippets:**
+
+**Class definition: StaffRepository** (Lines 11-15):
+
+```java
+public interface StaffRepository extends JpaRepository<Staff, Integer> {
+    List<Staff> findByStoreId(Short storeId);
+    List<Staff> findByActive(Boolean active);
+    Optional<Staff> findByUsername(String username);
+    List<Staff> findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCase(String firstName, String lastName);
+```
+
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
 
@@ -872,6 +1585,17 @@ This section analyzes how stored procedures and business logic from the current 
 **Complexity:** MEDIUM
 **Methods:** 2
 **Dependencies:** 4
+
+**Code Snippets:**
+
+**Class definition: StoreRepository** (Lines 10-14):
+
+```java
+public interface StoreRepository extends JpaRepository<Store, Integer> {
+    List<Store> findByManagerStaffId(Short managerStaffId);
+    List<Store> findByAddressId(Short addressId);
+}
+```
 
 **Migration Notes:**
 - Convert Spring Data repository to MongoDB operations
@@ -1129,9 +1853,9 @@ The migration will follow a **phased approach** to minimize risk and ensure busi
 6. Deployment & Documentation
 
 ### **Migration Overview**
-- **Start Date**: 9/5/2025 at 5:18:49 PM
-- **End Date**: 12/25/2025 at 5:18:49 PM
-- **Generated**: 9/5/2025 at 5:18:49 PM
+- **Start Date**: 9/8/2025 at 1:01:44 PM
+- **End Date**: 12/28/2025 at 1:01:44 PM
+- **Generated**: 9/8/2025 at 1:01:44 PM
 
 ## ⚠️ Risk Assessment & Mitigation
 
@@ -1174,7 +1898,7 @@ The migration will follow a **phased approach** to minimize risk and ensure busi
 
 ## 📊 Success Metrics & KPIs
 
-**Metrics Generated:** September 5, 2025 at 05:18:49 PM GMT+5:30
+**Metrics Generated:** September 8, 2025 at 01:01:44 PM GMT+5:30
 
 ### **Technical Metrics**
 - **Migration Success Rate**: >99.5%
@@ -1249,10 +1973,10 @@ The migration will follow a **phased approach** to minimize risk and ensure busi
 ## 🏗️ New Project Structure (Node.js + MongoDB)
 
 ### **Target Architecture Overview**
-The new Node.js + MongoDB architecture will provide a modern, scalable foundation for the **prateek-peerislands-data-migration-1757072928307** application:
+The new Node.js + MongoDB architecture will provide a modern, scalable foundation for the **prateek-peerislands-data-migration-1757316702461** application:
 
 ```
-prateek-peerislands-data-migration-1757072928307-nodejs/
+prateek-peerislands-data-migration-1757316702461-nodejs/
 ├── server.js                    # Main application entry point
 ├── package.json                 # Dependencies and scripts
 ├── .env                        # Environment variables
@@ -1558,8 +2282,8 @@ The migration should be planned with thorough testing and proper preparation for
 ---
 
 **Document Prepared By:** PeerAI MongoMigrator  
-**Review Date:** September 5, 2025 at 05:18:49 PM GMT+5:30  
-**Next Review:** 10/5/2025  
+**Review Date:** September 8, 2025 at 01:01:44 PM GMT+5:30  
+**Next Review:** 10/8/2025  
 **Approval Required:** Technical Lead, Project Manager
 
 ---

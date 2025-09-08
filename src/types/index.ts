@@ -180,6 +180,25 @@ export interface ImpactMatrix {
   mitigationStrategies: string[];
 }
 
+// Code snippet types
+export interface CodeSnippet {
+  fileName: string;
+  filePath: string;
+  snippet: string;
+  lineStart: number;
+  lineEnd: number;
+  context: string;
+  methodName?: string;
+  className?: string;
+}
+
+export interface SnippetExtractionOptions {
+  maxLines: number;
+  includeComments: boolean;
+  includeImports: boolean;
+  contextLines: number;
+}
+
 // CLI command options
 export interface CLICommand {
   command: string;

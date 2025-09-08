@@ -2,6 +2,7 @@ import { MigrationAnalysis, SourceCodeAnalysis, MigrationPlan, FileAnalysis } fr
 import { CodeParserService } from './CodeParserService.js';
 import { MigrationPlanGenerator } from './MigrationPlanGenerator.js';
 import { DocumentationGenerator } from './DocumentationGenerator.js';
+import { CodeSnippetExtractor } from './CodeSnippetExtractor.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -9,11 +10,13 @@ export class MigrationAnalysisService {
   private codeParser: CodeParserService;
   private planGenerator: MigrationPlanGenerator;
   private docGenerator: DocumentationGenerator;
+  private codeSnippetExtractor: CodeSnippetExtractor;
 
   constructor() {
     this.codeParser = new CodeParserService();
     this.planGenerator = new MigrationPlanGenerator();
     this.docGenerator = new DocumentationGenerator();
+    this.codeSnippetExtractor = new CodeSnippetExtractor();
   }
 
   /**
@@ -315,7 +318,13 @@ export class MigrationAnalysisService {
     return await Promise.all(
       repositoryFiles.map(async (file) => {
         const content = await fs.promises.readFile(file, 'utf-8');
-        return this.codeParser.analyzeRepositoryFile(file, content);
+        const analysis = await this.codeParser.analyzeRepositoryFile(file, content);
+        
+        // Extract code snippets for this repository file
+        const codeSnippets = await this.codeSnippetExtractor.extractServiceSnippets(file);
+        analysis.codeSnippets = codeSnippets;
+        
+        return analysis;
       })
     );
   }
@@ -351,7 +360,13 @@ export class MigrationAnalysisService {
     return await Promise.all(
       serviceFiles.map(async (file) => {
         const content = await fs.promises.readFile(file, 'utf-8');
-        return this.codeParser.analyzeServiceFile(file, content);
+        const analysis = await this.codeParser.analyzeServiceFile(file, content);
+        
+        // Extract code snippets for this service file
+        const codeSnippets = await this.codeSnippetExtractor.extractServiceSnippets(file);
+        analysis.codeSnippets = codeSnippets;
+        
+        return analysis;
       })
     );
   }

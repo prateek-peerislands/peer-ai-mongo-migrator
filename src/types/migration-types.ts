@@ -1,4 +1,5 @@
 // Migration analysis types for Spring Boot to Node.js + MongoDB migration
+import { CodeSnippet } from './index';
 
 export interface SourceCodeAnalysis {
   sourcePath: string;
@@ -27,6 +28,7 @@ export interface FileAnalysis {
   relationships: RelationshipAnalysis[];
   migrationNotes: string[];
   estimatedEffort: number; // in hours
+  codeSnippets?: CodeSnippet[]; // NEW: Code snippets for this file
 }
 
 export interface AnnotationAnalysis {

@@ -158,7 +158,10 @@ export class MongoDBSchemaGenerator {
       'point': 'Object',
       'line': 'Object',
       'circle': 'Object',
-      'polygon': 'Object'
+      'polygon': 'Object',
+      'user-defined': 'String', // PostgreSQL enums and custom types
+      'array': 'Array', // PostgreSQL arrays
+      'tsvector': 'String' // Full-text search vectors
     };
 
     // Analyze each table
@@ -181,6 +184,12 @@ export class MongoDBSchemaGenerator {
             mongoType = 'String';
           } else if (postgresType.includes('serial')) {
             mongoType = 'Number';
+          } else if (postgresType.includes('user-defined')) {
+            mongoType = 'String'; // USER-DEFINED types (like enums) map to String
+          } else if (postgresType.includes('array')) {
+            mongoType = 'Array'; // PostgreSQL arrays map to MongoDB arrays
+          } else if (postgresType.includes('tsvector')) {
+            mongoType = 'String'; // Full-text search vectors map to String for MongoDB text search
           }
         }
         
@@ -203,8 +212,8 @@ export class MongoDBSchemaGenerator {
         // Don't mark as incompatible, just add warning
       }
 
-      // Special override: All film-related tables are compatible
-      if (table.name.includes('film') || table.name.includes('actor') || table.name.includes('category') || table.name.includes('language')) {
+      // Special override: Tables with common business patterns are generally compatible
+      if (this.isCommonBusinessTable(table.name)) {
         isCompatible = true;
       }
       
@@ -249,6 +258,26 @@ export class MongoDBSchemaGenerator {
     } else {
       return 'Hybrid approach: embed simple relationships, reference complex ones';
     }
+  }
+
+  /**
+   * Check if a table follows common business patterns that are generally compatible with MongoDB
+   */
+  private isCommonBusinessTable(tableName: string): boolean {
+    const commonPatterns = [
+      'user', 'customer', 'client', 'member', 'account',
+      'product', 'item', 'service', 'content', 'article', 'film', 'media',
+      'order', 'transaction', 'payment', 'invoice', 'bill',
+      'category', 'type', 'status', 'state', 'level',
+      'address', 'location', 'place', 'site', 'venue',
+      'contact', 'communication', 'message', 'notification',
+      'log', 'audit', 'history', 'record', 'entry',
+      'config', 'setting', 'preference', 'option',
+      'role', 'permission', 'access', 'right', 'privilege'
+    ];
+    
+    const lowerTableName = tableName.toLowerCase();
+    return commonPatterns.some(pattern => lowerTableName.includes(pattern));
   }
 
   /**
