@@ -1,0 +1,116 @@
+Future of GenAI Applications: From RAG to Multi-Agent Collaboration
+
+Introduction
+The emergence of large language models (LLMs) has revolutionized the field of AI, enabling innovative applications that generate content, answer queries, and execute various tasks. However, LLMs do have limitations, such as hallucinations, limited context length, and limited knowledge based on training cut-off date, among others. While prompt engineering and RAG architecture have enhanced accuracy and coherence, they still fall short in more challenging tasks like software development or multi-step workflows.
+
+In this blog, we will explore the future of GenAI Applications, Agentic Workflows, and Multi-Agent Collaboration. We explore how GenAI Agents can automate complex tasks and how combining the strengths of multiple GenAI Agents through Multi-Agent Collaboration can lead to even more exceptional results.
+
+We also highlight the challenges and opportunities in this field, how our platform, Peer.AI, addresses some of these challenges, and how we leverage the “Multi-Agent Orchestration Framework” to automate and accelerate app modernization.
+
+
+
+Evolution of GenAI Applications
+Large Language Models (LLMs) are deep learning models that have been pre-trained on vast amounts of data. They can generate coherent answers when given a question, but they may not always be correct (known as Hallucination). LLMs are good at predicting the next word in a sentence or sequence of words.
+
+However, it’s important to note that LLMs don’t understand the world in the same way that humans do. They lack common sense and cannot reason about the world. They also do not have the ability to understand the true meaning of a word or sentence.
+
+Prompt engineering is the process of designing the input to an LLM to get the desired output. This can be used to fine-tune an LLM to generate more accurate and coherent answers. There are various prompting techniques that can be used, such as providing context or using specific prompting techniques to guide the model towards generating the desired output.
+
+Press enter or click to view image in full size
+
+
+
+But how do you get the relevant context and information required for this?
+
+This is where Vector Stores come in.
+
+Vector Stores are a way of storing and retrieving relevant information from a vast amount of data. They employ embeddings to represent words, sentences, and documents as vectors in a high-dimensional space. Vector Stores are useful for storing a large corpus of data as embeddings and retrieving pertinent information through similarity searches.
+
+RAG (Retrieval-Augmented Generation) Architecture combines the strengths of LLMs and Vector Stores. With the RAG architecture, relevant information can be retrieved from a large corpus of text and provided to the LLM for a given question to generate a coherent answer.
+
+
+
+LLM Chains, which are facilitated by frameworks like Langchain and Llamaindex, are useful in chaining together multiple tasks, including retrieving relevant information from vector stores and generating answers from LLMs.
+
+Frameworks like Langchain have also created solutions like Langgraph that help us build complex flows, including conditional branching, human-in-the-loop tasks, and more.
+
+
+
+However, for more complex tasks such as software development or multi-step workflows, a RAG architecture and chains may not be sufficient.
+
+Humans are able to perform complex tasks by planning iteratively, reflecting on outcomes, and using tools as needed.
+
+Gen AI Agents mimic the way a human would perform these complex tasks. Gen AI Agent can
+
+Plan tasks
+Reflect on outcomes
+Use short-term and long-term memory
+State Management
+Use tools
+Work towards a goal and iterate as required
+Press enter or click to view image in full size
+
+
+
+Taking this further, Multi-Agent Collaboration can be used to combine the strengths of multiple GenAI Agents working together to perform complex tasks. Multi-Agent Collaboration can be used to automate complex tasks such as software development, multi-step workflow tasks etc.
+
+
+
+Designing a GenAI Agent Framework for App Modernization
+In my earlier blog on Peer.AI, we briefly discussed how we automate app modernization by employing a library of proprietary tools and agents and an orchestration engine built on LangChain and LangGraph.
+
+Let’s deep dive further and look into how we achieve this. A typical software development lifecycle requires multiple roles to work together including Product Manager, Architect, Developers, Testers, and DevOps engineers.
+
+With Peer.AI we have built AI agents that mimic each of these roles above, and a proprietary orchestration engine that allows these agents to work together to automate app modernization.
+
+Let’s consider a rudimentary scenario where your code is spread across a legacy Java program which in turn calls a SQL Stored Procedure. You are modernizing this application — moving to a modern tech stack — latest Java, Spring Boot and MongoDB persistence.
+
+There are tools available that can help you convert SQL Stored Procedures to MongoDB queries or upgrade your Java code using simple transpiler or other means. However, true modernization will require you to understand functionality of your legacy programs and then use that understanding to build your modern application.
+
+Peer.AI does exactly that using our multi-agent orchestration framework. Automate the end-to-end SDLC process. Analyze the legacy application, extract the business logic, design the target state architecture, and then generate code for the target state.
+
+The following diagram illustrates how Peer.AI will go about the app modernization process.
+
+
+Code in Action: Evolution of GenAI Applications
+Now, to some code to put all of this in practice and a glimpse of how we are modernizing legacy applications.
+
+We will start with simple prompt-based application and then build LLM chains and finally look at how you can build an agent with tools.
+
+Let’s first setup the prerequisites.
+
+
+
+%%capture --no-stderr
+%pip install -U langgraph langsmith langchain langchainhub mdformat markdown
+%pip install -U langchain_anthropic langchain-openai
+
+import getpass
+import os
+
+def _set_env(var: str):
+    if not os.environ.get(var):
+        os.environ[var] = getpass.getpass(f"{var}: ")
+
+_set_env("ANTHROPIC_API_KEY")
+_set_env("OPENAI_API_KEY")
+
+_set_env("LANGSMITH_API_KEY")
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_PROJECT"] = "Peer.AI Multi-Agent Orchestration"
+
+from langchain_openai import ChatOpenAI
+
+model = "gpt-4-turbo" #"gpt-3.5-turbo-0125"
+llm = ChatOpenAI(model=model, max_tokens=4096, temperature=0.1)
+
+1_agent_orchestration_blog_setup_tools.py hosted with ❤ by GitHub
+
+
+
+Looking Ahead
+While the advancements in both closed-source and open-source Large Language Models (LLMs) continue to push boundaries with bigger, better models, larger context, and faster inference, the future of GenAI applications is anchored in innovative design patterns such as Agentic Workflows and Multi-Agent Collaboration. These patterns not only enhance performance across various LLMs but also facilitate the development of more sophisticated applications capable of emulating human-like reasoning and decision-making processes.
+
+Looking forward, the synergy between GenAI Agents and Multi-Agent Collaboration presents an unprecedented opportunity to revolutionize the way we approach work. While the challenges ahead are significant, the potential for transformative change is even greater.
+
+At Peer.AI, we are eagerly embracing this future and are actively developing the Peer.AI platform to harness these opportunities. Through the creation of sophisticated orchestration frameworks and collaborative tools for multi-agent interactions, we aim to reshape paradigms in software development and application modernization. The automation facilitated by platforms like Peer.AI transcends mere convenience; it emerges as a potent force driving innovation and productivity to new heights.

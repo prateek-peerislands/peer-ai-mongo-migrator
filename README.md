@@ -16,6 +16,15 @@ The agent understands and responds to human-like commands for database analysis 
   - "Why did you choose to embed language data in films?"
   - "What are the recommended security configurations for my schema?"
 
+### **🔄 Interactive Schema Modification**
+Iteratively refine your MongoDB schema through AI-powered feedback and suggestions:
+
+- **Natural Language Modifications**: "Embed user preferences into the users collection"
+- **AI-Powered Suggestions**: Get intelligent recommendations for schema improvements
+- **Session Management**: Track modifications across multiple design iterations
+- **Real-time Documentation**: Generate updated docs after each modification
+- **Azure OpenAI Integration**: Leverage advanced AI for schema optimization
+
 ### **Interactive Credential Management**
 - **No Configuration Files Required**: The agent interactively prompts for database credentials on startup
 - **Secure Memory-Only Storage**: Credentials are stored in memory and automatically wiped on closure
@@ -128,6 +137,14 @@ The agent will:
 - `clone repository <url>` - Clone and analyze external repository
 - `extract code patterns` - Extract migration-relevant code patterns
 
+### **🔄 Interactive Schema Modification**
+- `start-modification` - Start interactive schema modification session
+- `modify-schema -s <sessionId> -f <feedback>` - Apply modifications to schema
+- `get-suggestions -s <sessionId>` - Get AI-powered improvement suggestions
+- `update-docs -s <sessionId>` - Generate updated documentation
+- `approve-schema -s <sessionId>` - Approve final schema and generate migration doc
+- `list-sessions` - List all active modification sessions
+
 ## 🧠 AI-Powered Features
 
 ### **Natural Language Processing**
@@ -144,6 +161,13 @@ The agent will:
 - **Code Pattern Recognition**: Identifies Spring Boot patterns for migration
 - **Dependency Analysis**: Maps complex database relationships
 - **Risk Assessment**: Evaluates migration complexity and potential issues
+
+### **🔄 Interactive Schema Modification**
+- **Natural Language Processing**: Understands modification requests in plain English
+- **AI-Powered Suggestions**: Azure OpenAI provides intelligent schema improvements
+- **Session Management**: Track modifications across multiple design iterations
+- **Real-time Documentation**: Generate updated docs after each modification
+- **Iterative Design**: Refine schemas through collaborative AI-human interaction
 
 ## 📊 Analysis Capabilities
 
@@ -207,6 +231,32 @@ npm start
 > Analyze my application codes, as I am planning to migrate to mongodb
 > What entities need the most changes?
 > How should I handle my repositories?
+```
+
+### **4. 🔄 Interactive Schema Modification Workflow**
+```bash
+# Step 1: Start modification session with business requirements
+peer-ai-mongo-migrator start-modification \
+  -b "E-commerce platform,Real-time inventory,User personalization" \
+  -p "Sub-50ms queries,<500MB per collection,99.9% uptime"
+
+# Step 2: Get AI suggestions for improvements
+peer-ai-mongo-migrator get-suggestions -s abc123
+
+# Step 3: Apply modifications based on feedback
+peer-ai-mongo-migrator modify-schema -s abc123 -f "Embed user preferences into users collection for faster personalization"
+
+# Step 4: Make another modification
+peer-ai-mongo-migrator modify-schema -s abc123 -f "Add compound indexes for common search patterns: category + price + availability"
+
+# Step 5: Generate updated documentation
+peer-ai-mongo-migrator update-docs -s abc123
+
+# Step 6: Get more suggestions after changes
+peer-ai-mongo-migrator get-suggestions -s abc123
+
+# Step 7: Approve final schema and generate migration document
+peer-ai-mongo-migrator approve-schema -s abc123
 ```
 
 ---

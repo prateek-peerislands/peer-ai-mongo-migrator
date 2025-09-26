@@ -282,6 +282,14 @@ export class IntentMappingService {
       'migration_planning': ['migration', 'plan', 'strategy', 'roadmap', 'dependencies'],
       'migration_analysis': ['analyze migration', 'migration analysis', 'dependencies', 'order'],
       
+      // Schema Modification - Precise command matching
+      'start_modification_session': ['start modification session', 'begin modification session', 'start schema modification', 'begin schema modification'],
+      'modify_schema': ['modify the schema', 'change the schema', 'update the schema', 'modify schema', 'change schema', 'update schema'],
+      'get_modification_suggestions': ['get suggestions', 'get ai suggestions', 'show suggestions', 'suggest improvements'],
+      'update_documentation': ['update documentation', 'update docs', 'regenerate documentation', 'refresh documentation'],
+      'approve_schema': ['approve schema', 'approve final schema', 'finalize schema', 'finalize final schema'],
+      'list_modification_sessions': ['list sessions', 'show sessions', 'list modification sessions'],
+      
       // GitHub Integration
       'github_repository_analysis': ['github', 'repository', 'repo', 'analyze', 'clone'],
       'github_code_analysis': ['source code', 'code analysis', 'parse', 'extract'],

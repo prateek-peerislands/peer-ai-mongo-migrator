@@ -18,6 +18,7 @@ import { IntentContext, IntentMappingResult } from '../types/intent-types.js';
 import { DualLocationFileWriter } from '../utils/DualLocationFileWriter.js';
 import { RationaleConversationService } from '../services/RationaleConversationService.js';
 import { EnhancedDocumentAwareAgent } from '../services/EnhancedDocumentAwareAgent.js';
+import { ConversationHistoryService } from '../services/ConversationHistoryService.js';
 
 export class CLI {
   private agent!: MCPAgent;
@@ -27,12 +28,14 @@ export class CLI {
   private llmInitialized: boolean = false;
   private rationaleConversationService: RationaleConversationService;
   private enhancedDocumentAwareAgent: EnhancedDocumentAwareAgent | null = null;
+  private conversationHistoryService: ConversationHistoryService;
 
   constructor() {
     this.program = new Command();
     this.intentMappingService = IntentMappingService.getInstance();
     this.llmConfigManager = LLMConfigManager.getInstance();
     this.rationaleConversationService = new RationaleConversationService();
+    this.conversationHistoryService = ConversationHistoryService.getInstance();
     this.setupCommands();
   }
 
@@ -141,6 +144,54 @@ export class CLI {
       .option('--optimize', 'Optimize database performance')
       .option('--cleanup', 'Cleanup old data and indexes')
       .action(this.handleManagement.bind(this));
+
+    // Interactive Schema Modification commands
+    this.program
+      .command('start-modification')
+      .description('Start interactive schema modification session')
+      .option('-b, --business-requirements <requirements>', 'Business requirements (comma-separated)')
+      .option('-p, --performance-constraints <constraints>', 'Performance constraints (comma-separated)')
+      .action(this.handleStartModification.bind(this));
+
+    this.program
+      .command('modify-schema')
+      .description('Modify MongoDB schema based on developer feedback')
+      .requiredOption('-s, --session <sessionId>', 'Modification session ID')
+      .requiredOption('-f, --feedback <feedback>', 'Developer feedback for schema modifications')
+      .option('-n, --notes <notes>', 'Additional developer notes')
+      .option('-p, --priority <priority>', 'Priority: LOW, MEDIUM, HIGH, CRITICAL', 'MEDIUM')
+      .action(this.handleSchemaModification.bind(this));
+
+    this.program
+      .command('get-suggestions')
+      .description('Get intelligent modification suggestions')
+      .requiredOption('-s, --session <sessionId>', 'Modification session ID')
+      .action(this.handleGetSuggestions.bind(this));
+
+    this.program
+      .command('update-docs')
+      .description('Generate updated documentation for modified schema')
+      .requiredOption('-s, --session <sessionId>', 'Modification session ID')
+      .option('-o, --output <path>', 'Output path for updated documentation')
+      .action(this.handleUpdateDocs.bind(this));
+
+    this.program
+      .command('approve-schema')
+      .description('Approve final schema and generate migration document')
+      .requiredOption('-s, --session <sessionId>', 'Modification session ID')
+      .action(this.handleApproveSchema.bind(this));
+
+    this.program
+      .command('list-sessions')
+      .description('List all active modification sessions')
+      .action(this.handleListSessions.bind(this));
+
+    this.program
+      .command('finalize-migration')
+      .description('Generate final migration document after all modifications')
+      .option('-f, --feedback <feedback>', 'Final feedback for migration document')
+      .option('-o, --output <path>', 'Output path for final migration document')
+      .action(this.handleFinalMigration.bind(this));
 
     this.program
       .command('interactive')
@@ -937,6 +988,8 @@ export class CLI {
   private async showDatabaseStatus(): Promise<void> {
     const status = this.agent.getStatus();
     
+    const response = `Database Status:\nPostgreSQL: Connected: ${status.postgresql.connected ? '✅' : '❌'}, Tables: ${status.postgresql.tableCount}\nMongoDB: Connected: ${status.mongodb.connected ? '✅' : '❌'}, Collections: ${status.mongodb.collectionCount}`;
+    
     console.log('\n📊 Database Status:');
     
     console.log(chalk.white('\nPostgreSQL:'));
@@ -946,6 +999,23 @@ export class CLI {
     console.log(chalk.white('\nMongoDB:'));
     console.log(chalk.gray(`  Connected: ${status.mongodb.connected ? '✅' : '❌'}`));
     console.log(chalk.gray(`  Collections: ${status.mongodb.collectionCount}`));
+    
+    // Capture agent response
+    this.captureAgentResponse(response);
+  }
+
+  /**
+   * Helper method to capture and record agent responses
+   */
+  private captureAgentResponse(response: string): void {
+    this.conversationHistoryService.addAgentMessage(response);
+  }
+
+  /**
+   * Helper method to finalize agent response when complete
+   */
+  private finalizeAgentResponse(): void {
+    this.conversationHistoryService.finalizeAgentResponse();
   }
 
   /**
@@ -960,6 +1030,8 @@ export class CLI {
       
       spinner.succeed('Health check completed');
       
+      const response = `Health Check Results:\nPostgreSQL: ${status.postgresql.health.status}, Response Time: ${status.postgresql.health.responseTime}ms${status.postgresql.health.error ? `, Error: ${status.postgresql.health.error}` : ''}\nMongoDB: ${status.mongodb.health.status}, Response Time: ${status.mongodb.health.responseTime}ms${status.mongodb.health.error ? `, Error: ${status.mongodb.health.error}` : ''}`;
+      
       console.log('\n🏥 Health Check Results:');
       console.log(`\n🐘 PostgreSQL: ${status.postgresql.health.status}`);
       console.log(`  Response Time: ${status.postgresql.health.responseTime}ms`);
@@ -972,6 +1044,9 @@ export class CLI {
       if (status.mongodb.health.error) {
         console.log(`  Error: ${status.mongodb.health.error}`);
       }
+      
+      // Capture agent response
+      this.captureAgentResponse(response);
       
       console.log(`\n⏰ Check Time: ${status.lastHealthCheck.toLocaleString()}`);
     } catch (error) {
@@ -1096,6 +1171,315 @@ export class CLI {
   }
 
   /**
+   * Handle schema modification workflow
+   */
+  private async handleSchemaModification(options: any): Promise<void> {
+    try {
+      // Use the existing modification service
+      const modificationService = await this.getModificationService();
+      
+      console.log('🔧 Starting schema modification workflow...');
+      
+      // Get current MongoDB schema
+      const mongoResult = await this.agent.generateMongoDBSchemaFromPostgreSQL();
+      if (!mongoResult.success || !mongoResult.mongodbSchema) {
+        throw new Error('Failed to get current MongoDB schema');
+      }
+      
+      // Create workflow state
+      const workflowState: any = {
+        originalSchema: mongoResult.mongodbSchema.collections,
+        originalPostgresSchema: mongoResult.postgresSchema,
+        currentModifications: [],
+        modifiedSchema: null
+      };
+      
+      if (options.preview) {
+        // Preview modifications
+        const preview = await modificationService.previewModifications(
+          options.feedback,
+          workflowState.originalSchema
+        );
+        
+        if (preview.success) {
+          console.log('✅ Modification preview generated');
+          console.log(`📊 Found ${preview.modificationRequests.length} modification requests`);
+          console.log('🔍 Preview schema changes:');
+          preview.previewSchema.forEach((collection: any) => {
+            console.log(`  • ${collection.name}: ${collection.fields.length} fields`);
+          });
+        } else {
+          console.error('❌ Preview failed:', preview.errors);
+        }
+      } else {
+        // Apply modifications
+        const result = await modificationService.processModificationWorkflow(
+          options.feedback,
+          workflowState
+        );
+        
+        if (result.success) {
+          console.log('✅ Schema modifications applied successfully');
+          console.log(`📊 Modified ${result.modifiedSchema?.summary.modifiedCollections} collections`);
+          console.log(`📁 Generated ${Object.keys(result.regenerationResult?.files || {}).length} updated documents`);
+          
+          if (result.finalMigrationDocument) {
+            console.log(`📋 Final migration document: ${result.finalMigrationDocument.filepath}`);
+          }
+        } else {
+          console.error('❌ Schema modification failed:', result.errors);
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Schema modification workflow failed:', error);
+    }
+  }
+
+  /**
+   * Handle final migration document generation
+   */
+  private async handleFinalMigration(options: any): Promise<void> {
+    try {
+      // Use the existing modification service
+      const modificationService = await this.getModificationService();
+      
+      console.log('📋 Generating final migration document...');
+      
+      // Get current state
+      const mongoResult = await this.agent.generateMongoDBSchemaFromPostgreSQL();
+      if (!mongoResult.success || !mongoResult.mongodbSchema) {
+        throw new Error('Failed to get current MongoDB schema');
+      }
+      
+      // Create workflow state
+      const workflowState: any = {
+        originalSchema: mongoResult.mongodbSchema.collections,
+        originalPostgresSchema: mongoResult.postgresSchema,
+        currentModifications: [],
+        modifiedSchema: null
+      };
+      
+      // Process final feedback if provided
+      if (options.feedback) {
+        const result = await modificationService.processModificationWorkflow(
+          options.feedback,
+          workflowState
+        );
+        
+        if (!result.success) {
+          throw new Error(`Final modifications failed: ${result.errors.join(', ')}`);
+        }
+        
+        workflowState.modifiedSchema = result.modifiedSchema;
+      }
+      
+      // Generate final migration document
+      // Use the existing modification service for final generation
+      const finalGenerator = await this.getModificationService();
+      
+      const finalDoc = await finalGenerator.generateFinalMigrationDocument(
+        workflowState.modifiedSchema || { collections: workflowState.originalSchema, modifications: [], summary: { totalCollections: 0, modifiedCollections: 0, addedFields: 0, removedFields: 0, changedRelationships: 0 } },
+        workflowState.originalPostgresSchema
+      );
+      
+      if (finalDoc.success) {
+        console.log('✅ Final migration document generated successfully');
+        console.log(`📁 Document location: ${finalDoc.filepath}`);
+        console.log(`📊 Collections: ${finalDoc.metadata.totalCollections}`);
+        console.log(`🔧 Modifications: ${finalDoc.metadata.modificationsApplied}`);
+        console.log(`⚡ Complexity: ${finalDoc.metadata.migrationComplexity}`);
+      } else {
+        console.error('❌ Final migration document generation failed');
+      }
+      
+    } catch (error) {
+      console.error('❌ Final migration generation failed:', error);
+    }
+  }
+
+  /**
+   * Handle start modification session
+   */
+  private async handleStartModification(options: any): Promise<void> {
+    try {
+      const modificationService = await this.getModificationService();
+      
+      console.log('🚀 Starting interactive schema modification session...');
+      
+      // Get PostgreSQL schema
+      const postgresResult = await this.agent.analyzePostgreSQLSchema();
+      if (!postgresResult.success) {
+        throw new Error('Failed to analyze PostgreSQL schema');
+      }
+      
+      // Get current MongoDB schema
+      const mongoResult = await this.agent.generateMongoDBSchemaFromPostgreSQL();
+      if (!mongoResult.success || !mongoResult.mongodbSchema) {
+        throw new Error('Failed to get current MongoDB schema');
+      }
+      
+      // Parse business requirements and performance constraints
+      const businessRequirements = options.businessRequirements?.split(',').map((r: string) => r.trim()) || [];
+      const performanceConstraints = options.performanceConstraints?.split(',').map((c: string) => c.trim()) || [];
+      
+      // Start modification session
+      const session = modificationService.startModificationSession(
+        (postgresResult as any).schema || postgresResult,
+        mongoResult.mongodbSchema.collections || [],
+        businessRequirements,
+        performanceConstraints
+      );
+      
+      console.log('✅ Modification session started successfully!');
+      console.log(`🆔 Session ID: ${session.sessionId}`);
+      console.log(`📊 Collections: ${session.currentSchema.length}`);
+      console.log(`📋 Business Requirements: ${businessRequirements.length > 0 ? businessRequirements.join(', ') : 'None specified'}`);
+      console.log(`⚡ Performance Constraints: ${performanceConstraints.length > 0 ? performanceConstraints.join(', ') : 'None specified'}`);
+      console.log('\n💡 Next steps:');
+      console.log('  • Use "modify-schema" to make changes');
+      console.log('  • Use "get-suggestions" for AI recommendations');
+      console.log('  • Use "update-docs" to generate updated documentation');
+      console.log('  • Use "approve-schema" when ready for final migration');
+      
+    } catch (error) {
+      console.error('❌ Failed to start modification session:', error);
+    }
+  }
+
+  /**
+   * Handle get suggestions
+   */
+  private async handleGetSuggestions(options: any): Promise<void> {
+    try {
+      const modificationService = await this.getModificationService();
+      
+      console.log(`💡 Getting intelligent suggestions for session ${options.session}...`);
+      
+      const suggestions = await modificationService.getModificationSuggestions(options.session);
+      
+      if (suggestions.length > 0) {
+        console.log('✅ AI suggestions generated successfully!');
+        console.log('\n🤖 Intelligent Modification Suggestions:');
+        
+        suggestions.forEach((suggestion: any, index: number) => {
+          console.log(`\n${index + 1}. ${suggestion.suggestion}`);
+          console.log(`   Reasoning: ${suggestion.reasoning}`);
+          console.log(`   Impact: ${suggestion.impact} | Effort: ${suggestion.effort}`);
+          console.log(`   Benefits: ${suggestion.benefits.join(', ')}`);
+          if (suggestion.risks.length > 0) {
+            console.log(`   Risks: ${suggestion.risks.join(', ')}`);
+          }
+          console.log(`   Implementation: ${suggestion.implementation}`);
+        });
+        
+        console.log('\n💡 To apply a suggestion, use:');
+        console.log('  peer-ai-mongo-migrator modify-schema -s <sessionId> -f "<suggestion description>"');
+      } else {
+        console.log('ℹ️  No suggestions available at this time.');
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to get suggestions:', error);
+    }
+  }
+
+  /**
+   * Handle update documentation
+   */
+  private async handleUpdateDocs(options: any): Promise<void> {
+    try {
+      const modificationService = await this.getModificationService();
+      
+      console.log(`📝 Generating updated documentation for session ${options.session}...`);
+      
+      const result = await modificationService.generateUpdatedDocumentation(
+        options.session,
+        options.output
+      );
+      
+      if (result.success) {
+        console.log('✅ Updated documentation generated successfully!');
+        console.log(`📁 File: ${result.filePath}`);
+        console.log('\n🔄 The documentation now reflects your latest schema modifications.');
+      } else {
+        console.error('❌ Failed to generate updated documentation:', result.error);
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to update documentation:', error);
+    }
+  }
+
+  /**
+   * Handle approve schema
+   */
+  private async handleApproveSchema(options: any): Promise<void> {
+    try {
+      const modificationService = await this.getModificationService();
+      
+      console.log(`✅ Approving final schema for session ${options.session}...`);
+      
+      const finalDocument = await modificationService.approveFinalSchema(options.session);
+      
+      console.log('🎉 Final schema approved successfully!');
+      console.log(`📋 Document ID: ${finalDocument.documentId}`);
+      console.log(`📊 Final Collections: ${finalDocument.approvedSchema.length}`);
+      console.log(`🔧 Total Modifications: ${finalDocument.modificationSummary.totalModifications}`);
+      console.log(`⚡ Performance Impact: ${finalDocument.modificationSummary.performanceImpact}`);
+      console.log(`📈 Complexity Change: ${finalDocument.modificationSummary.complexityChange}`);
+      
+      console.log('\n📋 Key Changes Made:');
+      finalDocument.modificationSummary.keyChanges.forEach((change: any) => {
+        console.log(`  • ${change}`);
+      });
+      
+      console.log('\n💡 Final Recommendations:');
+      finalDocument.finalRecommendations.forEach((rec: any) => {
+        console.log(`  • ${rec}`);
+      });
+      
+      console.log('\n🚀 Your final migration document has been generated and is ready for implementation!');
+      
+    } catch (error) {
+      console.error('❌ Failed to approve schema:', error);
+    }
+  }
+
+  /**
+   * Handle list sessions
+   */
+  private async handleListSessions(): Promise<void> {
+    try {
+      const modificationService = await this.getModificationService();
+      
+      console.log('📋 Listing all active modification sessions...');
+      
+      const sessions = modificationService.listActiveSessions();
+      
+      if (sessions.length > 0) {
+        console.log(`✅ Found ${sessions.length} active session(s):`);
+        
+        sessions.forEach((session: any) => {
+          console.log(`\n🆔 Session ID: ${session.sessionId}`);
+          console.log(`📅 Started: ${session.startTime.toLocaleString()}`);
+          console.log(`📊 Collections: ${session.currentSchema.length}`);
+          console.log(`🔧 Modifications: ${session.modificationHistory.length}`);
+          console.log(`📋 Status: ${session.status}`);
+        });
+        
+        console.log('\n💡 Use these session IDs with modify-schema, get-suggestions, update-docs, or approve-schema commands.');
+      } else {
+        console.log('ℹ️  No active modification sessions found.');
+        console.log('💡 Start a new session with: peer-ai-mongo-migrator start-modification');
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to list sessions:', error);
+    }
+  }
+
+  /**
    * Analyze PostgreSQL schema comprehensively
    */
   private async analyzePostgreSQLSchema(): Promise<void> {
@@ -1166,6 +1550,7 @@ export class CLI {
     } catch (error) {
       console.error(chalk.red('❌ Error processing input:'), error);
       console.log(chalk.yellow('🔄 Falling back to basic help...'));
+      this.captureAgentResponse(`Error processing input: ${error}. Falling back to basic help...`);
       await this.showBasicHelp();
     }
   }
@@ -1197,6 +1582,10 @@ export class CLI {
         console.log(chalk.yellow(`⚠️ Low confidence (${Math.round(intentResult.primaryIntent.confidence * 100)}%). Proceeding with best guess...`));
       }
 
+      // Capture agent response about intent
+      const intentResponse = `Intent: ${intentResult.primaryIntent.intent} (${Math.round(intentResult.primaryIntent.confidence * 100)}% confidence). ${intentResult.primaryIntent.reasoning}`;
+      this.captureAgentResponse(intentResponse);
+
       // Route to appropriate handler based on intent
       await this.routeIntentToHandler(intentResult, input, rl);
       
@@ -1209,6 +1598,10 @@ export class CLI {
       // FOR TESTING: Show error instead of using fallback
       console.log(chalk.red('🚫 FALLBACK DISABLED FOR TESTING - Cannot process request without LLM'));
       console.log(chalk.gray('   Please ensure Azure OpenAI configuration is properly set up.'));
+      
+      // Capture error response
+      this.captureAgentResponse('Error: LLM intent mapping failed. Please ensure Azure OpenAI configuration is properly set up.');
+      
       rl.prompt();
     }
   }
@@ -1241,12 +1634,19 @@ export class CLI {
         console.log(chalk.gray(`\n📁 Based on: ${response.context.sourceFiles.join(', ')}`));
       }
       
+      // Capture agent response
+      const agentResponse = `Answer: ${response.answer}${response.suggestions.length > 0 ? `\nSuggestions: ${response.suggestions.join(', ')}` : ''}${response.context.sourceFiles.length > 0 ? `\nBased on: ${response.context.sourceFiles.join(', ')}` : ''}`;
+      this.captureAgentResponse(agentResponse);
+      
       if (response.needsFiles) {
         console.log(chalk.yellow('\n⚠️ Some analysis files are missing. Run the suggested commands to generate them.'));
       }
       
     } catch (error) {
       console.error(chalk.red('❌ Smart query failed:'), error);
+      // Capture error response
+      this.captureAgentResponse(`Error: Smart query failed - ${error}`);
+      this.finalizeAgentResponse();
     }
   }
 
@@ -1378,6 +1778,7 @@ export class CLI {
       // 🎯 PRIORITY 1: Database status and health queries
       if (this.matchesPattern(lowerInput, ['status', 'health', 'how are you', 'are you working'])) {
         console.log(chalk.blue('🏥 Checking database status...'));
+        this.captureAgentResponse('Checking database status...');
         await this.showDatabaseStatus();
         return;
       }
@@ -1387,10 +1788,12 @@ export class CLI {
       
       // If no pattern matches, show smart help with suggestions
       console.log(chalk.yellow('🤔 I\'m not sure how to handle that request.'));
+      this.captureAgentResponse('I\'m not sure how to handle that request. Showing help...');
       await this.showBasicHelp();
       
     } catch (error) {
       console.error(chalk.red('❌ Fallback intent mapping failed:'), error);
+      this.captureAgentResponse(`Error: Fallback intent mapping failed - ${error}`);
       await this.showBasicHelp();
     }
   }
@@ -1437,10 +1840,12 @@ export class CLI {
         case 'schema_documentation':
         case 'postgresql_schema_analysis':
           await this.handleSchemaAnalysisNaturalLanguage(input, rl);
+          this.finalizeAgentResponse();
           break;
           
         case 'mongodb_schema_generation':
           await this.handleMongoDBSchemaGenerationNaturalLanguage(input, rl);
+          this.finalizeAgentResponse();
           break;
           
         // Migration
@@ -1501,20 +1906,60 @@ export class CLI {
           await this.handleMigrationPlanNaturalLanguage(input, rl);
           break;
           
+        // Schema Modification Commands
+        case 'start_modification_session':
+        case 'modification_session_start':
+          await this.handleStartModificationNaturalLanguage(input, rl);
+          break;
+          
+        case 'modify_schema':
+        case 'schema_modification':
+        case 'modify_mongodb_schema':
+          await this.handleModifySchemaNaturalLanguage(input, rl);
+          break;
+          
+        case 'get_modification_suggestions':
+        case 'ai_suggestions':
+        case 'modification_suggestions':
+          await this.handleGetSuggestionsNaturalLanguage(input, rl);
+          break;
+          
+        case 'update_documentation':
+        case 'update_docs':
+        case 'regenerate_documentation':
+          await this.handleUpdateDocsNaturalLanguage(input, rl);
+          break;
+          
+        case 'approve_schema':
+        case 'finalize_schema':
+        case 'approve_final_schema':
+          await this.handleApproveSchemaNaturalLanguage(input, rl);
+          break;
+          
+        case 'list_modification_sessions':
+        case 'show_sessions':
+        case 'list_sessions':
+          await this.handleListSessionsNaturalLanguage(input, rl);
+          break;
+          
         // Fallback
         case 'unknown_intent':
         case 'ambiguous_intent':
       console.log(chalk.yellow('🤔 I\'m not sure how to handle that request.'));
+          this.captureAgentResponse('I\'m not sure how to handle that request. Showing help...');
           await this.showBasicHelp();
           break;
           
         default:
           console.log(chalk.yellow(`🤔 Unknown intent: ${intent}`));
+          this.captureAgentResponse(`Unknown intent: ${intent}. Showing help...`);
           await this.showBasicHelp();
       }
     } catch (error) {
       console.error(chalk.red(`❌ Error handling intent ${intent}:`), error);
+      this.captureAgentResponse(`Error handling intent ${intent}: ${error}. Showing help...`);
       await this.showBasicHelp();
+      this.finalizeAgentResponse();
     }
   }
 
@@ -1522,6 +1967,29 @@ export class CLI {
    * Show basic help information
    */
   private async showBasicHelp(): Promise<void> {
+    const helpText = `Here are some things I can help you with:
+
+Smart Query Features:
+• "analyze postgres schema" - Comprehensive schema analysis with ER diagrams
+• "create er diagram" - Visual entity relationship diagrams
+• "generate mongo schema" - Convert PostgreSQL to MongoDB schema
+• "plan migration strategy" - Intelligent migration planning
+• "show database status" - Check connection health
+• "analyze github repo <url>" - Analyze repository for migration
+
+Database Operations:
+• "fetch from users table" - Query PostgreSQL
+• "find in users collection" - Query MongoDB
+• "what tables exist in postgres?" - List all tables
+• "what collections exist in mongo?" - List all collections
+
+Design & Migration Questions:
+• "Why did you choose this approach?" - Explain design decisions
+• "What would this table look like in MongoDB?" - Show conversions
+• "How should I optimize this query?" - Query optimization
+
+Need more help? Type "help" for complete feature list!`;
+
     console.log(chalk.blue('\n💡 Here are some things I can help you with:\n'));
     console.log(chalk.gray('🧠 Smart Query Features:'));
     console.log(chalk.gray('  • "analyze postgres schema" - Comprehensive schema analysis with ER diagrams'));
@@ -1540,6 +2008,9 @@ export class CLI {
     console.log(chalk.gray('  • "What would this table look like in MongoDB?" - Show conversions'));
     console.log(chalk.gray('  • "How should I optimize this query?" - Query optimization'));
     console.log(chalk.gray('\n❓ Need more help? Type "help" for complete feature list!'));
+    
+    // Capture agent response
+    this.captureAgentResponse(helpText);
   }
 
   /**
@@ -2007,6 +2478,15 @@ export class CLI {
         try {
           const result = await this.agent.analyzePostgreSQLSchema();
           if (result.success) {
+            // Build comprehensive response for conversation history
+            let response = `PostgreSQL Schema Analysis Completed Successfully!\nDocumentation file: ${result.filepath}\nA comprehensive markdown file has been generated with your database schema!`;
+            
+            if (result.summary) {
+              response += `\n\nAnalysis Summary:\n• Tables: ${result.summary.totalTables}\n• Views: ${result.summary.totalViews}\n• Functions: ${result.summary.totalFunctions}\n• Triggers: ${result.summary.totalTriggers}\n• Indexes: ${result.summary.totalIndexes}\n• Relationships: ${result.summary.totalRelationships}\n• Last Analyzed: ${result.summary.lastAnalyzed.toLocaleString()}`;
+            }
+            
+            response += `\n\nYour comprehensive schema documentation has been generated!\nThe file contains:\n• Complete table structures with columns and constraints\n• View definitions and dependencies\n• Function and trigger definitions\n• Index information and optimization details\n• Relationship mapping and foreign keys\n• Full DDL statements for all objects\n• Mermaid diagrams for visual representation\n\nNote: Each analysis creates a new timestamped file to preserve historical versions\nYou can also use: "peer-ai-mongo-migrator schema --analyze" for the same functionality`;
+            
             console.log(chalk.green('\n🎉 PostgreSQL Schema Analysis Completed Successfully!'));
             console.log(chalk.cyan(`📁 Documentation file: ${result.filepath}`));
             console.log(chalk.green('✨ A comprehensive markdown file has been generated with your database schema!'));
@@ -2031,9 +2511,16 @@ export class CLI {
             console.log(chalk.gray('  • Mermaid diagrams for visual representation'));
             console.log(chalk.blue('\n📝 Note: Each analysis creates a new timestamped file to preserve historical versions'));
             console.log(chalk.cyan('\n🔍 You can also use: "peer-ai-mongo-migrator schema --analyze" for the same functionality'));
+            
+            // Capture comprehensive agent response
+            this.captureAgentResponse(response);
+            this.finalizeAgentResponse();
           } else {
+            const errorResponse = `Schema analysis failed: ${result.error}\nPlease check your PostgreSQL connection and try again.`;
             console.log(chalk.red('\n❌ Schema analysis failed:'), result.error);
             console.log(chalk.yellow('💡 Please check your PostgreSQL connection and try again.'));
+            this.captureAgentResponse(errorResponse);
+            this.finalizeAgentResponse();
           }
         } catch (error) {
           console.error(chalk.red('\n❌ Schema analysis failed:'), error);
@@ -2052,6 +2539,21 @@ export class CLI {
     try {
       const result = await this.agent.generateMongoDBSchemaFromPostgreSQL();
       if (result.success) {
+        // Build comprehensive response for conversation history
+        let response = `MongoDB Schema Generation Completed Successfully!\nDocumentation file: ${result.filepath}\nA comprehensive MongoDB schema has been generated from your PostgreSQL database!`;
+        
+        if (result.postgresSchema && result.mongodbSchema) {
+          response += `\n\nSummary:\n• PostgreSQL Tables: ${result.postgresSchema.totalTables}\n• MongoDB Collections: ${result.mongodbSchema.totalCollections}\n• Source: ${result.postgresSchema.source}`;
+        }
+        
+        if (result.compatibilityReport) {
+          const compatible = result.compatibilityReport.compatibleTables?.length || 0;
+          const incompatible = result.compatibilityReport.incompatibleTables?.length || 0;
+          response += `\n• Compatibility: ${compatible} compatible, ${incompatible} incompatible`;
+        }
+        
+        response += `\n\nMongoDB schema documentation generated successfully!\nContains: schemas, type mappings, relationships, performance tips, and migration guide\n\nNote: Each generation creates a new timestamped file\nAlternative: "peer-ai-mongo-migrator schema --mongodb"`;
+        
         console.log(chalk.green('\n🎉 MongoDB Schema Generation Completed Successfully!'));
         console.log(chalk.cyan(`📁 Documentation file: ${result.filepath}`));
         console.log(chalk.green('✨ A comprehensive MongoDB schema has been generated from your PostgreSQL database!'));
@@ -2073,9 +2575,16 @@ export class CLI {
         console.log(chalk.gray('📖 Contains: schemas, type mappings, relationships, performance tips, and migration guide'));
         console.log(chalk.blue('\n📝 Note: Each generation creates a new timestamped file'));
         console.log(chalk.cyan('\n🔍 Alternative: "peer-ai-mongo-migrator schema --mongodb"'));
+        
+        // Capture comprehensive agent response
+        this.captureAgentResponse(response);
+        this.finalizeAgentResponse();
       } else {
+        const errorResponse = `MongoDB schema generation failed: ${result.error}\nPlease check your PostgreSQL connection and try again.`;
         console.log(chalk.red('\n❌ MongoDB schema generation failed:'), result.error);
         console.log(chalk.yellow('💡 Please check your PostgreSQL connection and try again.'));
+        this.captureAgentResponse(errorResponse);
+        this.finalizeAgentResponse();
       }
     } catch (error) {
       console.error(chalk.red('\n❌ MongoDB schema generation failed:'), error);
@@ -2269,6 +2778,14 @@ export class CLI {
     console.log(chalk.gray('  • "Show database structure" - Complete database overview'));
     console.log(chalk.gray('  • "What tables exist in postgres?" - List all tables with details'));
     console.log(chalk.gray('  • "What collections exist in mongo?" - List all collections with details'));
+    
+    console.log(chalk.white('\n🔄 Interactive Schema Modification:'));
+    console.log(chalk.gray('  • "Start modification session" - Begin interactive schema refinement'));
+    console.log(chalk.gray('  • "Modify the schema to [description]" - Apply specific changes'));
+    console.log(chalk.gray('  • "Get suggestions" - Get AI improvement recommendations'));
+    console.log(chalk.gray('  • "Update documentation" - Generate updated docs with changes'));
+    console.log(chalk.gray('  • "Approve schema" - Finalize and generate migration document'));
+    console.log(chalk.gray('  • "List sessions" - Show all active modification sessions'));
     
     console.log(chalk.white('\n🔄 Migration & Transformation:'));
     console.log(chalk.gray('  • "Convert postgres to MongoDB schema" - Intelligent schema conversion'));
@@ -2862,6 +3379,10 @@ export class CLI {
     console.log(chalk.white('Ask any question about your database in natural language. The agent uses your schema analysis files as knowledge base.\n'));
     console.log(chalk.gray('💡 If the interface gets stuck, press Ctrl+C twice to force exit\n'));
 
+    // Start conversation history recording
+    this.conversationHistoryService.startRecording();
+    console.log(chalk.gray('📝 Conversation history recording started'));
+
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -2878,6 +3399,9 @@ export class CLI {
         if (this.agent) {
           await this.agent.cleanup();
         }
+        // Stop conversation history recording
+        this.conversationHistoryService.stopRecording();
+        console.log(chalk.gray('📝 Conversation history recording stopped'));
         // Clear interactive credentials from memory
         clearInteractiveCredentials();
         process.exit(0);
@@ -2929,6 +3453,9 @@ export class CLI {
           if (input.toLowerCase() === 'exit' || input.toLowerCase() === 'quit') {
             console.log(chalk.yellow('👋 Goodbye!'));
             console.log(chalk.gray('🧹 Clearing credentials from memory...'));
+            // Stop conversation history recording
+            this.conversationHistoryService.stopRecording();
+            console.log(chalk.gray('📝 Conversation history recording stopped'));
             clearInteractiveCredentials();
             break;
           }
@@ -2947,6 +3474,9 @@ export class CLI {
             await this.performHealthCheck();
             continue;
           }
+          
+          // Record user input in conversation history
+          this.conversationHistoryService.addUserMessage(input);
           
           // Try to parse as natural language
           await this.handleNaturalLanguageInput(input, rl);
@@ -3850,6 +4380,22 @@ export class CLI {
       });
 
       if (result.success) {
+        // Build comprehensive response for conversation history
+        let response = `GitHub repository analysis completed successfully!\nRepository: ${result.repositoryInfo?.fullName}\nAnalysis saved to: ${result.documentation}`;
+        
+        if (result.repositoryContext) {
+          response += `\nLanguage: ${result.repositoryContext.language}\nSize: ${result.repositoryContext.size} KB\nLast updated: ${result.repositoryContext.lastUpdated}`;
+        }
+        
+        response += `\n\nMigration Analysis Summary:`;
+        if (result.analysis) {
+          response += `\n- Project: ${result.analysis.projectName || 'Unknown'}\n- Total Files: ${result.analysis.totalFiles || 'Unknown'}\n- Migration Complexity: ${result.analysis.migrationComplexity || 'Unknown'}`;
+        }
+        
+        if (result.plan) {
+          response += `\n- Total Phases: ${result.plan.phases?.length || 'Unknown'}\n- Risk Level: ${result.plan.summary?.riskLevel || 'Unknown'}`;
+        }
+        
         console.log(chalk.green('\n✅ GitHub repository analysis completed successfully!'));
         console.log(chalk.gray(`Repository: ${result.repositoryInfo?.fullName}`));
         console.log(chalk.gray(`Analysis saved to: ${result.documentation}`));
@@ -3872,17 +4418,24 @@ export class CLI {
           // Estimated effort removed as requested
           console.log(chalk.gray(`   - Risk Level: ${result.plan.summary?.riskLevel || 'Unknown'}`));
         }
+        
+        // Capture comprehensive agent response
+        this.captureAgentResponse(response);
       } else {
+        const errorResponse = `GitHub repository analysis failed: ${result.error}${result.error?.includes('authentication') || result.error?.includes('token') ? '\nTip: Run "peer-ai-mongo-migrator github-setup" to configure GitHub authentication' : ''}`;
         console.log(chalk.red('\n❌ GitHub repository analysis failed:'));
         console.log(chalk.red(result.error));
         
         if (result.error?.includes('authentication') || result.error?.includes('token')) {
           console.log(chalk.yellow('\n💡 Tip: Run "peer-ai-mongo-migrator github-setup" to configure GitHub authentication'));
         }
+        
+        this.captureAgentResponse(errorResponse);
       }
       
     } catch (error) {
       console.error(chalk.red('❌ GitHub repository analysis failed:'), error);
+      this.captureAgentResponse(`GitHub repository analysis failed: ${error}`);
     }
   }
 
@@ -4193,4 +4746,2264 @@ export class CLI {
       });
     });
   }
+
+  // ========================================
+  // Schema Modification Natural Language Handlers
+  // ========================================
+
+  /**
+   * Find the latest file matching a pattern
+   */
+  private async findLatestFile(pattern: string): Promise<string | null> {
+    const fs = await import('fs');
+    const path = await import('path');
+    
+    try {
+      const files = fs.readdirSync(process.cwd())
+        .filter((file: string) => file.match(pattern.replace('*', '.*')))
+        .map((file: string) => ({
+          name: file,
+          time: fs.statSync(file).mtime.getTime()
+        }))
+        .sort((a: any, b: any) => b.time - a.time);
+      
+      return files.length > 0 ? files[0].name : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Load schema from markdown file
+   */
+  private async loadSchemaFromFile(filename: string): Promise<any> {
+    const fs = await import('fs');
+    const path = await import('path');
+    
+    try {
+      const content = fs.readFileSync(filename, 'utf8');
+      
+      // For PostgreSQL schema files, we need to extract the actual schema data
+      if (filename.includes('postgres-schema-')) {
+        // Look for the schema data in the markdown
+        const schemaMatch = content.match(/## Database Schema[\s\S]*?```json\n([\s\S]*?)\n```/);
+        if (schemaMatch) {
+          return JSON.parse(schemaMatch[1]);
+        }
+        
+        // Fallback: create a basic schema structure
+        return {
+          tables: [],
+          relationships: [],
+          metadata: { source: filename, type: 'postgresql' }
+        };
+      }
+      
+      // For MongoDB schema files, extract the collections
+      if (filename.includes('proposed-mongodb-schema-')) {
+        // Look for the MongoDB collections data
+        const collectionsMatch = content.match(/## MongoDB Collections[\s\S]*?```json\n([\s\S]*?)\n```/);
+        if (collectionsMatch) {
+          return JSON.parse(collectionsMatch[1]);
+        }
+        
+        // Fallback: create a basic MongoDB schema structure
+        return {
+          collections: [],
+          metadata: { source: filename, type: 'mongodb' }
+        };
+      }
+      
+      // Generic fallback
+      return { collections: [], metadata: { source: filename } };
+    } catch (error) {
+      console.error(`Failed to load schema from ${filename}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get or create modification service instance
+   */
+  private async getModificationService(): Promise<any> {
+    if (!this.modificationService) {
+      const { SchemaModificationService } = await import('../services/SchemaModificationService.js');
+      this.modificationService = new SchemaModificationService();
+    }
+    return this.modificationService;
+  }
+
+  /**
+   * Read file content
+   */
+  private async readFileContent(filename: string): Promise<string> {
+    const fs = await import('fs');
+    try {
+      return fs.readFileSync(filename, 'utf8');
+    } catch (error) {
+      console.warn(`Warning: Could not read file ${filename}:`, error);
+      return '';
+    }
+  }
+
+  /**
+   * Generate comprehensive migration document
+   */
+  private async generateComprehensiveMigrationDocument(
+    finalDocument: any,
+    mongoSchemaContent: string,
+    appAnalysisContent: string,
+    sessionId: string
+  ): Promise<string> {
+    const timestamp = new Date().toISOString();
+    
+    // Get the actual modifications from the session
+    const modifications = finalDocument.modificationSummary?.keyChanges || [];
+    
+    // Get the actual session data to understand what was modified
+    const modificationService = await this.getModificationService();
+    const session = modificationService.getSession(sessionId);
+    
+    // Extract content from the source documents
+    const mongoERDiagram = this.extractMongoERDiagram(mongoSchemaContent, modifications);
+    const impactAnalysisTables = this.extractImpactAnalysisTables(appAnalysisContent);
+    const architectDiscussion = this.generateArchitectDiscussion(modifications);
+    const finalArchitecture = this.generateFinalArchitecture(modifications);
+    
+    // Extract actual collection count from the proposed schema
+    const actualCollectionCount = await this.extractCollectionCount(mongoSchemaContent);
+    
+    return `# Comprehensive Migration Document
+
+**Document ID:** ${finalDocument.documentId}
+**Generated:** ${timestamp}
+**Version:** 2.0.0
+**Session ID:** ${sessionId}
+
+---
+
+## 🎯 Executive Summary
+
+This comprehensive migration document provides a complete strategy for migrating from PostgreSQL to MongoDB, incorporating all user-requested modifications and optimizations. The migration focuses on performance improvements through embedded documents, compound indexing, and denormalized analytics fields.
+
+### 📊 Migration Overview
+- **Original PostgreSQL Tables:** 22
+- **Final MongoDB Collections:** ${actualCollectionCount > 0 ? actualCollectionCount : 'Loading...'}
+- **Total Modifications:** ${finalDocument.modificationSummary?.totalModifications || modifications.length}
+- **Performance Impact:** ${finalDocument.modificationSummary?.performanceImpact || 'POSITIVE'}
+- **Complexity Change:** ${finalDocument.modificationSummary?.complexityChange || 'UNCHANGED'}
+
+---
+
+## 📊 Dynamic MongoDB ER Diagram
+
+${mongoERDiagram}
+
+---
+
+## 📊 Impact Analysis & Code Inventory
+
+${impactAnalysisTables}
+
+---
+
+## 🔧 User-Requested Modifications Applied
+
+${this.generateDetailedModifications(modifications)}
+
+---
+
+## 💬 Architect Discussion Points
+
+${architectDiscussion}
+
+---
+
+## 🏗️ Final MongoDB + Node.js Architecture
+
+${finalArchitecture}
+
+---
+
+## 🚀 Implementation Plan
+
+### Phase 1: Schema Preparation
+**Description:** Set up MongoDB collections with the approved schema
+
+**Tasks:**
+- Create MongoDB collections with proper structure
+- Set up compound indexes for performance
+- Implement data validation rules
+- Configure archiving strategy for historical data
+
+### Phase 2: Data Migration
+**Description:** Migrate data from PostgreSQL to MongoDB
+
+**Tasks:**
+- Extract data from PostgreSQL tables
+- Transform data to MongoDB document format
+- Migrate data in batches to avoid downtime
+- Validate data integrity and relationships
+
+### Phase 3: Application Migration
+**Description:** Update application code to work with MongoDB
+
+**Tasks:**
+- Refactor Spring Boot entities to MongoDB documents
+- Update repository layer to use MongoDB operations
+- Modify service layer for embedded document handling
+- Update API endpoints for new data structure
+
+### Phase 4: Testing & Validation
+**Description:** Comprehensive testing and performance validation
+
+**Tasks:**
+- Unit testing for all modified components
+- Integration testing for data flow
+- Performance testing with production-like data
+- User acceptance testing
+
+### Phase 5: Deployment & Monitoring
+**Description:** Production deployment and monitoring setup
+
+**Tasks:**
+- Deploy to staging environment
+- Performance monitoring setup
+- Backup and recovery procedures
+- Production deployment with rollback plan
+
+---
+
+## 📊 Performance Optimizations
+
+### Indexing Strategy
+Based on the modifications made, the following indexes are recommended:
+
+${this.generateIndexingStrategy(modifications)}
+
+### Query Performance Improvements
+- **Before:** Multiple table JOINs for related data
+- **After:** Single document queries with embedded data
+- **Expected Improvement:** Significant performance improvement due to reduced JOIN operations
+
+### Memory Usage Optimization
+- **Before:** Multiple entity objects in memory
+- **After:** Single document with embedded data
+- **Expected Improvement:** Reduced memory footprint due to better data locality
+
+---
+
+## 🔒 Security & Compliance
+
+### Data Protection
+- Encrypt sensitive data at rest and in transit
+- Implement field-level encryption for PII
+- Set up proper access controls and authentication
+
+### Backup & Recovery
+- Automated daily backups
+- Point-in-time recovery capabilities
+- Cross-region backup replication
+
+---
+
+## 📈 Monitoring & Maintenance
+
+### Key Metrics
+- Query performance and execution time
+- Index usage and efficiency
+- Memory usage and cache hit ratio
+- Document size and growth patterns
+
+### Maintenance Tasks
+- Regular index optimization
+- Data archiving based on business rules
+- Performance tuning based on usage patterns
+- Schema evolution planning
+
+---
+
+## 💡 Final Recommendations
+
+${finalDocument.finalRecommendations?.map((rec: any) => `- ${rec}`).join('\n') || '- Implement proper indexing strategy based on query patterns\n- Set up monitoring for MongoDB performance metrics\n- Create backup and recovery procedures\n- Document the new schema for team reference\n- Plan for gradual migration with rollback capability'}
+
+### Additional Considerations
+- Implement gradual migration with feature flags
+- Plan for zero-downtime deployment
+- Document all schema changes for team reference
+- Set up automated testing for schema changes
+
+---
+
+## 📋 Next Steps
+
+1. **Review this document** with your development team
+2. **Set up MongoDB environment** with the approved schema
+3. **Begin Phase 1** following the implementation plan
+4. **Monitor progress** and adjust timeline as needed
+
+---
+
+*This comprehensive document was generated by PeerAI MongoMigrator with interactive modification capabilities.*
+`;
+  }
+
+
+  /**
+   * Extract MongoDB ER diagram from proposed schema and update with modifications
+   */
+  private extractMongoERDiagram(content: string, modifications: string[] = []): string {
+    // Debug: Check if content is empty
+    if (!content || content.trim().length === 0) {
+      console.warn('extractMongoERDiagram: Content is empty');
+      return `**Error:** MongoDB schema content is empty. Please ensure the schema document was generated properly.`;
+    }
+    
+    console.log(`extractMongoERDiagram: Content length: ${content.length}`);
+    console.log(`extractMongoERDiagram: First 200 chars: ${content.substring(0, 200)}`);
+
+    const patterns = [
+      /## 🌐 Interactive MongoDB ER Diagram Viewer[\s\S]*?(?=## |$)/,
+      /## Database Diagrams[\s\S]*?(?=## |$)/,
+      /## MongoDB ER Diagram[\s\S]*?(?=## |$)/,
+      /ER Diagram[\s\S]*?(?=## |$)/,
+      /Interactive.*Diagram[\s\S]*?(?=## |$)/,
+      /Diagram.*Viewer[\s\S]*?(?=## |$)/,
+      /MongoDB.*Schema.*Design[\s\S]*?(?=## |$)/
+    ];
+
+    let baseDiagram = '';
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match && match[0].trim().length > 100) {
+        baseDiagram = match[0].trim();
+        break;
+      }
+    }
+
+    if (!baseDiagram) {
+      return `**Error:** Could not extract MongoDB ER diagram from the schema document. Please ensure the document contains the required diagram sections.`;
+    }
+
+    // Generate updated diagram with modifications
+    if (modifications && modifications.length > 0) {
+      const modificationNotes = this.generateERDiagramModifications(modifications);
+      return `${baseDiagram}
+
+---
+
+## 🔄 **Updated Schema with Architect Modifications**
+
+The following modifications have been applied to the MongoDB schema:
+
+${modificationNotes}
+
+**Note:** This diagram now reflects the updated MongoDB schema design incorporating all architect-requested modifications.`;
+    }
+
+    return baseDiagram;
+  }
+
+  /**
+   * Extract impact analysis tables and code inventory from application analysis
+   */
+  private extractImpactAnalysisTables(content: string): string {
+    // Debug: Check if content is empty
+    if (!content || content.trim().length === 0) {
+      console.warn('extractImpactAnalysisTables: Content is empty');
+      return `**Error:** Application analysis content is empty. Please ensure the analysis document was generated properly.`;
+    }
+    
+    console.log(`extractImpactAnalysisTables: Content length: ${content.length}`);
+    console.log(`extractImpactAnalysisTables: First 200 chars: ${content.substring(0, 200)}`);
+
+    const patterns = [
+      // Impact Analysis Matrix
+      /## 📊 Impact Analysis Matrix[\s\S]*?(?=## |$)/,
+      /Impact Analysis Matrix[\s\S]*?(?=## |$)/,
+      // Architecture Comparison Matrix
+      /## 📊 Architecture Comparison Matrix[\s\S]*?(?=## |$)/,
+      /Architecture Comparison Matrix[\s\S]*?(?=## |$)/,
+      // Repository Layer Transformation Table
+      /🔄 Repository Layer Transformation:[\s\S]*?(?=#### |## |$)/,
+      /Repository Layer Transformation[\s\S]*?(?=#### |## |$)/,
+      // Service Layer Transformation Table
+      /🔄 Service Layer Transformation:[\s\S]*?(?=#### |## |$)/,
+      /Service Layer Transformation[\s\S]*?(?=#### |## |$)/,
+      // Controller Layer Transformation Table
+      /🔄 Controller Layer Transformation:[\s\S]*?(?=#### |## |$)/,
+      /Controller Layer Transformation[\s\S]*?(?=#### |## |$)/,
+      // Entity Analysis Table
+      /Entity.*Complexity.*Characteristics[\s\S]*?(?=#### |## |$)/,
+      /Entity.*Analysis[\s\S]*?(?=#### |## |$)/,
+      // Repository Analysis Table
+      /Repository.*Complexity.*Characteristics[\s\S]*?(?=#### |## |$)/,
+      /Repository.*Analysis[\s\S]*?(?=#### |## |$)/,
+      // Service Analysis Table
+      /Service.*Complexity.*Characteristics[\s\S]*?(?=#### |## |$)/,
+      /Service.*Analysis[\s\S]*?(?=#### |## |$)/
+    ];
+
+    let extractedTables = '';
+    const foundSections = new Set<string>();
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match && match[0].trim().length > 100) {
+        const section = match[0].trim();
+        // Avoid duplicates by checking if we've already extracted this section
+        const sectionKey = section.substring(0, 100);
+        if (!foundSections.has(sectionKey)) {
+          foundSections.add(sectionKey);
+          extractedTables += section + '\n\n';
+        }
+      }
+    }
+
+    if (extractedTables.trim().length > 0) {
+      return extractedTables.trim();
+    }
+
+    return `**Error:** Could not extract impact analysis tables from the application analysis document. Please ensure the document contains the required analysis tables.`;
+  }
+
+  /**
+   * Generate ER diagram modification notes based on architect changes
+   */
+  private generateERDiagramModifications(modifications: string[]): string {
+    const notes = modifications.map((mod, index) => {
+      if (mod.toLowerCase().includes('analytics')) {
+        return `**Modification ${index + 1}:** ${mod}
+- Added analytics fields (total_rentals, revenue, last_rental_date) to films collection
+- Pre-calculated fields for faster reporting without JOINs
+- Updated collection schema to include embedded analytics data`;
+      } else if (mod.toLowerCase().includes('inventory')) {
+        return `**Modification ${index + 1}:** ${mod}
+- Added inventory tracking fields directly to films collection
+- Created inventory_movements collection for audit trail
+- Enhanced data model for better inventory management`;
+      } else if (mod.toLowerCase().includes('timestamp') || mod.toLowerCase().includes('isodate')) {
+        return `**Modification ${index + 1}:** ${mod}
+- Updated all timestamp fields to use ISODate format
+- Added timezone information for better date handling
+- Enhanced date field validation and indexing`;
+      } else if (mod.toLowerCase().includes('merge') || mod.toLowerCase().includes('embedded')) {
+        return `**Modification ${index + 1}:** ${mod}
+- Merged related collections into embedded arrays
+- Improved data locality and query performance
+- Reduced need for JOIN operations`;
+      } else {
+        return `**Modification ${index + 1}:** ${mod}
+- Applied architect-requested schema changes
+- Updated collection structure and relationships
+- Enhanced data model for improved performance`;
+      }
+    }).join('\n\n');
+
+    return notes;
+  }
+
+
+  /**
+   * Generate architect discussion points based on modifications
+   */
+  private generateArchitectDiscussion(modifications: string[]): string {
+    if (!modifications || modifications.length === 0) {
+      return `No specific discussion points generated as no modifications were made during this session.
+
+### General Architecture Questions
+
+1. **Performance Impact Assessment**
+   - How will the migration affect overall system performance?
+   - What monitoring metrics should be implemented?
+   - What are the expected performance improvements?
+
+2. **Scalability Considerations**
+   - How will the new architecture impact the system's ability to scale?
+   - What are the resource requirements for the new architecture?
+   - How will data growth be handled?
+
+3. **Security and Compliance**
+   - What security implications does the migration have?
+   - How will data privacy be maintained?
+   - What compliance requirements need to be considered?`;
+    }
+
+    const discussionPoints = modifications.map((mod, index) => {
+      return `### Discussion Point ${index + 1}: ${mod}
+
+${this.generateDynamicArchitectQuestions(mod)}
+
+${this.generateDynamicTechnicalConsiderations(mod)}
+
+**Code Impact Analysis:**
+${this.generateCodeImpactForModification(mod)}
+
+**MongoDB Document Structure:**
+${this.generateMongoDocumentStructureForModification(mod)}
+
+**Migration Strategy:**
+${this.generateMigrationStrategyForModification(mod)}
+
+**Performance Impact:**
+${this.generatePerformanceImpactForModification(mod)}
+
+**Testing Requirements:**
+${this.generateTestingRequirementsForModification(mod)}
+
+**Implementation Timeline:**
+${this.generateDynamicImplementationTimeline(mod)}`;
+    });
+
+    return `Based on the modifications requested during this session, the following discussion points should be addressed with the architecture team:
+
+${discussionPoints.join('\n\n')}
+
+### General Architecture Questions
+
+1. **Performance Impact Assessment**
+   - How will these modifications affect overall system performance?
+   - What monitoring metrics should be implemented?
+   - What are the expected performance improvements?
+
+2. **Scalability Considerations**
+   - How will these changes impact the system's ability to scale?
+   - What are the resource requirements for the new architecture?
+   - How will data growth be handled?
+
+3. **Security and Compliance**
+   - What security implications do these modifications have?
+   - How will data privacy be maintained?
+   - What compliance requirements need to be considered?
+
+4. **Migration Strategy**
+   - What is the recommended approach for implementing these changes?
+   - How can we minimize downtime during migration?
+   - What rollback procedures should be in place?
+
+5. **Team Readiness**
+   - What training is needed for the development team?
+   - What documentation should be updated?
+   - How will knowledge transfer be handled?`;
+  }
+
+  /**
+   * Generate code impact analysis for a specific modification
+   */
+  private generateCodeImpactForModification(modification: string): string {
+    if (modification.toLowerCase().includes('analytics')) {
+      return `\`\`\`javascript
+// Before: Complex aggregation queries
+const analytics = await db.rentals.aggregate([
+  { $match: { film_id: filmId } },
+  { $group: { _id: null, total: { $sum: 1 }, revenue: { $sum: "$amount" } } }
+]);
+
+// After: Direct field access
+const film = await db.films.findOne({ _id: filmId });
+const analytics = film.analytics; // Pre-calculated
+\`\`\``;
+    }
+    
+    if (modification.toLowerCase().includes('embedded')) {
+      return `\`\`\`javascript
+// Before: Multiple queries with JOINs
+const film = await db.films.findOne({ _id: filmId });
+const actors = await db.film_actors.find({ film_id: filmId });
+const categories = await db.film_categories.find({ film_id: filmId });
+
+// After: Single query with embedded data
+const film = await db.films.findOne({ _id: filmId });
+// actors and categories are already embedded
+\`\`\``;
+    }
+    
+    if (modification.toLowerCase().includes('index')) {
+      return `\`\`\`javascript
+// Before: Slow queries without indexes
+db.films.find({ category: "Action", rating: "PG-13" }).explain();
+
+// After: Fast queries with compound indexes
+db.films.createIndex({ category: 1, rating: 1, release_year: 1 });
+db.films.find({ category: "Action", rating: "PG-13" }).explain();
+\`\`\``;
+    }
+    
+    if (modification.toLowerCase().includes('validation') || modification.toLowerCase().includes('business logic')) {
+      return `\`\`\`javascript
+// Before: Client-side validation only
+const customer = {
+  name: req.body.name,
+  email: req.body.email,
+  rental_status: req.body.rental_status
+};
+
+// After: Server-side validation with business rules
+const customerSchema = {
+  name: { type: String, required: true, minlength: 2 },
+  email: { type: String, required: true, match: /^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$/ },
+  rental_status: { 
+    type: String, 
+    enum: ['active', 'suspended', 'inactive'],
+    default: 'active'
+  },
+  overdue_fees: { type: Number, min: 0, default: 0 },
+  membership_tier: { 
+    type: String, 
+    enum: ['bronze', 'silver', 'gold', 'platinum'],
+    default: 'bronze'
+  }
+};
+\`\`\``;
+    }
+    
+    if (modification.toLowerCase().includes('search') || modification.toLowerCase().includes('keywords')) {
+      return `\`\`\`javascript
+// Before: Slow text search across multiple fields
+const films = await db.films.find({
+  $or: [
+    { title: { $regex: searchTerm, $options: 'i' } },
+    { description: { $regex: searchTerm, $options: 'i' } },
+    { genre: { $regex: searchTerm, $options: 'i' } }
+  ]
+});
+
+// After: Fast search using pre-computed keywords
+const films = await db.films.find({
+  search_keywords: { $in: searchTerms }
+});
+
+// Or use the dedicated search collection
+const searchResults = await db.film_search.find({
+  keywords: { $in: searchTerms }
+});
+\`\`\``;
+    }
+    
+    if (modification.toLowerCase().includes('timestamp') || modification.toLowerCase().includes('isodate')) {
+      return `\`\`\`javascript
+// Before: String timestamps with timezone issues
+const rental = {
+  rental_date: "2025-09-11 10:30:00",
+  return_date: "2025-09-15 14:45:00",
+  last_update: "2025-09-11 10:30:00"
+};
+
+// After: ISODate with proper timezone handling
+const rental = {
+  rental_date: new Date("2025-09-11T10:30:00.000Z"),
+  return_date: new Date("2025-09-15T14:45:00.000Z"),
+  last_update: new Date("2025-09-11T10:30:00.000Z"),
+  timezone: "UTC"
+};
+
+// Query with ISODate range
+const recentRentals = await db.rentals.find({
+  rental_date: {
+    $gte: new Date("2025-09-01T00:00:00.000Z"),
+    $lt: new Date("2025-09-12T00:00:00.000Z")
+  }
+});
+\`\`\``;
+    }
+    
+    if (modification.toLowerCase().includes('merge') || modification.toLowerCase().includes('embedded')) {
+      return `\`\`\`javascript
+// Before: Multiple queries with JOINs
+const film = await db.films.findOne({ _id: filmId });
+const actors = await db.film_actors.find({ film_id: filmId });
+const categories = await db.film_categories.find({ film_id: filmId });
+
+// After: Single query with embedded data
+const film = await db.films.findOne({ _id: filmId });
+// film.actors and film.categories are already embedded
+
+// Query embedded arrays
+const actionFilms = await db.films.find({
+  "categories.name": "Action"
+});
+
+// Update embedded array
+await db.films.updateOne(
+  { _id: filmId },
+  { $push: { actors: { actor_id: newActorId, name: "New Actor" } } }
+);
+\`\`\``;
+    }
+    
+    return `\`\`\`javascript
+// Code changes will be specific to this modification
+// Implementation details will be provided during development
+\`\`\``;
+  }
+
+  /**
+   * Generate MongoDB document structure for a specific modification
+   */
+  private generateMongoDocumentStructureForModification(modification: string): string {
+    if (modification.toLowerCase().includes('analytics')) {
+      return `\`\`\`json
+{
+  "_id": "ObjectId('...')",
+  "title": "Film Title",
+  "description": "Film Description",
+  "analytics": {
+    "total_rentals": 150,
+    "revenue": 2500.00,
+    "last_rental_date": "2025-09-10T10:00:00Z"
+  }
+}
+\`\`\``;
+    }
+    
+    if (modification.toLowerCase().includes('embedded')) {
+      return `\`\`\`json
+{
+  "_id": "ObjectId('...')",
+  "title": "Film Title",
+  "actors": [
+    {
+      "actor_id": "ObjectId('...')",
+      "name": "Actor Name",
+      "role": "Character Role"
+    }
+  ],
+  "categories": [
+    {
+      "category_id": "ObjectId('...')",
+      "name": "Category Name"
+    }
+  ]
+}
+\`\`\``;
+    }
+    
+    if (modification.toLowerCase().includes('index')) {
+      return `\`\`\`javascript
+// Compound indexes for performance
+db.films.createIndex({ category: 1, rating: 1, release_year: 1 });
+db.rentals.createIndex({ customer_id: 1, rental_date: 1 });
+\`\`\``;
+    }
+    
+    if (modification.toLowerCase().includes('validation') || modification.toLowerCase().includes('business logic')) {
+      const randomId = Math.floor(Math.random() * 1000000);
+      const names = ['Alex', 'Jordan', 'Casey', 'Taylor', 'Morgan', 'Riley', 'Avery', 'Quinn'];
+      const randomName = names[Math.floor(Math.random() * names.length)];
+      const statuses = ['active', 'suspended', 'inactive'];
+      const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+      const tiers = ['bronze', 'silver', 'gold', 'platinum'];
+      const randomTier = tiers[Math.floor(Math.random() * tiers.length)];
+      const now = new Date().toISOString();
+      
+      return `\`\`\`json
+{
+  "_id": "ObjectId('${randomId.toString(16).padStart(24, '0')}')",
+  "customer_id": ${Math.floor(Math.random() * 10000) + 1},
+  "first_name": "${randomName}",
+  "last_name": "${randomName}",
+  "email": "${randomName.toLowerCase()}_${randomId}@example.com",
+  "rental_status": "${randomStatus}",
+  "overdue_fees": ${Math.round(Math.random() * 100 * 100) / 100},
+  "membership_tier": "${randomTier}",
+  "created_at": "${now}",
+  "updated_at": "${now}"
+}
+\`\`\``;
+    }
+    
+    if (modification.toLowerCase().includes('search') || modification.toLowerCase().includes('keywords')) {
+      const randomId = Math.floor(Math.random() * 1000000);
+      const titles = ['The Matrix', 'Inception', 'Interstellar', 'Blade Runner', 'The Dark Knight'];
+      const randomTitle = titles[Math.floor(Math.random() * titles.length)];
+      const keywords = ['action', 'sci-fi', 'thriller', 'drama', 'adventure'];
+      const randomKeywords = keywords.slice(0, Math.floor(Math.random() * 3) + 2);
+      
+      return `\`\`\`json
+{
+  "_id": "ObjectId('${randomId.toString(16).padStart(24, '0')}')",
+  "title": "${randomTitle}",
+  "description": "A sample film description",
+  "search_keywords": ${JSON.stringify(randomKeywords)},
+  "release_year": ${Math.floor(Math.random() * 30) + 1990},
+  "rating": "PG-13",
+  "genre": "Action"
+}
+\`\`\``;
+    }
+    
+    if (modification.toLowerCase().includes('timestamp') || modification.toLowerCase().includes('isodate')) {
+      const randomId = Math.floor(Math.random() * 1000000);
+      const now = new Date().toISOString();
+      const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      
+      return `\`\`\`json
+{
+  "_id": "ObjectId('${randomId.toString(16).padStart(24, '0')}')",
+  "rental_id": ${Math.floor(Math.random() * 10000) + 1},
+  "customer_id": ${Math.floor(Math.random() * 1000) + 1},
+  "film_id": ${Math.floor(Math.random() * 1000) + 1},
+  "rental_date": ISODate("${now}"),
+  "return_date": ISODate("${futureDate}"),
+  "last_update": ISODate("${now}"),
+  "timezone": "UTC",
+  "amount": ${(Math.random() * 10 + 1).toFixed(2)}
+}
+\`\`\``;
+    }
+    
+    if (modification.toLowerCase().includes('merge') || modification.toLowerCase().includes('embedded')) {
+      const randomId = Math.floor(Math.random() * 1000000);
+      const titles = ['The Matrix', 'Inception', 'Interstellar', 'Blade Runner', 'The Dark Knight'];
+      const randomTitle = titles[Math.floor(Math.random() * titles.length)];
+      const actors = ['Keanu Reeves', 'Leonardo DiCaprio', 'Matthew McConaughey', 'Harrison Ford', 'Christian Bale'];
+      const categories = ['Action', 'Sci-Fi', 'Thriller', 'Drama', 'Adventure'];
+      const randomActors = actors.slice(0, Math.floor(Math.random() * 3) + 2);
+      const randomCategories = categories.slice(0, Math.floor(Math.random() * 2) + 1);
+      
+      return `\`\`\`json
+{
+  "_id": "ObjectId('${randomId.toString(16).padStart(24, '0')}')",
+  "title": "${randomTitle}",
+  "description": "A sample film description",
+  "release_year": ${Math.floor(Math.random() * 30) + 1990},
+  "rating": "PG-13",
+  "actors": [
+    ${randomActors.map(actor => `{
+      "actor_id": "ObjectId('${Math.floor(Math.random() * 1000000).toString(16).padStart(24, '0')}')",
+      "name": "${actor}",
+      "character": "Main Character"
+    }`).join(',\n    ')}
+  ],
+  "categories": [
+    ${randomCategories.map(category => `{
+      "category_id": "ObjectId('${Math.floor(Math.random() * 1000000).toString(16).padStart(24, '0')}')",
+      "name": "${category}"
+    }`).join(',\n    ')}
+  ]
+}
+\`\`\``;
+    }
+    
+    return `\`\`\`json
+// Document structure will be specific to this modification
+// Detailed schema will be provided during implementation
+\`\`\``;
+  }
+
+  /**
+   * Extract collection count from proposed MongoDB schema intelligently
+   */
+  private async extractCollectionCount(mongoSchemaContent: string): Promise<number> {
+    // Debug: Check if content is empty
+    if (!mongoSchemaContent || mongoSchemaContent.trim().length === 0) {
+      console.warn('Warning: MongoDB schema content is empty, cannot extract collection count');
+      return 0;
+    }
+
+    // Method 1: Count collections from table of contents (most reliable)
+    const tocMatches = mongoSchemaContent.match(/- \[(\w+)\]\(#collection-\w+\)/g);
+    if (tocMatches && tocMatches.length > 0) {
+      console.log(`Found ${tocMatches.length} collections from table of contents`);
+      return tocMatches.length;
+    }
+
+    // Method 2: Count from MongoDB Collections section
+    const mongoCollectionsMatch = mongoSchemaContent.match(/## MongoDB Collections[\s\S]*?(?=## |$)/);
+    if (mongoCollectionsMatch) {
+      const collectionListMatches = mongoCollectionsMatch[0].match(/- \*\*(\w+)\*\*/g);
+      if (collectionListMatches && collectionListMatches.length > 0) {
+        console.log(`Found ${collectionListMatches.length} collections from MongoDB Collections section`);
+        return collectionListMatches.length;
+      }
+    }
+
+    // Method 3: Count from collection headers
+    const collectionHeaders = mongoSchemaContent.match(/### Collection \w+/g);
+    if (collectionHeaders && collectionHeaders.length > 0) {
+      console.log(`Found ${collectionHeaders.length} collections from collection headers`);
+      return collectionHeaders.length;
+    }
+
+    // Method 4: Count from any collection references (fallback)
+    const allCollectionMatches = mongoSchemaContent.match(/collection[_-]?\w+/gi);
+    if (allCollectionMatches && allCollectionMatches.length > 0) {
+      // Filter out duplicates and return unique count
+      const uniqueCollections = [...new Set(allCollectionMatches.map(match => match.toLowerCase()))];
+      console.log(`Found ${uniqueCollections.length} unique collections from all references`);
+      return uniqueCollections.length;
+    }
+
+    // Method 5: Try to extract from "Total Collections" line (but this might be wrong)
+    const countMatch = mongoSchemaContent.match(/Total Collections.*?(\d+)/i);
+    if (countMatch) {
+      const count = parseInt(countMatch[1], 10);
+      console.log(`Found ${count} collections from Total Collections line (may be inaccurate)`);
+      return count;
+    }
+
+    // If we still can't find anything, return 0 to indicate unknown
+    console.warn('Warning: Could not determine collection count from schema document');
+    return 0;
+  }
+
+  /**
+   * Generate final MongoDB + Node.js architecture based on modifications
+   */
+  private generateFinalArchitecture(modifications: string[]): string {
+    const hasAnalytics = modifications.some(mod => 
+      mod.toLowerCase().includes('analytics') || 
+      mod.toLowerCase().includes('revenue') || 
+      mod.toLowerCase().includes('statistics')
+    );
+    const hasEmbedded = modifications.some(mod => 
+      mod.toLowerCase().includes('embedded') || 
+      mod.toLowerCase().includes('embed') ||
+      mod.toLowerCase().includes('nested')
+    );
+    const hasIndexes = modifications.some(mod => 
+      mod.toLowerCase().includes('index') || 
+      mod.toLowerCase().includes('performance') ||
+      mod.toLowerCase().includes('optimization')
+    );
+    const hasArchiving = modifications.some(mod => 
+      mod.toLowerCase().includes('archiving') || 
+      mod.toLowerCase().includes('archive') ||
+      mod.toLowerCase().includes('historical')
+    );
+    const hasValidation = modifications.some(mod => 
+      mod.toLowerCase().includes('validation') || 
+      mod.toLowerCase().includes('business logic') ||
+      mod.toLowerCase().includes('rules')
+    );
+    const hasSearch = modifications.some(mod => 
+      mod.toLowerCase().includes('search') || 
+      mod.toLowerCase().includes('keywords') ||
+      mod.toLowerCase().includes('text search')
+    );
+
+    return `### Database Layer
+- **MongoDB Atlas** for cloud-hosted database with automatic scaling
+- **Collections** optimized for the new schema design with embedded documents
+- **Indexes** for performance optimization and query efficiency
+- **Aggregation pipelines** for complex analytics and reporting
+- **Data validation** using MongoDB schema validation rules
+
+### Application Layer
+- **Node.js** with Express.js framework for high-performance API
+- **Mongoose** for MongoDB object modeling and validation
+- **RESTful API** endpoints with proper HTTP status codes
+- **Authentication** and authorization middleware using JWT
+- **Rate limiting** and security middleware
+- **Error handling** and logging middleware
+
+### Key Architectural Changes
+${hasAnalytics ? '- **Analytics Integration**: Pre-calculated analytics fields for faster reporting and real-time insights' : ''}
+${hasEmbedded ? '- **Embedded Documents**: Related data embedded for better performance and reduced queries' : ''}
+${hasIndexes ? '- **Performance Indexes**: Compound indexes for optimized queries and faster data retrieval' : ''}
+${hasArchiving ? '- **Data Archiving**: Separate collections for historical data with automated archiving processes' : ''}
+${hasValidation ? '- **Data Validation**: Business logic fields and validation rules for data integrity and consistency' : ''}
+${hasSearch ? '- **Search Optimization**: Text search capabilities with keyword arrays and pre-computed search collections for improved query performance' : ''}
+
+### Technology Stack
+- **Backend**: Node.js 18+, Express.js 4.x, Mongoose 7.x
+- **Database**: MongoDB Atlas with replica sets
+- **Authentication**: JWT tokens with refresh token rotation
+- **API**: RESTful endpoints with OpenAPI documentation
+- **Testing**: Jest, Supertest, MongoDB Memory Server
+- **Documentation**: Swagger/OpenAPI with interactive testing
+- **Logging**: Winston with structured logging
+- **Monitoring**: Application performance monitoring (APM)
+
+### Performance Optimizations
+${hasIndexes ? '- **Database Indexes**: Compound indexes on frequently queried fields' : ''}
+${hasEmbedded ? '- **Embedded Data**: Reduced JOIN operations and improved query performance' : ''}
+${hasAnalytics ? '- **Pre-calculated Fields**: Analytics data computed during data updates' : ''}
+${hasValidation ? '- **Data Validation**: Server-side validation rules for improved data quality and reduced client-side processing' : ''}
+${hasSearch ? '- **Search Optimization**: Pre-computed search collections and keyword arrays for faster text search queries' : ''}
+- **Connection Pooling**: Optimized database connections
+- **Caching**: Redis for frequently accessed data
+- **Query Optimization**: Aggregation pipelines for complex operations
+
+### Security Architecture
+- **Authentication**: JWT-based authentication with secure token storage
+- **Authorization**: Role-based access control (RBAC)
+- **Data Encryption**: At-rest and in-transit encryption
+- **Input Validation**: Comprehensive input sanitization and validation
+- **Rate Limiting**: API rate limiting to prevent abuse
+- **CORS**: Proper cross-origin resource sharing configuration
+
+### Deployment Architecture
+- **Cloud Platform**: AWS/Azure/GCP with auto-scaling capabilities
+- **Containerization**: Docker with multi-stage builds
+- **Orchestration**: Kubernetes with horizontal pod autoscaling
+- **Monitoring**: Application performance monitoring and alerting
+- **CI/CD**: GitHub Actions with automated testing and deployment
+- **Load Balancing**: Application load balancer with health checks
+- **Backup**: Automated database backups with point-in-time recovery
+
+### Scalability Considerations
+- **Horizontal Scaling**: Stateless application design for easy scaling
+- **Database Sharding**: MongoDB sharding for large datasets
+- **Caching Strategy**: Multi-level caching for improved performance
+- **CDN**: Content delivery network for static assets
+- **Microservices**: Potential future migration to microservices architecture`;
+  }
+
+  /**
+   * Generate detailed modifications section
+   */
+  private generateDetailedModifications(modifications: string[]): string {
+    if (!modifications || modifications.length === 0) {
+      return 'No specific modifications were requested during this session.';
+    }
+
+    return modifications.map((modification, index) => {
+      return `#### ${index + 1}. **${modification}**
+
+**Description:** This modification was requested during the interactive session and has been applied to the schema.
+
+**Status:** Applied and integrated into the final MongoDB schema design.
+
+**Impact:** ${this.getModificationImpact(modification)}
+
+---`;
+    }).join('\n\n');
+  }
+
+  /**
+   * Generate dynamic architect questions based on modification
+   */
+  private generateDynamicArchitectQuestions(modification: string): string {
+    const questions = [];
+    
+    // Generate questions based on modification type
+    if (modification.toLowerCase().includes('timestamp') || modification.toLowerCase().includes('isodate')) {
+      questions.push(
+        "How will the timestamp format change impact existing API contracts?",
+        "What timezone handling strategy should be implemented?",
+        "How will this affect date range queries and indexing?",
+        "What are the data migration challenges for timestamp conversion?",
+        "How will this impact frontend date parsing and display?",
+        "What validation rules are needed for the new timestamp format?"
+      );
+    } else if (modification.toLowerCase().includes('merge') || modification.toLowerCase().includes('embedded')) {
+      questions.push(
+        "How will embedding related data affect document size limits?",
+        "What indexing strategy is needed for embedded arrays?",
+        "How will this impact query performance for large datasets?",
+        "What are the trade-offs between data locality and update complexity?",
+        "How will this affect data consistency and referential integrity?",
+        "What migration strategy ensures zero data loss during embedding?"
+      );
+    } else if (modification.toLowerCase().includes('search') || modification.toLowerCase().includes('keywords')) {
+      questions.push(
+        "How will the search functionality impact database performance?",
+        "What indexing strategy is optimal for text search?",
+        "How will search results be ranked and filtered?",
+        "What are the storage implications of pre-computed search terms?",
+        "How will this affect search query response times?",
+        "What fallback strategy is needed if search indexes fail?"
+      );
+    } else {
+      // Generic questions based on modification content
+      questions.push(
+        `How will "${modification}" impact the existing data model?`,
+        `What are the performance implications of this change?`,
+        `How will this affect the application's scalability?`,
+        `What testing strategies should be implemented?`,
+        `What are the data migration challenges?`,
+        `How will this affect existing queries and API endpoints?`
+      );
+    }
+    
+    return `**Architect Questions:**
+${questions.map(q => `- ${q}`).join('\n')}`;
+  }
+
+  /**
+   * Generate dynamic technical considerations based on modification
+   */
+  private generateDynamicTechnicalConsiderations(modification: string): string {
+    const considerations = [];
+    
+    if (modification.toLowerCase().includes('timestamp') || modification.toLowerCase().includes('isodate')) {
+      considerations.push(
+        "Timestamp conversion scripts for data migration",
+        "Timezone conversion logic implementation",
+        "Date validation and parsing updates",
+        "API response format changes",
+        "Frontend date handling modifications",
+        "Database index optimization for date fields"
+      );
+    } else if (modification.toLowerCase().includes('merge') || modification.toLowerCase().includes('embedded')) {
+      considerations.push(
+        "Embedded document structure design",
+        "Array manipulation and query optimization",
+        "Data denormalization strategy",
+        "Referential integrity maintenance",
+        "Index design for embedded arrays",
+        "Update operation complexity management"
+      );
+    } else if (modification.toLowerCase().includes('search') || modification.toLowerCase().includes('keywords')) {
+      considerations.push(
+        "Search index creation and maintenance",
+        "Keyword extraction and preprocessing",
+        "Search query optimization",
+        "Result ranking and filtering logic",
+        "Search performance monitoring",
+        "Fallback search mechanisms"
+      );
+    } else {
+      considerations.push(
+        "Code changes required in the application layer",
+        "Database migration scripts needed",
+        "Performance monitoring requirements",
+        "Rollback strategy if issues arise",
+        "Data validation and integrity checks",
+        "Index optimization requirements"
+      );
+    }
+    
+    return `**Technical Considerations:**
+${considerations.map(c => `- ${c}`).join('\n')}`;
+  }
+
+  /**
+   * Generate dynamic implementation timeline based on modification
+   */
+  private generateDynamicImplementationTimeline(modification: string): string {
+    const phases = [];
+    
+    if (modification.toLowerCase().includes('timestamp') || modification.toLowerCase().includes('isodate')) {
+      phases.push(
+        "Analysis and timestamp mapping phase",
+        "Conversion script development and testing",
+        "Data migration and validation",
+        "Application code updates",
+        "Testing and deployment"
+      );
+    } else if (modification.toLowerCase().includes('merge') || modification.toLowerCase().includes('embedded')) {
+      phases.push(
+        "Data relationship analysis phase",
+        "Embedded document design and validation",
+        "Migration script development",
+        "Application code refactoring",
+        "Testing and performance optimization"
+      );
+    } else if (modification.toLowerCase().includes('search') || modification.toLowerCase().includes('keywords')) {
+      phases.push(
+        "Search requirements analysis",
+        "Index design and keyword extraction logic",
+        "Search functionality implementation",
+        "Performance testing and optimization",
+        "Integration and deployment"
+      );
+    } else {
+      phases.push(
+        "Analysis and planning phase",
+        "Development and testing phase",
+        "Data migration and validation phase",
+        "Deployment and monitoring phase"
+      );
+    }
+    
+    return phases.map(phase => `- ${phase}`).join('\n');
+  }
+
+  /**
+   * Generate migration strategy for specific modification
+   */
+  private generateMigrationStrategyForModification(modification: string): string {
+    const strategies = [];
+    
+    if (modification.toLowerCase().includes('timestamp') || modification.toLowerCase().includes('isodate')) {
+      strategies.push(
+        "**Data Analysis Phase:**",
+        "- Identify all timestamp fields in existing PostgreSQL tables",
+        "- Analyze current timestamp formats and timezone information", 
+        "- Create mapping between old and new timestamp formats",
+        "",
+        "**Migration Script Development:**",
+        "- Create data transformation scripts to convert string timestamps to ISODate",
+        "- Implement timezone conversion logic",
+        "- Add validation to ensure data integrity",
+        "",
+        "**Application Code Updates:**",
+        "- Update all date handling in application code",
+        "- Modify API responses to use ISODate format",
+        "- Update frontend date parsing logic"
+      );
+    } else if (modification.toLowerCase().includes('merge') || modification.toLowerCase().includes('embedded')) {
+      strategies.push(
+        "**Data Analysis Phase:**",
+        "- Analyze relationships between related tables",
+        "- Identify data that can be safely embedded",
+        "- Plan for data denormalization strategy",
+        "",
+        "**Schema Design Phase:**",
+        "- Design new embedded document structure",
+        "- Plan for maintaining referential integrity",
+        "- Design indexes for embedded arrays",
+        "",
+        "**Migration Script Development:**",
+        "- Create scripts to merge related data into embedded arrays",
+        "- Implement data validation for embedded documents",
+        "- Create rollback procedures"
+      );
+    } else if (modification.toLowerCase().includes('search') || modification.toLowerCase().includes('keywords')) {
+      strategies.push(
+        "**Search Requirements Analysis:**",
+        "- Identify searchable fields and content",
+        "- Define search ranking and filtering criteria",
+        "- Plan for search performance optimization",
+        "",
+        "**Index Design Phase:**",
+        "- Design text search indexes",
+        "- Plan for keyword extraction and preprocessing",
+        "- Design search result caching strategy",
+        "",
+        "**Implementation Phase:**",
+        "- Implement search functionality",
+        "- Create search result ranking logic",
+        "- Add search performance monitoring"
+      );
+    } else {
+      strategies.push(
+        "**Analysis Phase:**",
+        `- Analyze the impact of "${modification}" on existing data`,
+        "- Identify affected components and dependencies",
+        "- Plan for data transformation requirements",
+        "",
+        "**Development Phase:**",
+        "- Develop migration scripts with proper validation",
+        "- Update application code to work with new structure",
+        "- Implement comprehensive testing strategy"
+      );
+    }
+    
+    return `**Migration Strategy:**
+${strategies.join('\n')}`;
+  }
+
+  /**
+   * Generate performance impact analysis for specific modification
+   */
+  private generatePerformanceImpactForModification(modification: string): string {
+    const impacts = [];
+    
+    if (modification.toLowerCase().includes('timestamp') || modification.toLowerCase().includes('isodate')) {
+      impacts.push(
+        "**Positive Impacts:**",
+        "- **Query Performance**: ISODate format enables better indexing and range queries",
+        "- **Sorting Efficiency**: Native date sorting instead of string comparison",
+        "- **Storage Optimization**: More efficient storage compared to string timestamps",
+        "- **Timezone Handling**: Built-in timezone support reduces application complexity",
+        "",
+        "**Potential Challenges:**",
+        "- **Migration Time**: Large datasets may require significant migration time",
+        "- **Memory Usage**: ISODate objects may use slightly more memory than strings",
+        "- **Index Rebuilding**: Existing indexes on timestamp fields need to be rebuilt",
+        "",
+        "**Expected Performance Improvements:**",
+        "- 30-50% faster date range queries",
+        "- 20-30% improvement in sorting operations",
+        "- Reduced application complexity for timezone handling"
+      );
+    } else if (modification.toLowerCase().includes('merge') || modification.toLowerCase().includes('embedded')) {
+      impacts.push(
+        "**Positive Impacts:**",
+        "- **Query Performance**: Single document queries instead of JOINs",
+        "- **Data Locality**: Related data stored together for better cache performance",
+        "- **Reduced Network Roundtrips**: Fewer database calls needed",
+        "- **Simplified Queries**: No complex JOIN operations required",
+        "",
+        "**Potential Challenges:**",
+        "- **Document Size**: Larger documents may impact memory usage",
+        "- **Update Complexity**: Updating embedded arrays may be more complex",
+        "- **Index Limitations**: Some query patterns may be less efficient",
+        "",
+        "**Expected Performance Improvements:**",
+        "- 60-80% faster queries that previously required JOINs",
+        "- 40-60% reduction in database roundtrips",
+        "- Improved cache hit rates due to data locality"
+      );
+    } else if (modification.toLowerCase().includes('search') || modification.toLowerCase().includes('keywords')) {
+      impacts.push(
+        "**Positive Impacts:**",
+        "- **Search Performance**: Pre-computed keywords enable faster text search",
+        "- **Query Efficiency**: Optimized search queries with proper indexing",
+        "- **Scalability**: Search performance scales better with data growth",
+        "- **User Experience**: Faster search results improve user satisfaction",
+        "",
+        "**Potential Challenges:**",
+        "- **Storage Overhead**: Additional storage for search keywords and indexes",
+        "- **Index Maintenance**: Search indexes require regular maintenance",
+        "- **Memory Usage**: Search indexes may increase memory requirements",
+        "",
+        "**Expected Performance Improvements:**",
+        "- 70-90% faster text search queries",
+        "- 50-70% improvement in search result relevance",
+        "- Reduced server load for search operations"
+      );
+    } else {
+      impacts.push(
+        "**Performance Impact Analysis:**",
+        `- Measure current performance baseline for "${modification}"`,
+        "- Identify potential bottlenecks and optimization opportunities",
+        "- Plan for performance monitoring and alerting",
+        "- Set realistic performance improvement targets",
+        "- Consider scalability implications of the changes"
+      );
+    }
+    
+    return `**Performance Impact:**
+${impacts.join('\n')}`;
+  }
+
+  /**
+   * Generate testing requirements for specific modification
+   */
+  private generateTestingRequirementsForModification(modification: string): string {
+    const requirements = [];
+    
+    if (modification.toLowerCase().includes('timestamp') || modification.toLowerCase().includes('isodate')) {
+      requirements.push(
+        "**Unit Tests:**",
+        "- Timestamp conversion functions",
+        "- Timezone handling logic",
+        "- Date validation functions",
+        "- API response formatting",
+        "",
+        "**Integration Tests:**",
+        "- API endpoints with new timestamp format",
+        "- Database queries with ISODate fields",
+        "- Frontend date parsing and display",
+        "- Cross-browser compatibility",
+        "",
+        "**Data Validation Tests:**",
+        "- Verify timestamp accuracy after conversion",
+        "- Test timezone conversion correctness",
+        "- Validate date range queries",
+        "- Check for data integrity issues",
+        "",
+        "**Performance Tests:**",
+        "- Query performance with new timestamp format",
+        "- Memory usage with ISODate objects",
+        "- Migration script performance",
+        "- API response times"
+      );
+    } else if (modification.toLowerCase().includes('merge') || modification.toLowerCase().includes('embedded')) {
+      requirements.push(
+        "**Unit Tests:**",
+        "- Embedded document creation and validation",
+        "- Array manipulation functions",
+        "- Query building for embedded data",
+        "- Data transformation logic",
+        "",
+        "**Integration Tests:**",
+        "- API endpoints with embedded documents",
+        "- Database queries on embedded arrays",
+        "- Frontend handling of nested data",
+        "- Data consistency checks",
+        "",
+        "**Data Validation Tests:**",
+        "- Verify embedded data integrity",
+        "- Test array operations (add, remove, update)",
+        "- Validate referential integrity",
+        "- Check for data duplication issues",
+        "",
+        "**Performance Tests:**",
+        "- Query performance with embedded documents",
+        "- Document size impact on memory",
+        "- Index performance on embedded arrays",
+        "- Migration script performance"
+      );
+    } else if (modification.toLowerCase().includes('search') || modification.toLowerCase().includes('keywords')) {
+      requirements.push(
+        "**Unit Tests:**",
+        "- Search keyword extraction functions",
+        "- Search query building logic",
+        "- Search result ranking algorithms",
+        "- Search index management functions",
+        "",
+        "**Integration Tests:**",
+        "- Search API endpoints",
+        "- Database search queries",
+        "- Frontend search functionality",
+        "- Search result display and filtering",
+        "",
+        "**Data Validation Tests:**",
+        "- Verify search keyword accuracy",
+        "- Test search result relevance",
+        "- Validate search index consistency",
+        "- Check for search performance issues",
+        "",
+        "**Performance Tests:**",
+        "- Search query response times",
+        "- Search index performance",
+        "- Search scalability testing",
+        "- Search memory usage optimization"
+      );
+    } else {
+      requirements.push(
+        "**Unit Tests:**",
+        `- Functions related to "${modification}"`,
+        "- Data validation and transformation logic",
+        "- API endpoint modifications",
+        "- Business logic changes",
+        "",
+        "**Integration Tests:**",
+        "- End-to-end data flow testing",
+        "- API integration testing",
+        "- Database operation testing",
+        "- Frontend integration testing",
+        "",
+        "**Data Validation Tests:**",
+        "- Data integrity verification",
+        "- Data transformation accuracy",
+        "- Data consistency checks",
+        "- Error handling validation",
+        "",
+        "**Performance Tests:**",
+        "- Performance impact assessment",
+        "- Scalability testing",
+        "- Load testing with production data",
+        "- Memory and resource usage monitoring"
+      );
+    }
+    
+    return `**Testing Requirements:**
+${requirements.join('\n')}`;
+  }
+
+  /**
+   * Generate schema changes summary
+   */
+  private generateSchemaChangesSummary(session: any, modifications: string[]): string {
+    if (!session || !modifications || modifications.length === 0) {
+      return 'No schema changes were made during this session.';
+    }
+
+    return `### Original Proposed Schema
+The original proposed MongoDB schema included multiple collections with normalized structure.
+
+### Modifications Applied
+${modifications.map((mod, index) => `${index + 1}. **${mod}**`).join('\n')}
+
+### Final Schema Structure
+After applying all modifications, the schema has been optimized based on the specific requirements requested during this session.
+
+### Performance Impact
+The modifications will improve overall system performance, with specific metrics to be measured during implementation and testing phases.`;
+  }
+
+  /**
+   * Generate indexing strategy based on modifications
+   */
+  private generateIndexingStrategy(modifications: string[]): string {
+    if (!modifications || modifications.length === 0) {
+      return 'Standard MongoDB indexes will be created for primary keys and frequently queried fields.';
+    }
+
+    return `Based on the modifications made during this session, the following indexing strategy is recommended:
+
+${modifications.map((mod, index) => `${index + 1}. **${mod}**
+   - Indexes will be created based on the specific requirements of this modification
+   - Performance impact will be measured and optimized during implementation`).join('\n\n')}
+
+**Note:** Specific index definitions will be provided during the implementation phase based on the actual schema structure and query patterns.`;
+  }
+
+  /**
+   * Get modification impact
+   */
+  private getModificationImpact(modification: string): string {
+    if (modification.includes('compound indexes')) {
+      return 'Improves query performance for multi-field searches by creating optimized indexes';
+    }
+    if (modification.includes('analytics')) {
+      return 'Enables faster reporting without complex JOINs by pre-calculating analytics data';
+    }
+    if (modification.includes('embedded')) {
+      return 'Eliminates JOINs and improves data locality by embedding related data';
+    }
+    if (modification.includes('archived')) {
+      return 'Keeps active collections lean and fast by moving historical data to separate collections';
+    }
+    return 'Improves overall system performance and maintainability';
+  }
+
+  /**
+   * Extract MongoDB collections from schema content
+   */
+  private extractMongoCollections(content: string): string {
+    // Look for the actual collection sections in the proposed MongoDB schema
+    const patterns = [
+      /## 📋 Table of Contents[\s\S]*?(?=## 🏗️ Schema Overview)/,
+      /## 🏗️ Schema Overview[\s\S]*?(?=## 🔍 Compatibility Report)/,
+      /## MongoDB Collections[\s\S]*?(?=## |$)/,
+      /## 🧠 Proposed Intelligent MongoDB Collections[\s\S]*?(?=## |$)/
+    ];
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match && match[0].trim().length > 50) {
+        return match[0].trim();
+      }
+    }
+
+    // Fallback: Extract the overview section
+    const overviewMatch = content.match(/## 🏗️ Schema Overview[\s\S]*?(?=## 🔍 Compatibility Report)/);
+    if (overviewMatch) {
+      return overviewMatch[0].trim();
+    }
+    
+    return 'Collection details will be extracted from the approved schema.';
+  }
+
+  /**
+   * Generate sample documents for each collection
+   */
+  private generateSampleDocuments(finalDocument: any): string {
+    const collections = finalDocument.approvedSchema || [];
+    
+    if (collections.length === 0) {
+      return 'No collections available for sample documents.';
+    }
+
+    let samples = '';
+    
+    collections.forEach((collection: any, index: number) => {
+      const collectionName = collection.name || collection.collectionName || `collection_${index + 1}`;
+      
+      samples += `\n### ${collectionName} Collection\n\n`;
+      samples += `**Sample Document:**\n\n`;
+      samples += '```json\n';
+      samples += this.generateSampleDocument(collectionName, collection);
+      samples += '\n```\n\n';
+    });
+
+    return samples;
+  }
+
+  /**
+   * Generate sample document for a collection based on actual schema
+   */
+  private generateSampleDocument(collectionName: string, collectionSchema?: any): string {
+    // If we have the actual collection schema, use it to generate realistic sample
+    if (collectionSchema && collectionSchema.fields) {
+      const sampleDoc: any = {
+        "_id": "ObjectId('507f1f77bcf86cd799439011')"
+      };
+
+      // Generate sample data based on actual fields
+      collectionSchema.fields.forEach((field: any) => {
+        const fieldName = field.name || field.fieldName;
+        const fieldType = field.type || field.fieldType;
+        
+        if (fieldName && fieldName !== '_id') {
+          sampleDoc[fieldName] = this.generateSampleValue(fieldType, fieldName);
+        }
+      });
+
+      return JSON.stringify(sampleDoc, null, 2);
+    }
+
+    // Fallback: Generate generic sample based on collection name patterns
+    return this.generateGenericSample(collectionName);
+  }
+
+  /**
+   * Generate sample value based on field type
+   */
+  private generateSampleValue(fieldType: string, fieldName: string): any {
+    const lowerFieldName = fieldName.toLowerCase();
+    
+    // Handle common field patterns dynamically
+    if (lowerFieldName.includes('email')) {
+      return `user_${Math.floor(Math.random() * 1000)}@example.com`;
+    }
+    if (lowerFieldName.includes('phone')) {
+      return `+1-555-${Math.floor(Math.random() * 9000) + 1000}`;
+    }
+    if (lowerFieldName.includes('name')) {
+      const names = ['Alex', 'Jordan', 'Casey', 'Taylor', 'Morgan', 'Riley', 'Avery', 'Quinn'];
+      return names[Math.floor(Math.random() * names.length)];
+    }
+    if (lowerFieldName.includes('title')) {
+      return `Sample ${fieldName.replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
+    }
+    if (lowerFieldName.includes('description')) {
+      return `Sample description for ${fieldName}`;
+    }
+    if (lowerFieldName.includes('amount') || lowerFieldName.includes('price')) {
+      return Math.round((Math.random() * 100 + 10) * 100) / 100;
+    }
+    if (lowerFieldName.includes('count') || lowerFieldName.includes('quantity')) {
+      return Math.floor(Math.random() * 10) + 1;
+    }
+    if (lowerFieldName.includes('status')) {
+      const statuses = ['active', 'pending', 'completed', 'inactive'];
+      return statuses[Math.floor(Math.random() * statuses.length)];
+    }
+    if (lowerFieldName.includes('date') || lowerFieldName.includes('time')) {
+      const now = new Date();
+      return now.toISOString();
+    }
+    if (lowerFieldName.includes('id') && !lowerFieldName.includes('_id')) {
+      return `ID_${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+    }
+
+    // Handle by type
+    switch (fieldType?.toLowerCase()) {
+      case 'string':
+      case 'varchar':
+      case 'text':
+        return "sample_string";
+      case 'number':
+      case 'integer':
+      case 'int':
+      case 'float':
+      case 'decimal':
+        return 123;
+      case 'boolean':
+        return true;
+      case 'date':
+      case 'datetime':
+      case 'timestamp':
+        return "2025-09-10T10:30:00Z";
+      case 'object':
+        return { "key": "value" };
+      case 'array':
+        return ["item1", "item2"];
+      default:
+        return "sample_value";
+    }
+  }
+
+  /**
+   * Generate generic sample based on collection name patterns
+   */
+  private generateGenericSample(collectionName: string): string {
+    const lowerName = collectionName.toLowerCase();
+    
+    // Detect collection type from name patterns
+    if (lowerName.includes('user') || lowerName.includes('customer')) {
+      const randomId = Math.floor(Math.random() * 1000000);
+      const names = ['Alex', 'Jordan', 'Casey', 'Taylor', 'Morgan', 'Riley', 'Avery', 'Quinn'];
+      const randomName = names[Math.floor(Math.random() * names.length)];
+      return JSON.stringify({
+        "_id": `ObjectId('${randomId.toString(16).padStart(24, '0')}')`,
+        "name": randomName,
+        "email": `${randomName.toLowerCase()}_${randomId}@example.com`,
+        "createdAt": new Date().toISOString()
+      }, null, 2);
+    }
+    
+    if (lowerName.includes('payment')) {
+      const randomId = Math.floor(Math.random() * 1000000);
+      const amount = Math.round((Math.random() * 100 + 10) * 100) / 100;
+      const statuses = ['completed', 'pending', 'failed'];
+      const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+      return JSON.stringify({
+        "_id": `ObjectId('${randomId.toString(16).padStart(24, '0')}')`,
+        "amount": amount,
+        "status": randomStatus,
+        "date": new Date().toISOString()
+      }, null, 2);
+    }
+    
+    if (lowerName.includes('rental') || lowerName.includes('order')) {
+      const randomId = Math.floor(Math.random() * 1000000);
+      const statuses = ['active', 'completed', 'cancelled'];
+      const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+      const startDate = new Date();
+      const endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days later
+      return JSON.stringify({
+        "_id": `ObjectId('${randomId.toString(16).padStart(24, '0')}')`,
+        "status": randomStatus,
+        "startDate": startDate.toISOString(),
+        "endDate": endDate.toISOString()
+      }, null, 2);
+    }
+    
+    if (lowerName.includes('product') || lowerName.includes('item') || lowerName.includes('film')) {
+      const randomId = Math.floor(Math.random() * 1000000);
+      const price = Math.round((Math.random() * 50 + 10) * 100) / 100;
+      return JSON.stringify({
+        "_id": `ObjectId('${randomId.toString(16).padStart(24, '0')}')`,
+        "title": `Sample ${collectionName.replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
+        "description": `Sample description for ${collectionName}`,
+        "price": price
+      }, null, 2);
+    }
+    
+    if (lowerName.includes('archive') || lowerName.includes('history')) {
+      const randomId = Math.floor(Math.random() * 1000000);
+      const originalId = Math.floor(Math.random() * 10000);
+      return JSON.stringify({
+        "_id": `ObjectId('${randomId.toString(16).padStart(24, '0')}')`,
+        "originalId": `original_${originalId}`,
+        "archivedAt": new Date().toISOString(),
+        "reason": "archived"
+      }, null, 2);
+    }
+
+    // Default generic sample
+    const randomId = Math.floor(Math.random() * 1000000);
+    return JSON.stringify({
+      "_id": `ObjectId('${randomId.toString(16).padStart(24, '0')}')`,
+      "name": `Sample ${collectionName.replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
+      "value": "sample_value",
+      "createdAt": new Date().toISOString()
+    }, null, 2);
+  }
+
+  /**
+   * Format modifications list
+   */
+  private formatModifications(modifications: string[]): string {
+    if (!modifications || modifications.length === 0) {
+      return 'No modifications were made during the session.';
+    }
+
+    return modifications.map((mod, index) => `${index + 1}. **${mod}**`).join('\n\n');
+  }
+
+  /**
+   * Extract architecture insights from application analysis
+   */
+  private extractArchitectureInsights(content: string): string {
+    // Look for the actual architecture sections in the application analysis
+    const patterns = [
+      /## 🔄 Spring Boot → Node\.js Transformation with Embedded Documents[\s\S]*?(?=## |$)/,
+      /## 📁 File Inventory & Modification Requirements[\s\S]*?(?=## |$)/,
+      /## Application Architecture Changes[\s\S]*?(?=## |$)/,
+      /## Architecture[\s\S]*?(?=## |$)/
+    ];
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match && match[0].trim().length > 50) {
+        return match[0].trim();
+      }
+    }
+
+    // Fallback: Look for any section with "Transformation" in the title
+    const transformationMatch = content.match(/## .*[Tt]ransformation.*[\s\S]*?(?=## |$)/);
+    if (transformationMatch) {
+      return transformationMatch[0].trim();
+    }
+    
+    return 'Architecture transformation details will be included based on the application analysis.';
+  }
+
+  /**
+   * Extract indexing strategy from schema content
+   */
+  private extractIndexingStrategy(content: string): string {
+    // Look for the actual indexing sections in the proposed MongoDB schema
+    const patterns = [
+      /## Performance Considerations[\s\S]*?(?=## |$)/,
+      /## Intelligent MongoDB Design[\s\S]*?(?=## |$)/,
+      /## Indexing Strategy[\s\S]*?(?=## |$)/,
+      /## Indexes[\s\S]*?(?=## |$)/
+    ];
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match && match[0].trim().length > 50) {
+        return match[0].trim();
+      }
+    }
+    
+    return 'Indexing strategy will be included based on the approved schema modifications.';
+  }
+
+  /**
+   * Extract archiving strategy from schema content
+   */
+  private extractArchivingStrategy(content: string): string {
+    // Look for the actual archiving sections in the proposed MongoDB schema
+    const patterns = [
+      /## Denormalization Strategy[\s\S]*?(?=## |$)/,
+      /## Embedded Document Strategy[\s\S]*?(?=## |$)/,
+      /## Archiving Strategy[\s\S]*?(?=## |$)/,
+      /## Data Archiving[\s\S]*?(?=## |$)/
+    ];
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match && match[0].trim().length > 50) {
+        return match[0].trim();
+      }
+    }
+    
+    return 'Archiving strategy will be included based on the approved schema modifications.';
+  }
+
+  /**
+   * Extract query optimization from application analysis
+   */
+  private extractQueryOptimization(content: string): string {
+    // Look for the actual performance sections in the application analysis
+    const patterns = [
+      /## 📊 Performance Analysis[\s\S]*?(?=## |$)/,
+      /## 🚀 Performance Benefits[\s\S]*?(?=## |$)/,
+      /## Query Optimization[\s\S]*?(?=## |$)/,
+      /## Performance Optimization[\s\S]*?(?=## |$)/
+    ];
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match && match[0].trim().length > 50) {
+        return match[0].trim();
+      }
+    }
+    
+    return 'Query optimization details will be included based on the application analysis.';
+  }
+
+  /**
+   * Handle start modification session in natural language
+   */
+  private async handleStartModificationNaturalLanguage(input: string, rl: readline.Interface): Promise<void> {
+    try {
+      console.log(chalk.blue('🚀 Starting interactive schema modification session...'));
+      
+      // Extract business requirements and performance constraints from input
+      const businessRequirements = this.extractBusinessRequirements(input);
+      const performanceConstraints = this.extractPerformanceConstraints(input);
+      
+      // Check if we have existing analysis results
+      const existingPostgresFile = await this.findLatestFile('postgres-schema-*.md');
+      const existingMongoFile = await this.findLatestFile('proposed-mongodb-schema-*.md');
+      
+      if (!existingPostgresFile || !existingMongoFile) {
+        console.log(chalk.yellow('⚠️  No existing analysis found. Please run analysis first:'));
+        console.log(chalk.gray('  • "Analyze postgres schema"'));
+        console.log(chalk.gray('  • "Convert postgres to MongoDB schema"'));
+        return;
+      }
+      
+      console.log(chalk.blue(`📁 Using existing PostgreSQL schema: ${existingPostgresFile}`));
+      console.log(chalk.blue(`📁 Using existing MongoDB schema: ${existingMongoFile}`));
+      
+      // Load existing schemas from files
+      const postgresSchema = await this.loadSchemaFromFile(existingPostgresFile);
+      const mongoSchema = await this.loadSchemaFromFile(existingMongoFile);
+      
+      console.log(chalk.gray(`🔍 Loaded PostgreSQL schema: ${postgresSchema ? 'Success' : 'Failed'}`));
+      console.log(chalk.gray(`🔍 Loaded MongoDB schema: ${mongoSchema ? 'Success' : 'Failed'}`));
+      
+      if (!postgresSchema || !mongoSchema) {
+        console.log(chalk.red('❌ Failed to load existing schemas. Please regenerate them first.'));
+        return;
+      }
+      
+      // Start modification session
+      const modificationService = await this.getModificationService();
+      
+      const session = modificationService.startModificationSession(
+        postgresSchema,
+        mongoSchema.collections || [],
+        businessRequirements,
+        performanceConstraints
+      );
+      
+      // Build comprehensive response for conversation history
+      const response = `Modification session started successfully!\nSession ID: ${session.sessionId}\nCollections: ${session.currentSchema.length}\nBusiness Requirements: ${businessRequirements.length > 0 ? businessRequirements.join(', ') : 'None specified'}\nPerformance Constraints: ${performanceConstraints.length > 0 ? performanceConstraints.join(', ') : 'None specified'}\n\nNext steps:\n• "Modify the schema to [description]" - Apply specific changes\n• "Get suggestions" - Get AI improvement recommendations\n• "Update documentation" - Generate updated docs with changes\n• "Approve schema" - Finalize and generate migration document`;
+      
+      console.log(chalk.green('✅ Modification session started successfully!'));
+      console.log(chalk.blue(`🆔 Session ID: ${session.sessionId}`));
+      console.log(chalk.blue(`📊 Collections: ${session.currentSchema.length}`));
+      console.log(chalk.blue(`📋 Business Requirements: ${businessRequirements.length > 0 ? businessRequirements.join(', ') : 'None specified'}`));
+      console.log(chalk.blue(`⚡ Performance Constraints: ${performanceConstraints.length > 0 ? performanceConstraints.join(', ') : 'None specified'}`));
+      
+      // Capture comprehensive agent response
+      this.captureAgentResponse(response);
+      
+      console.log(chalk.yellow('\n💡 Next steps:'));
+      console.log(chalk.gray('  • "Modify the schema to embed user preferences into customers collection"'));
+      console.log(chalk.gray('  • "Get suggestions"'));
+      console.log(chalk.gray('  • "Update documentation"'));
+      console.log(chalk.gray('  • "Approve schema"'));
+      
+      // Store session ID for future use
+      this.currentModificationSession = session.sessionId;
+      
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to start modification session:'), error);
+    }
+  }
+
+  /**
+   * Handle modify schema in natural language
+   */
+  private async handleModifySchemaNaturalLanguage(input: string, rl: readline.Interface): Promise<void> {
+    try {
+      if (!this.currentModificationSession) {
+        console.log(chalk.red('❌ No active modification session. Start one first with "start modification session"'));
+        return;
+      }
+      
+      // Extract modification description from input
+      const modificationDescription = this.extractModificationDescription(input);
+      
+      console.log(chalk.blue(`🔧 Processing modification: "${modificationDescription}"`));
+      console.log(chalk.gray(`🆔 Using session ID: ${this.currentModificationSession}`));
+      
+      const modificationService = await this.getModificationService();
+      
+      const response = await modificationService.processModificationRequest(
+        this.currentModificationSession,
+        modificationDescription,
+        undefined,
+        'MEDIUM'
+      );
+      
+      if (response.success) {
+        // Build comprehensive response for conversation history
+        let agentResponse = `Schema modification processed successfully!\nAI Reasoning: ${response.reasoning}`;
+        
+        if (response.changes.length > 0) {
+          agentResponse += `\n\nChanges made:`;
+          response.changes.forEach((change: any) => {
+            agentResponse += `\n• ${change.type}: ${change.description}\n  Impact: ${change.impact} | Reasoning: ${change.reasoning}`;
+          });
+        }
+        
+        if (response.warnings.length > 0) {
+          agentResponse += `\n\nWarnings:`;
+          response.warnings.forEach((warning: any) => {
+            agentResponse += `\n• ${warning}`;
+          });
+        }
+        
+        if (response.recommendations.length > 0) {
+          agentResponse += `\n\nRecommendations:`;
+          response.recommendations.forEach((rec: any) => {
+            agentResponse += `\n• ${rec}`;
+          });
+        }
+        
+        console.log(chalk.green('✅ Schema modification processed successfully!'));
+        console.log(chalk.blue(`🤖 AI Reasoning: ${response.reasoning}`));
+        
+        if (response.changes.length > 0) {
+          console.log(chalk.yellow('\n📊 Changes made:'));
+          response.changes.forEach((change: any) => {
+            console.log(chalk.gray(`  • ${change.type}: ${change.description}`));
+            console.log(chalk.gray(`    Impact: ${change.impact} | Reasoning: ${change.reasoning}`));
+          });
+        }
+        
+        if (response.warnings.length > 0) {
+          console.log(chalk.yellow('\n⚠️  Warnings:'));
+          response.warnings.forEach((warning: any) => {
+            console.log(chalk.gray(`  • ${warning}`));
+          });
+        }
+        
+        if (response.recommendations.length > 0) {
+          console.log(chalk.blue('\n💡 Recommendations:'));
+          response.recommendations.forEach((rec: any) => {
+            console.log(chalk.gray(`  • ${rec}`));
+          });
+        }
+        
+        // Capture comprehensive agent response
+        this.captureAgentResponse(agentResponse);
+      } else {
+        console.error(chalk.red('❌ Schema modification failed:'), response.error);
+      }
+      
+    } catch (error) {
+      console.error(chalk.red('❌ Schema modification failed:'), error);
+    }
+  }
+
+  /**
+   * Handle get suggestions in natural language
+   */
+  private async handleGetSuggestionsNaturalLanguage(input: string, rl: readline.Interface): Promise<void> {
+    try {
+      if (!this.currentModificationSession) {
+        console.log(chalk.red('❌ No active modification session. Start one first with "start modification session"'));
+        return;
+      }
+      
+      console.log(chalk.blue('💡 Getting intelligent suggestions...'));
+      
+      const modificationService = await this.getModificationService();
+      
+      const suggestions = await modificationService.getModificationSuggestions(this.currentModificationSession);
+      
+      if (suggestions.length > 0) {
+        console.log(chalk.green('✅ AI suggestions generated successfully!'));
+        console.log(chalk.blue('\n🤖 Intelligent Modification Suggestions:'));
+        
+        suggestions.forEach((suggestion: any, index: number) => {
+          console.log(chalk.yellow(`\n${index + 1}. ${suggestion.suggestion}`));
+          console.log(chalk.gray(`   Reasoning: ${suggestion.reasoning}`));
+          console.log(chalk.gray(`   Impact: ${suggestion.impact} | Effort: ${suggestion.effort}`));
+          console.log(chalk.gray(`   Benefits: ${suggestion.benefits.join(', ')}`));
+          if (suggestion.risks.length > 0) {
+            console.log(chalk.gray(`   Risks: ${suggestion.risks.join(', ')}`));
+          }
+          console.log(chalk.gray(`   Implementation: ${suggestion.implementation}`));
+        });
+        
+        console.log(chalk.yellow('\n💡 To apply a suggestion, say:'));
+        console.log(chalk.gray('  "Modify the schema to [suggestion description]"'));
+      } else {
+        console.log(chalk.yellow('ℹ️  No suggestions available at this time.'));
+      }
+      
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to get suggestions:'), error);
+    }
+  }
+
+  /**
+   * Handle update documentation in natural language
+   */
+  private async handleUpdateDocsNaturalLanguage(input: string, rl: readline.Interface): Promise<void> {
+    try {
+      if (!this.currentModificationSession) {
+        console.log(chalk.red('❌ No active modification session. Start one first with "start modification session"'));
+        return;
+      }
+      
+      console.log(chalk.blue('📝 Generating updated documentation...'));
+      
+      const modificationService = await this.getModificationService();
+      
+      const result = await modificationService.generateUpdatedDocumentation(this.currentModificationSession);
+      
+      if (result.success) {
+        console.log(chalk.green('✅ Updated documentation generated successfully!'));
+        console.log(chalk.blue(`📁 File: ${result.filePath}`));
+        console.log(chalk.gray('\n🔄 The documentation now reflects your latest schema modifications.'));
+      } else {
+        console.error(chalk.red('❌ Failed to generate updated documentation:'), result.error);
+      }
+      
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to update documentation:'), error);
+    }
+  }
+
+  /**
+   * Handle approve schema in natural language
+   */
+  private async handleApproveSchemaNaturalLanguage(input: string, rl: readline.Interface): Promise<void> {
+    try {
+      if (!this.currentModificationSession) {
+        console.log(chalk.red('❌ No active modification session. Start one first with "start modification session"'));
+        return;
+      }
+      
+      console.log(chalk.blue('✅ Approving final schema...'));
+      console.log(chalk.blue('📚 Gathering comprehensive migration data...'));
+      
+      const modificationService = await this.getModificationService();
+      
+      // Get the basic final document
+      const finalDocument = await modificationService.approveFinalSchema(this.currentModificationSession);
+      
+      // Find and read the latest proposed MongoDB schema
+      const latestMongoFile = await this.findLatestFile('proposed-mongodb-schema-*.md');
+      const latestAppAnalysisFile = await this.findLatestFile('*-detail.md');
+      
+      console.log(chalk.blue('📖 Reading proposed MongoDB schema...'));
+      const mongoSchemaContent = latestMongoFile ? await this.readFileContent(latestMongoFile) : '';
+      
+      console.log(chalk.blue('📖 Reading application analysis...'));
+      const appAnalysisContent = latestAppAnalysisFile ? await this.readFileContent(latestAppAnalysisFile) : '';
+      
+      // Extract actual collection count from the proposed schema
+      const actualCollectionCount = await this.extractCollectionCount(mongoSchemaContent);
+      
+      // Generate comprehensive final migration document
+      const comprehensiveDoc = await this.generateComprehensiveMigrationDocument(
+        finalDocument,
+        mongoSchemaContent,
+        appAnalysisContent,
+        this.currentModificationSession
+      );
+      
+      // Save the comprehensive document
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `comprehensive-migration-document-${timestamp}.md`;
+      
+      const fs = await import('fs');
+      fs.writeFileSync(filename, comprehensiveDoc);
+      
+      // Also save to central location
+      const centralPath = '/Users/prateek/Desktop/peer-ai-mongo-documents';
+      if (fs.existsSync(centralPath)) {
+        fs.writeFileSync(`${centralPath}/${filename}`, comprehensiveDoc);
+      }
+      
+      // Build comprehensive response for conversation history
+      let response = `Comprehensive final migration document generated successfully!\nDocument ID: ${finalDocument.documentId}\nFinal Collections: ${actualCollectionCount > 0 ? actualCollectionCount : 'Loading...'}\nTotal Modifications: ${finalDocument.modificationSummary.totalModifications}\nPerformance Impact: ${finalDocument.modificationSummary.performanceImpact}\nComplexity Change: ${finalDocument.modificationSummary.complexityChange}`;
+      
+      response += `\n\nKey Changes Made:`;
+      finalDocument.modificationSummary.keyChanges.forEach((change: any) => {
+        response += `\n• ${change}`;
+      });
+      
+      response += `\n\nFinal Recommendations:`;
+      finalDocument.finalRecommendations.forEach((rec: any) => {
+        response += `\n• ${rec}`;
+      });
+      
+      console.log(chalk.green('🎉 Comprehensive final migration document generated successfully!'));
+      console.log(chalk.blue(`📋 Document ID: ${finalDocument.documentId}`));
+      console.log(chalk.blue(`📊 Final Collections: ${actualCollectionCount > 0 ? actualCollectionCount : 'Loading...'}`));
+      console.log(chalk.blue(`🔧 Total Modifications: ${finalDocument.modificationSummary.totalModifications}`));
+      console.log(chalk.blue(`⚡ Performance Impact: ${finalDocument.modificationSummary.performanceImpact}`));
+      console.log(chalk.blue(`📈 Complexity Change: ${finalDocument.modificationSummary.complexityChange}`));
+      
+      console.log(chalk.yellow('\n📋 Key Changes Made:'));
+      finalDocument.modificationSummary.keyChanges.forEach((change: any) => {
+        console.log(chalk.gray(`  • ${change}`));
+      });
+      
+      console.log(chalk.blue('\n💡 Final Recommendations:'));
+      finalDocument.finalRecommendations.forEach((rec: any) => {
+        console.log(chalk.gray(`  • ${rec}`));
+      });
+      
+      // Capture comprehensive agent response
+      this.captureAgentResponse(response);
+      
+      console.log(chalk.green(`\n📁 Comprehensive document saved: ${filename}`));
+      console.log(chalk.green('🚀 Your comprehensive migration document is ready for implementation!'));
+      
+      // Clear current session
+      this.currentModificationSession = null;
+      
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to approve schema:'), error);
+    }
+  }
+
+  /**
+   * Handle list sessions in natural language
+   */
+  private async handleListSessionsNaturalLanguage(input: string, rl: readline.Interface): Promise<void> {
+    try {
+      console.log(chalk.blue('📋 Listing all active modification sessions...'));
+      
+      const modificationService = await this.getModificationService();
+      
+      const sessions = modificationService.listActiveSessions();
+      
+      if (sessions.length > 0) {
+        console.log(chalk.green(`✅ Found ${sessions.length} active session(s):`));
+        
+        sessions.forEach((session: any) => {
+          console.log(chalk.blue(`\n🆔 Session ID: ${session.sessionId}`));
+          console.log(chalk.gray(`📅 Started: ${session.startTime.toLocaleString()}`));
+          console.log(chalk.gray(`📊 Collections: ${session.currentSchema.length}`));
+          console.log(chalk.gray(`🔧 Modifications: ${session.modificationHistory.length}`));
+          console.log(chalk.gray(`📋 Status: ${session.status}`));
+        });
+        
+        console.log(chalk.yellow('\n💡 To use a session, say:'));
+        console.log(chalk.gray('  "Use session [sessionId]" or "Switch to session [sessionId]"'));
+      } else {
+        console.log(chalk.yellow('ℹ️  No active modification sessions found.'));
+        console.log(chalk.gray('💡 Start a new session with: "start modification session"'));
+      }
+      
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to list sessions:'), error);
+    }
+  }
+
+  // ========================================
+  // Helper Methods for Natural Language Processing
+  // ========================================
+
+  /**
+   * Extract business requirements from natural language input
+   */
+  private extractBusinessRequirements(input: string): string[] {
+    const requirements: string[] = [];
+    
+    // Common business requirement patterns
+    const patterns = [
+      /(?:for|support|need|require).*?(?:e-commerce|ecommerce|online store|retail|inventory|analytics|reporting|real-time|real time|customer management|user management|staff management|dvd rental|movie rental|film rental)/gi,
+      /(?:business|requirements|needs).*?(?:e-commerce|ecommerce|online store|retail|inventory|analytics|reporting|real-time|real time|customer management|user management|staff management|dvd rental|movie rental|film rental)/gi
+    ];
+    
+    patterns.forEach(pattern => {
+      const matches = input.match(pattern);
+      if (matches) {
+        matches.forEach(match => {
+          const cleanMatch = match.replace(/^(?:for|support|need|require|business|requirements|needs)\s*/gi, '').trim();
+          if (cleanMatch && !requirements.includes(cleanMatch)) {
+            requirements.push(cleanMatch);
+          }
+        });
+      }
+    });
+    
+    return requirements;
+  }
+
+  /**
+   * Extract performance constraints from natural language input
+   */
+  private extractPerformanceConstraints(input: string): string[] {
+    const constraints: string[] = [];
+    
+    // Common performance constraint patterns
+    const patterns = [
+      /(?:sub-|under|less than|faster than|quicker than)\s*\d+\s*(?:ms|milliseconds|seconds?|minutes?)/gi,
+      /(?:performance|speed|response time|query time).*?(?:sub-|under|less than|faster than|quicker than)\s*\d+\s*(?:ms|milliseconds|seconds?|minutes?)/gi,
+      /(?:memory|storage|size).*?(?:<|less than|under|below)\s*\d+\s*(?:mb|gb|tb|megabytes?|gigabytes?|terabytes?)/gi
+    ];
+    
+    patterns.forEach(pattern => {
+      const matches = input.match(pattern);
+      if (matches) {
+        matches.forEach(match => {
+          const cleanMatch = match.trim();
+          if (cleanMatch && !constraints.includes(cleanMatch)) {
+            constraints.push(cleanMatch);
+          }
+        });
+      }
+    });
+    
+    return constraints;
+  }
+
+  /**
+   * Extract modification description from natural language input
+   */
+  private extractModificationDescription(input: string): string {
+    // Remove common prefixes and clean up the input
+    const prefixes = [
+      /^(?:modify|change|update|adjust|fix|improve|optimize|refactor|restructure)\s+(?:the\s+)?(?:schema|mongodb|mongodb schema|database|database schema)\s+(?:to\s+)?/gi,
+      /^(?:make|let|set|configure)\s+(?:the\s+)?(?:schema|mongodb|mongodb schema|database|database schema)\s+(?:to\s+)?/gi,
+      /^(?:i\s+)?(?:want\s+)?(?:to\s+)?(?:modify|change|update|adjust|fix|improve|optimize|refactor|restructure)\s+(?:the\s+)?(?:schema|mongodb|mongodb schema|database|database schema)\s+(?:to\s+)?/gi
+    ];
+    
+    let description = input;
+    prefixes.forEach(prefix => {
+      description = description.replace(prefix, '');
+    });
+    
+    return description.trim();
+  }
+
+  // Add currentModificationSession property
+  private currentModificationSession: string | null = null;
+  private modificationService: any = null;
 }

@@ -198,7 +198,15 @@ AVAILABLE INTENTS:
    - feature_explanation: Explaining features
    - tutorial_request: Requesting tutorials
 
-8. RATIONALE_CONVERSATION:
+8. SCHEMA_MODIFICATION:
+   - start_modification_session: Starting interactive schema modification sessions
+   - modify_schema: Modifying existing MongoDB schemas based on feedback
+   - get_modification_suggestions: Getting AI-powered suggestions for schema improvements
+   - update_documentation: Updating documentation to reflect schema changes
+   - approve_schema: Approving final schema and generating migration documents
+   - list_modification_sessions: Listing active modification sessions
+
+9. RATIONALE_CONVERSATION:
    - rationale_query: General questions about reasoning and decision-making
    - design_decision_explanation: Questions about why specific design decisions were made
    - schema_transformation_rationale: Questions about why schema transformations were chosen
@@ -271,6 +279,22 @@ RATIONALE CONVERSATION EXAMPLES:
 - "How many collections are in MongoDB?" → rationale_query
 - "What's the migration strategy for this database?" → rationale_query
 
+SCHEMA MODIFICATION EXAMPLES:
+- "Start modification session" → start_modification_session
+- "Begin modification session" → start_modification_session
+- "Start schema modification" → start_modification_session
+- "Modify the schema to embed user preferences" → modify_schema
+- "Change the schema to add compound indexes" → modify_schema
+- "Update the schema to merge collections" → modify_schema
+- "Get suggestions" → get_modification_suggestions
+- "Get AI suggestions" → get_modification_suggestions
+- "Update documentation" → update_documentation
+- "Update docs" → update_documentation
+- "Approve schema" → approve_schema
+- "Approve final schema" → approve_schema
+- "List sessions" → list_modification_sessions
+- "Show sessions" → list_modification_sessions
+
 MONGODB DOCUMENTATION EXAMPLES:
 - "What are MongoDB best practices for indexing?" → mongodb_best_practices
 - "How do MongoDB transactions work?" → mongodb_feature_explanation
@@ -286,6 +310,22 @@ CRITICAL PRIORITY RULES:
 2. Questions starting with "How", "What", "Why", "When", "Where" about schema → rationale_query
 3. Questions about existing analysis results → rationale_query
 4. Only use analysis intents (postgresql_schema_analysis, mongodb_operations) for NEW analysis requests
+
+SCHEMA MODIFICATION PRIORITY (EXACT MATCHES):
+- "Start modification session" → start_modification_session (HIGHEST PRIORITY)
+- "Begin modification session" → start_modification_session (HIGHEST PRIORITY)
+- "Start schema modification" → start_modification_session (HIGHEST PRIORITY)
+- "Modify the schema" → modify_schema (HIGH PRIORITY)
+- "Change the schema" → modify_schema (HIGH PRIORITY)
+- "Update the schema" → modify_schema (HIGH PRIORITY)
+- "Get suggestions" → get_modification_suggestions (HIGH PRIORITY)
+- "Get AI suggestions" → get_modification_suggestions (HIGH PRIORITY)
+- "Update documentation" → update_documentation (MEDIUM PRIORITY)
+- "Update docs" → update_documentation (MEDIUM PRIORITY)
+- "Approve schema" → approve_schema (HIGH PRIORITY)
+- "Approve final schema" → approve_schema (HIGH PRIORITY)
+- "List sessions" → list_modification_sessions (MEDIUM PRIORITY)
+- "Show sessions" → list_modification_sessions (MEDIUM PRIORITY)
 
 When user mentions "codes", "source code", "repository", "files" → prioritize CODE_ANALYSIS intents
 When user mentions "migration", "dependencies", "phases" → prioritize MIGRATION intents
